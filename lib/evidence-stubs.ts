@@ -76,11 +76,11 @@ export type RegulatoryFlag = {
 
 export type EvidenceSource = {
   source_id: string;
-  source_type: "evidence_stub";
+  source_type: "evidence_stub" | "pubmed";
   source_rank: number;
   title: string;
   url: string;
-  publication_year: number;
+  publication_year: number | null;
   evidence_level: EvidenceLevel;
   relevance_to_claim: RelevanceToClaim;
   supports_claim: SupportsClaim;
@@ -95,15 +95,37 @@ export type EvidenceSource = {
 
 export type EvidenceNotes = {
   source_quality_note: string;
-  citation_status: "placeholder";
+  citation_status: "placeholder" | "metadata_retrieved_not_appraised";
   next_step_for_real_evidence: string;
   real_evidence_fields_needed: string[];
+  appraisal_note?: string;
 };
 
 export const DEFAULT_MAX_SOURCES = 3;
 export const HARD_MAX_SOURCES = 5;
 
 const POC_CITATION = "POC placeholder, not a real citation.";
+
+export const PUBMED_EVIDENCE_NOTES: EvidenceNotes = {
+  source_quality_note:
+    "Phase 5 retrieved real PubMed metadata. Records are not yet appraised for claim substantiation.",
+  citation_status: "metadata_retrieved_not_appraised",
+  next_step_for_real_evidence:
+    "Appraise retrieved PubMed records for study design, outcomes, effect direction, and direct claim support.",
+  appraisal_note:
+    "PubMed retrieval does not determine whether records substantiate the claim. Phase 5 is metadata-only.",
+  real_evidence_fields_needed: [
+    "study_design",
+    "sample_size",
+    "population",
+    "outcomes",
+    "effect_summary",
+    "claim_alignment",
+    "alignment_confidence",
+    "study_limitations",
+    "regulatory_context",
+  ],
+};
 
 export const EVIDENCE_NOTES: EvidenceNotes = {
   source_quality_note:

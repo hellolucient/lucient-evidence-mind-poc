@@ -6,10 +6,12 @@ import {
 } from "./claim-classifier";
 import {
   EVIDENCE_NOTES,
+  PUBMED_EVIDENCE_NOTES,
   getEvidenceStubs,
   type EvidenceNotes,
   type EvidenceSource,
 } from "./evidence-stubs";
+import { fetchPubMedSources, shouldUsePubMed } from "./pubmed-retrieval";
 
 export type QueryRequestBody = {
   workspace_id?: string;
@@ -19,6 +21,7 @@ export type QueryRequestBody = {
     source_types?: string[];
     recency_years?: number;
     max_sources?: number;
+    use_real_pubmed?: boolean;
   };
   context?: string;
 };
@@ -49,6 +52,7 @@ export type QueryResponse = {
   };
   sources: EvidenceSource[];
   evidence_notes: EvidenceNotes;
+  report_confidence: ReportConfidence;
   recommended_wording: {
     safer_claim: string;
     avoid: string;
@@ -58,7 +62,40 @@ export type QueryResponse = {
     last_updated: string;
     engine: string;
     privacy_note: string;
+    pubmed_fetch_status: PubMedFetchStatus;
   };
+};
+
+export type ReportConfidence = {
+  overall: "low" | "medium" | "high";
+  score: number;
+  rationale: string;
+};
+
+export type PubMedFetchStatus =
+  | "success"
+  | "failed_fallback_to_stub"
+  | "not_requested";
+
+const STUB_REPORT_CONFIDENCE: ReportConfidence = {
+  overall: "low",
+  score: 0.25,
+  rationale:
+    "POC evidence stubs only; no real PubMed retrieval was performed for this response.",
+};
+
+const PUBMED_REPORT_CONFIDENCE: ReportConfidence = {
+  overall: "low",
+  score: 0.35,
+  rationale:
+    "Real PubMed metadata was retrieved, but sources have not yet been appraised for study design, outcomes, or direct claim support.",
+};
+
+const FALLBACK_REPORT_CONFIDENCE: ReportConfidence = {
+  overall: "low",
+  score: 0.2,
+  rationale:
+    "PubMed retrieval was requested but failed or returned no records; response fell back to POC evidence stubs.",
 };
 
 type ClaimContent = {
@@ -380,11 +417,11 @@ const CLAIM_CONTENT: Record<ClaimType, ClaimContent> = {
   },
 };
 
-export function buildQueryResponse(
+export async function buildQueryResponse(
   workspaceId: string,
   query: string,
   filters?: QueryRequestBody["filters"]
-): QueryResponse {
+): Promise<QueryResponse> {
   const now = new Date().toISOString();
   const reportId = `${workspaceId}-${Date.now()}`;
   const classification = classifyClaim(query);
@@ -394,6 +431,34 @@ export function buildQueryResponse(
     human_review_required: humanReviewRequired(content.risk_assessment.risk_level),
   };
 
+  let sources = getEvidenceStubs(classification.claim_type, filters?.max_sources);
+  let evidence_notes: EvidenceNotes = EVIDENCE_NOTES;
+  let report_confidence: ReportConfidence = STUB_REPORT_CONFIDENCE;
+  let pubmed_fetch_status: PubMedFetchStatus = "not_requested";
+
+  if (shouldUsePubMed(filters)) {
+    try {
+      const pubmedSources = await fetchPubMedSources(
+        query,
+        filters?.max_sources,
+        filters?.recency_years
+      );
+
+      if (pubmedSources.length > 0) {
+        sources = pubmedSources;
+        evidence_notes = PUBMED_EVIDENCE_NOTES;
+        report_confidence = PUBMED_REPORT_CONFIDENCE;
+        pubmed_fetch_status = "success";
+      } else {
+        pubmed_fetch_status = "failed_fallback_to_stub";
+        report_confidence = FALLBACK_REPORT_CONFIDENCE;
+      }
+    } catch {
+      pubmed_fetch_status = "failed_fallback_to_stub";
+      report_confidence = FALLBACK_REPORT_CONFIDENCE;
+    }
+  }
+
   return {
     report_id: reportId,
     generated_at: now,
@@ -402,13 +467,15 @@ export function buildQueryResponse(
     query,
     claim_analysis,
     ...content,
-    sources: getEvidenceStubs(classification.claim_type, filters?.max_sources),
-    evidence_notes: EVIDENCE_NOTES,
+    sources,
+    evidence_notes,
+    report_confidence,
     lucient_meta: {
       cached: false,
       last_updated: now,
       engine: "Lucient EIE POC",
       privacy_note: "Demo workspace only. No real client-private data.",
+      pubmed_fetch_status,
     },
   };
 }

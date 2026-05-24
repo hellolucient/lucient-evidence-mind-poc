@@ -10,16 +10,22 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 4. Receive structured JSON
 5. Turn that JSON into an Evidence Brief artifact
 
-All evidence output is **static/dummy** for integration testing only.
+All evidence output is **static/dummy** for integration testing only, unless `filters.use_real_pubmed` is enabled (Phase 5 — see below).
 
 ## Endpoints
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/api/health` | None | Health check |
-| `POST` | `/api/query` | `Authorization: Bearer <API_KEY>` | Returns a static Evidence Brief JSON |
+| `POST` | `/api/query` | `Authorization: Bearer <API_KEY>` | Returns an Evidence Brief JSON (stubs or optional PubMed metadata) |
 
 See [docs/magnesium-test.md](./docs/magnesium-test.md) for request/response schemas and curl examples.
+
+### Phase 5: optional PubMed retrieval
+
+When `filters.use_real_pubmed` is `true` and `filters.source_types` includes `"pubmed"`, the API calls NCBI E-utilities and maps results into the existing source object schema. Metadata only — no claim substantiation yet.
+
+See [docs/pubmed-retrieval-test.md](./docs/pubmed-retrieval-test.md) for curl examples and fallback behavior.
 
 ## Setup
 
@@ -107,10 +113,9 @@ Use the same `POST /api/query` curl as above, replacing the host and API key.
 ## What this does not include
 
 - Database, Supabase, auth provider, dashboard, RLS
-- Real evidence search, PDF handling, full workspace system
+- Full evidence search, PDF handling, full workspace system
 - Background jobs, webhooks
-
-Replace `lib/query-response.ts` with real EIE logic when ready.
+- Abstract appraisal, study design extraction, or claim substantiation (Phase 5 is metadata-only PubMed retrieval)
 
 ## License
 
