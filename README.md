@@ -27,7 +27,7 @@ When `filters.use_real_pubmed` is `true` and `filters.source_types` includes `"p
 
 See [docs/pubmed-retrieval-test.md](./docs/pubmed-retrieval-test.md) for curl examples and fallback behavior.
 
-Phase 6 adds abstract retrieval and basic automated appraisal — see [docs/pubmed-abstract-appraisal.md](./docs/pubmed-abstract-appraisal.md).
+Phase 7 tightens skeptical PubMed appraisal rules — see [docs/pubmed-appraisal-rules.md](./docs/pubmed-appraisal-rules.md).
 
 ## Setup
 
@@ -117,7 +117,7 @@ Use the same `POST /api/query` curl as above, replacing the host and API key.
 - Database, Supabase, auth provider, dashboard, RLS
 - Full evidence search, PDF handling, full workspace system
 - Background jobs, webhooks
-- Abstract appraisal, study design extraction, or claim substantiation (Phase 6 is basic automated appraisal only)
+- Full claim substantiation or final evidence grading (Phase 7 is conservative automated appraisal only)
 
 ## License
 

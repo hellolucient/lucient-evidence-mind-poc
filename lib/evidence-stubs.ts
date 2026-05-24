@@ -121,12 +121,12 @@ const POC_CITATION = "POC placeholder, not a real citation.";
 
 export const PUBMED_EVIDENCE_NOTES: EvidenceNotes = {
   source_quality_note:
-    "Phase 6 retrieved PubMed metadata and abstracts where available. Basic automated appraisal was applied; this is not final evidence grading.",
+    "Phase 7 retrieved PubMed metadata and abstracts where available. Conservative automated appraisal was applied; this is not final evidence grading.",
   citation_status: "abstracts_retrieved_not_fully_appraised",
   next_step_for_real_evidence:
     "Perform full critical appraisal, study design confirmation, outcome extraction, and claim substantiation review.",
   appraisal_note:
-    "Phase 6 performs basic automated relevance/appraisal only, not final evidence grading. PubMed retrieval does not determine whether records substantiate the claim.",
+    "Phase 7 performs skeptical automated relevance/appraisal only. Mention of magnesium or cortisol in a paper does not mean the intervention was tested or substantiates the claim.",
   real_evidence_fields_needed: [
     "study_design",
     "sample_size",

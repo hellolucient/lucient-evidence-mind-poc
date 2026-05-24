@@ -23,8 +23,8 @@ const FETCH_TIMEOUT_MS = 10000;
 const ABSTRACT_EXCERPT_MAX = 600;
 
 const PHASE6_LIMITATIONS = [
-  "Phase 6 metadata and abstract retrieval",
-  "Basic automated appraisal only",
+  "Phase 7 metadata and abstract retrieval",
+  "Automated appraisal with conservative substantiation rules",
   "No effect-size extraction yet",
   "Not final evidence grading",
 ];
@@ -284,15 +284,20 @@ function mapDetectedStudyDesign(detected: StudyDesignDetected): StudyDesign {
 }
 
 function mapDirectnessToRelevance(
-  directness: SourceAppraisal["directness_to_claim"]
+  directness: SourceAppraisal["directness_to_claim"],
+  intervention: SourceAppraisal["intervention_match"]
 ): EvidenceSource["relevance_to_claim"] {
+  if (intervention === "background" || directness === "irrelevant") {
+    return "background";
+  }
+
   switch (directness) {
     case "direct":
       return "direct";
     case "partial":
       return "indirect";
-    case "irrelevant":
-      return "background";
+    case "indirect":
+      return "indirect";
     default:
       return "indirect";
   }
@@ -331,7 +336,10 @@ function mapSummaryToSource(
     url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     publication_year,
     evidence_level: "unknown",
-    relevance_to_claim: mapDirectnessToRelevance(appraisal.directness_to_claim),
+    relevance_to_claim: mapDirectnessToRelevance(
+      appraisal.directness_to_claim,
+      appraisal.intervention_match
+    ),
     supports_claim: analysis.supports_claim,
     summary: appraisal.appraisal_summary,
     meta: {
