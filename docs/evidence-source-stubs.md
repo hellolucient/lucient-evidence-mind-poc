@@ -129,3 +129,4 @@ Expected:
 - URLs point to `example.com` placeholder paths — not live citations.
 - Replace stubs with real retrieval logic when moving beyond POC.
 - `workspace_id` and `query` echo the request; timestamps are generated at request time.
+- See [real-evidence-object-shape.md](./real-evidence-object-shape.md) for Phase 4 nested evidence object schema (`meta`, `methodology`, `analysis`, `regulatory_flags`).
