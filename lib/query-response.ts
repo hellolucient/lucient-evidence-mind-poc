@@ -1,4 +1,9 @@
-import { classifyClaim, type ClaimAnalysis, type ClaimType } from "./claim-classifier";
+import {
+  classifyClaim,
+  humanReviewRequired,
+  type ClaimAnalysis,
+  type ClaimType,
+} from "./claim-classifier";
 
 export type QueryRequestBody = {
   workspace_id?: string;
@@ -389,8 +394,12 @@ export function buildQueryResponse(
 ): QueryResponse {
   const now = new Date().toISOString();
   const reportId = `${workspaceId}-${Date.now()}`;
-  const claim_analysis = classifyClaim(query);
-  const content = CLAIM_CONTENT[claim_analysis.claim_type];
+  const classification = classifyClaim(query);
+  const content = CLAIM_CONTENT[classification.claim_type];
+  const claim_analysis: ClaimAnalysis = {
+    ...classification,
+    human_review_required: humanReviewRequired(content.risk_assessment.risk_level),
+  };
 
   return {
     report_id: reportId,

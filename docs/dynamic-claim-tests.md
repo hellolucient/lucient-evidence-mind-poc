@@ -44,8 +44,10 @@ All other fields (`report_id`, `generated_at`, `evidence_summary`, `risk_assessm
 | `anti_aging` | anti-aging, reverse aging, biological age |
 | `pain_relief` | pain relief, relieves pain |
 | `sleep` | sleep, insomnia |
-| `stress_relaxation` | stress, relaxation, relax |
-| `experiential_wellness` | restored, wellbeing, feel refreshed |
+| `stress_relaxation` | stress, de-stress, reduces stress |
+| `experiential_wellness` | supports relaxation, feel restored, sense of calm, feel refreshed |
+
+`claim_analysis.human_review_required` is `true` only when `risk_assessment.risk_level` is `medium`, `high`, or `critical`. Low-risk experiential claims return `false`.
 
 When multiple patterns match, the highest-priority pattern sets `claim_type`; all matched terms appear in `detected_terms`.
 
@@ -136,7 +138,11 @@ curl -s -X POST "$BASE_URL/api/query" \
   }' | jq '.claim_analysis, .risk_assessment.risk_level, .recommended_wording'
 ```
 
-Expected `claim_type`: `stress_relaxation` (relaxation matched) or `experiential_wellness` (restored matched); primary type depends on priority — `stress_relaxation` wins when both match.
+Expected:
+
+- `claim_type`: `experiential_wellness`
+- `claim_analysis.human_review_required`: `false`
+- `risk_assessment.risk_level`: `low`
 
 ## Notes
 

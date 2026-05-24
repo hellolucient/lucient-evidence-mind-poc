@@ -6,14 +6,19 @@ export type ClaimType =
   | "anti_aging"
   | "pain_relief"
   | "sleep"
-  | "stress_relaxation"
   | "experiential_wellness"
+  | "stress_relaxation"
   | "general";
 
-export type ClaimAnalysis = {
+export type RiskLevel = "low" | "medium" | "high" | "critical";
+
+export type ClaimClassification = {
   claim_type: ClaimType;
   detected_terms: string[];
   is_measurable_health_claim: boolean;
+};
+
+export type ClaimAnalysis = ClaimClassification & {
   human_review_required: boolean;
 };
 
@@ -22,7 +27,6 @@ type PatternDefinition = {
   terms: string[];
   priority: number;
   is_measurable_health_claim: boolean;
-  human_review_required: boolean;
 };
 
 const PATTERNS: PatternDefinition[] = [
@@ -37,7 +41,6 @@ const PATTERNS: PatternDefinition[] = [
     ],
     priority: 1,
     is_measurable_health_claim: true,
-    human_review_required: true,
   },
   {
     claim_type: "anti_aging",
@@ -52,7 +55,6 @@ const PATTERNS: PatternDefinition[] = [
     ],
     priority: 2,
     is_measurable_health_claim: true,
-    human_review_required: true,
   },
   {
     claim_type: "cortisol_hormone",
@@ -65,7 +67,6 @@ const PATTERNS: PatternDefinition[] = [
     ],
     priority: 3,
     is_measurable_health_claim: true,
-    human_review_required: true,
   },
   {
     claim_type: "immunity",
@@ -78,7 +79,6 @@ const PATTERNS: PatternDefinition[] = [
     ],
     priority: 4,
     is_measurable_health_claim: true,
-    human_review_required: true,
   },
   {
     claim_type: "inflammation",
@@ -91,7 +91,6 @@ const PATTERNS: PatternDefinition[] = [
     ],
     priority: 5,
     is_measurable_health_claim: true,
-    human_review_required: true,
   },
   {
     claim_type: "pain_relief",
@@ -105,7 +104,6 @@ const PATTERNS: PatternDefinition[] = [
     ],
     priority: 6,
     is_measurable_health_claim: true,
-    human_review_required: true,
   },
   {
     claim_type: "sleep",
@@ -118,47 +116,48 @@ const PATTERNS: PatternDefinition[] = [
     ],
     priority: 7,
     is_measurable_health_claim: true,
-    human_review_required: true,
-  },
-  {
-    claim_type: "stress_relaxation",
-    terms: [
-      "stress",
-      "relaxation",
-      "relax",
-      "relaxing",
-      "de-stress",
-      "destress",
-    ],
-    priority: 8,
-    is_measurable_health_claim: false,
-    human_review_required: true,
   },
   {
     claim_type: "experiential_wellness",
     terms: [
-      "restored",
+      "supports relaxation",
+      "helps guests feel restored",
+      "promotes a sense of calm",
+      "leaves guests feeling refreshed",
       "feel restored",
+      "feel refreshed",
+      "sense of calm",
+      "restored",
       "wellbeing",
       "well-being",
-      "feel refreshed",
       "rejuvenated",
       "revitalized",
       "supports wellness",
       "general wellness",
       "feel better",
+      "relaxation",
+      "relaxing",
     ],
+    priority: 8,
+    is_measurable_health_claim: false,
+  },
+  {
+    claim_type: "stress_relaxation",
+    terms: ["stress", "de-stress", "destress", "reduces stress"],
     priority: 9,
     is_measurable_health_claim: false,
-    human_review_required: false,
   },
 ];
+
+export function humanReviewRequired(riskLevel: RiskLevel): boolean {
+  return riskLevel === "medium" || riskLevel === "high" || riskLevel === "critical";
+}
 
 function findMatchingTerms(normalizedQuery: string, terms: string[]): string[] {
   return terms.filter((term) => normalizedQuery.includes(term.toLowerCase()));
 }
 
-export function classifyClaim(query: string): ClaimAnalysis {
+export function classifyClaim(query: string): ClaimClassification {
   const normalizedQuery = query.toLowerCase();
 
   const matches = PATTERNS.map((pattern) => ({
@@ -171,7 +170,6 @@ export function classifyClaim(query: string): ClaimAnalysis {
       claim_type: "general",
       detected_terms: [],
       is_measurable_health_claim: false,
-      human_review_required: true,
     };
   }
 
@@ -187,6 +185,5 @@ export function classifyClaim(query: string): ClaimAnalysis {
     claim_type: primary.claim_type,
     detected_terms,
     is_measurable_health_claim: primary.is_measurable_health_claim,
-    human_review_required: primary.human_review_required,
   };
 }
