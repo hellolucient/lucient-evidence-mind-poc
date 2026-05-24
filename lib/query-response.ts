@@ -4,6 +4,12 @@ import {
   type ClaimAnalysis,
   type ClaimType,
 } from "./claim-classifier";
+import {
+  EVIDENCE_NOTES,
+  getEvidenceStubs,
+  type EvidenceNotes,
+  type EvidenceSource,
+} from "./evidence-stubs";
 
 export type QueryRequestBody = {
   workspace_id?: string;
@@ -40,13 +46,8 @@ export type QueryResponse = {
       trigger: string;
     }>;
   };
-  sources: Array<{
-    source_id: string;
-    type: string;
-    title: string;
-    url: string;
-    publication_year: number;
-  }>;
+  sources: EvidenceSource[];
+  evidence_notes: EvidenceNotes;
   recommended_wording: {
     safer_claim: string;
     avoid: string;
@@ -65,16 +66,6 @@ type ClaimContent = {
   risk_assessment: QueryResponse["risk_assessment"];
   recommended_wording: QueryResponse["recommended_wording"];
 };
-
-const PLACEHOLDER_SOURCES: QueryResponse["sources"] = [
-  {
-    source_id: "placeholder-001",
-    type: "placeholder",
-    title: "Placeholder source for integration test",
-    url: "https://example.com",
-    publication_year: 2026,
-  },
-];
 
 const CLAIM_CONTENT: Record<ClaimType, ClaimContent> = {
   detox: {
@@ -409,7 +400,8 @@ export function buildQueryResponse(
     query,
     claim_analysis,
     ...content,
-    sources: PLACEHOLDER_SOURCES,
+    sources: getEvidenceStubs(classification.claim_type),
+    evidence_notes: EVIDENCE_NOTES,
     lucient_meta: {
       cached: false,
       last_updated: now,

@@ -149,3 +149,4 @@ Expected:
 - Evidence content and sources are **placeholder only**.
 - `workspace_id` and `query` echo the request.
 - Replace `$BASE_URL` with your Vercel deployment URL for remote testing.
+- See [evidence-source-stubs.md](./evidence-source-stubs.md) for Phase 3 evidence stub schema and curl examples.
