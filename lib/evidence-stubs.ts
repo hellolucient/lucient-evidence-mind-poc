@@ -27,6 +27,24 @@ export type ClaimAlignment =
 
 export type RegulatorySeverity = "low" | "medium" | "high" | "critical";
 
+export type Jurisdiction = "US" | "EU" | "UK" | "AU" | "TH" | "GLOBAL";
+
+export type RegulatoryFramework =
+  | "FTC"
+  | "FDA"
+  | "EFSA"
+  | "ASA"
+  | "TGA"
+  | "Thai FDA"
+  | "General marketing substantiation";
+
+export type RegulatoryContextEntry = {
+  jurisdiction: Jurisdiction;
+  framework: RegulatoryFramework;
+  risk_note: string;
+  severity: RegulatorySeverity;
+};
+
 export type EvidenceSourceMeta = {
   pmid: string | null;
   doi: string | null;
@@ -46,6 +64,7 @@ export type EvidenceSourceAnalysis = {
   outcomes: string[];
   effect_summary: string;
   claim_alignment: ClaimAlignment;
+  alignment_confidence: number;
   relevance_score: number;
 };
 
@@ -58,6 +77,7 @@ export type RegulatoryFlag = {
 export type EvidenceSource = {
   source_id: string;
   source_type: "evidence_stub";
+  source_rank: number;
   title: string;
   url: string;
   publication_year: number;
@@ -68,7 +88,9 @@ export type EvidenceSource = {
   meta: EvidenceSourceMeta;
   methodology: EvidenceSourceMethodology;
   analysis: EvidenceSourceAnalysis;
+  study_limitations: string[];
   regulatory_flags: RegulatoryFlag[];
+  regulatory_context: RegulatoryContextEntry[];
 };
 
 export type EvidenceNotes = {
@@ -77,6 +99,9 @@ export type EvidenceNotes = {
   next_step_for_real_evidence: string;
   real_evidence_fields_needed: string[];
 };
+
+export const DEFAULT_MAX_SOURCES = 3;
+export const HARD_MAX_SOURCES = 5;
 
 const POC_CITATION = "POC placeholder, not a real citation.";
 
@@ -97,12 +122,26 @@ export const EVIDENCE_NOTES: EvidenceNotes = {
     "outcomes",
     "effect_summary",
     "claim_alignment",
+    "alignment_confidence",
+    "study_limitations",
+    "regulatory_context",
+    "jurisdiction",
+    "source_rank",
   ],
 };
 
 const STUB_BASE_URL = "https://example.com/poc-evidence-stub";
 
-type StubFields = Omit<EvidenceSource, "source_id" | "source_type" | "url">;
+const BASE_POC_LIMITATIONS = [
+  "POC placeholder — not a real citation",
+  "No linked pmid or doi",
+  "Not retrieved from PubMed, Cochrane, or curated databases",
+];
+
+type StubFields = Omit<
+  EvidenceSource,
+  "source_id" | "source_type" | "url" | "source_rank"
+>;
 
 function placeholderMeta(journal: string | null = null): EvidenceSourceMeta {
   return {
@@ -114,6 +153,22 @@ function placeholderMeta(journal: string | null = null): EvidenceSourceMeta {
   };
 }
 
+function buildAnalysis(
+  outcomes: string[],
+  effect_summary: string,
+  claim_alignment: ClaimAlignment,
+  relevance_score: number,
+  alignment_confidence: number
+): EvidenceSourceAnalysis {
+  return {
+    outcomes,
+    effect_summary,
+    claim_alignment,
+    alignment_confidence,
+    relevance_score,
+  };
+}
+
 function stub(
   claimType: ClaimType,
   suffix: string,
@@ -122,6 +177,7 @@ function stub(
   return {
     source_id: `stub-${claimType}-${suffix}`,
     source_type: "evidence_stub",
+    source_rank: 1,
     url: `${STUB_BASE_URL}/${claimType}/${suffix}`,
     ...source,
   };
@@ -144,13 +200,17 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "General wellness marketing context (POC stub)",
         duration: null,
       },
-      analysis: {
-        outcomes: ["toxin elimination", "subjective refreshment"],
-        effect_summary:
-          "No stub evidence supports measurable body detoxification from spa or wellness treatments.",
-        claim_alignment: "contradicts",
-        relevance_score: 0.35,
-      },
+      analysis: buildAnalysis(
+        ["toxin elimination", "subjective refreshment"],
+        "No stub evidence supports measurable body detoxification from spa or wellness treatments.",
+        "contradicts",
+        0.35,
+        0.88
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "No clinical biomarker data for toxin elimination",
+      ],
       regulatory_flags: [
         {
           flag: "detox_claim",
@@ -161,6 +221,22 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
           flag: "needs_substantiation",
           severity: "critical",
           note: "Replace with real evidence or soften to experiential refreshment language.",
+        },
+      ],
+      regulatory_context: [
+        {
+          jurisdiction: "US",
+          framework: "FTC",
+          risk_note:
+            "Detox claims require competent and reliable scientific evidence under FTC substantiation standards.",
+          severity: "high",
+        },
+        {
+          jurisdiction: "GLOBAL",
+          framework: "General marketing substantiation",
+          risk_note:
+            "Claims implying toxin removal from the body are high-scrutiny in wellness marketing.",
+          severity: "high",
         },
       ],
     }),
@@ -181,18 +257,38 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "Wellness treatment recipients (POC stub)",
         duration: null,
       },
-      analysis: {
-        outcomes: ["immune function", "general wellbeing"],
-        effect_summary:
-          "Stub review finds insufficient support for direct immune-boosting claims from generic wellness treatments.",
-        claim_alignment: "insufficient",
-        relevance_score: 0.4,
-      },
+      analysis: buildAnalysis(
+        ["immune function", "general wellbeing"],
+        "Stub review finds insufficient support for direct immune-boosting claims from generic wellness treatments.",
+        "insufficient",
+        0.4,
+        0.62
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "No immune biomarker or clinical outcome data",
+      ],
       regulatory_flags: [
         {
           flag: "immune_claim",
           severity: "medium",
           note: "Immunity claims may be treated as physiological health claims.",
+        },
+      ],
+      regulatory_context: [
+        {
+          jurisdiction: "US",
+          framework: "FTC",
+          risk_note:
+            "Immune-boosting claims may be scrutinized as health-benefit claims requiring substantiation.",
+          severity: "medium",
+        },
+        {
+          jurisdiction: "EU",
+          framework: "EFSA",
+          risk_note:
+            "Unauthorized health claims relating to the immune system require authorized wording.",
+          severity: "medium",
         },
       ],
     }),
@@ -213,18 +309,38 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "Adults receiving wellness treatments (POC stub)",
         duration: "Not applicable (POC stub)",
       },
-      analysis: {
-        outcomes: ["inflammatory markers", "subjective comfort"],
-        effect_summary:
-          "Some wellness contexts show mixed indirect associations, but stub data does not confirm anti-inflammatory effects for this claim.",
-        claim_alignment: "mixed",
-        relevance_score: 0.45,
-      },
+      analysis: buildAnalysis(
+        ["inflammatory markers", "subjective comfort"],
+        "Some wellness contexts show mixed indirect associations, but stub data does not confirm anti-inflammatory effects for this claim.",
+        "mixed",
+        0.45,
+        0.55
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "No inflammatory biomarker measurements in stub data",
+      ],
       regulatory_flags: [
         {
           flag: "inflammation_claim",
           severity: "medium",
           note: "Anti-inflammatory wording implies measurable biological change.",
+        },
+      ],
+      regulatory_context: [
+        {
+          jurisdiction: "US",
+          framework: "FDA",
+          risk_note:
+            "Anti-inflammatory claims may imply drug-like effects if tied to disease treatment.",
+          severity: "medium",
+        },
+        {
+          jurisdiction: "GLOBAL",
+          framework: "General marketing substantiation",
+          risk_note:
+            "Inflammation claims should be supported by condition-specific evidence.",
+          severity: "medium",
         },
       ],
     }),
@@ -245,18 +361,38 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "Adults under stress or seeking relaxation (POC stub)",
         duration: "Single session to multi-week (POC stub)",
       },
-      analysis: {
-        outcomes: ["cortisol levels", "subjective stress", "relaxation"],
-        effect_summary:
-          "Stub review finds unclear support for direct hormone regulation claims; relaxation associations are more defensible.",
-        claim_alignment: "insufficient",
-        relevance_score: 0.42,
-      },
+      analysis: buildAnalysis(
+        ["cortisol levels", "subjective stress", "relaxation"],
+        "Stub review finds unclear support for direct hormone regulation claims; relaxation associations are more defensible.",
+        "insufficient",
+        0.42,
+        0.58
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "No hormone assay data in stub record",
+      ],
       regulatory_flags: [
         {
           flag: "physiological_claim",
           severity: "medium",
           note: "Hormone regulation claims require specific substantiation.",
+        },
+      ],
+      regulatory_context: [
+        {
+          jurisdiction: "US",
+          framework: "FTC",
+          risk_note:
+            "Claims about regulating cortisol or hormones imply measurable physiological effects.",
+          severity: "medium",
+        },
+        {
+          jurisdiction: "UK",
+          framework: "ASA",
+          risk_note:
+            "Stress-hormone claims need robust evidence and should avoid implying medical outcomes.",
+          severity: "medium",
         },
       ],
     }),
@@ -277,13 +413,17 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "Wellness program participants (POC stub)",
         duration: null,
       },
-      analysis: {
-        outcomes: ["biological age", "subjective vitality", "appearance"],
-        effect_summary:
-          "Stub review does not support claims of reversing biological age from wellness treatments.",
-        claim_alignment: "contradicts",
-        relevance_score: 0.3,
-      },
+      analysis: buildAnalysis(
+        ["biological age", "subjective vitality", "appearance"],
+        "Stub review does not support claims of reversing biological age from wellness treatments.",
+        "contradicts",
+        0.3,
+        0.9
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "No biological age or epigenetic clock data",
+      ],
       regulatory_flags: [
         {
           flag: "anti_aging_claim",
@@ -294,6 +434,22 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
           flag: "needs_substantiation",
           severity: "critical",
           note: "Soften to appearance, vitality, or refreshed feeling language.",
+        },
+      ],
+      regulatory_context: [
+        {
+          jurisdiction: "US",
+          framework: "FTC",
+          risk_note:
+            "Anti-aging and biological-age reversal claims require strong substantiation.",
+          severity: "high",
+        },
+        {
+          jurisdiction: "EU",
+          framework: "EFSA",
+          risk_note:
+            "Age-reversal health claims are unlikely to meet authorized claim standards.",
+          severity: "high",
         },
       ],
     }),
@@ -314,13 +470,18 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "Adults reporting discomfort (POC stub)",
         duration: "Variable by condition (POC stub)",
       },
-      analysis: {
-        outcomes: ["pain intensity", "comfort", "functional ease"],
-        effect_summary:
-          "Some interventions show mixed comfort benefits, but stub data does not substantiate therapeutic pain relief for this claim.",
-        claim_alignment: "mixed",
-        relevance_score: 0.5,
-      },
+      analysis: buildAnalysis(
+        ["pain intensity", "comfort", "functional ease"],
+        "Some interventions show mixed comfort benefits, but stub data does not substantiate therapeutic pain relief for this claim.",
+        "mixed",
+        0.5,
+        0.52
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "No condition-specific pain outcome data",
+        "Sample size not reported in stub",
+      ],
       regulatory_flags: [
         {
           flag: "pain_claim",
@@ -331,6 +492,22 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
           flag: "human_review_recommended",
           severity: "medium",
           note: "Consider legal or clinical review before publishing pain-related claims.",
+        },
+      ],
+      regulatory_context: [
+        {
+          jurisdiction: "US",
+          framework: "FDA",
+          risk_note:
+            "Pain relief claims may imply therapeutic benefit and blur into medical device or drug claims.",
+          severity: "medium",
+        },
+        {
+          jurisdiction: "AU",
+          framework: "TGA",
+          risk_note:
+            "Therapeutic pain claims may require TGA assessment depending on product context.",
+          severity: "medium",
         },
       ],
     }),
@@ -351,18 +528,38 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "Adults seeking better rest (POC stub)",
         duration: "1–4 weeks (POC stub)",
       },
-      analysis: {
-        outcomes: ["sleep quality", "relaxation", "bedtime routine adherence"],
-        effect_summary:
-          "Relaxation-focused wording may align with sleep-support contexts, but treating sleep disorders is not supported by this stub.",
-        claim_alignment: "mixed",
-        relevance_score: 0.48,
-      },
+      analysis: buildAnalysis(
+        ["sleep quality", "relaxation", "bedtime routine adherence"],
+        "Relaxation-focused wording may align with sleep-support contexts, but treating sleep disorders is not supported by this stub.",
+        "mixed",
+        0.48,
+        0.5
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "No polysomnography or validated sleep scale data",
+      ],
       regulatory_flags: [
         {
           flag: "sleep_claim",
           severity: "medium",
           note: "Distinguish relaxation support from insomnia or disorder treatment claims.",
+        },
+      ],
+      regulatory_context: [
+        {
+          jurisdiction: "US",
+          framework: "FDA",
+          risk_note:
+            "Claims to treat insomnia or sleep disorders may be regulated as therapeutic claims.",
+          severity: "medium",
+        },
+        {
+          jurisdiction: "GLOBAL",
+          framework: "General marketing substantiation",
+          risk_note:
+            "Sleep-support language should avoid implying treatment of sleep disorders.",
+          severity: "low",
         },
       ],
     }),
@@ -383,18 +580,38 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "Spa and wellness guests (POC stub)",
         duration: null,
       },
-      analysis: {
-        outcomes: ["subjective relaxation", "restored feeling"],
-        effect_summary:
-          "Stub review supports cautious experiential relaxation language when biomarker or therapeutic claims are avoided.",
-        claim_alignment: "background",
-        relevance_score: 0.75,
-      },
+      analysis: buildAnalysis(
+        ["subjective relaxation", "restored feeling"],
+        "Stub review supports cautious experiential relaxation language when biomarker or therapeutic claims are avoided.",
+        "background",
+        0.75,
+        0.85
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "Background guidance only; not a clinical study",
+      ],
       regulatory_flags: [
         {
           flag: "wording_boundary",
           severity: "low",
           note: "Avoid upgrading to stress-hormone or therapeutic outcome claims.",
+        },
+      ],
+      regulatory_context: [
+        {
+          jurisdiction: "GLOBAL",
+          framework: "General marketing substantiation",
+          risk_note:
+            "Experiential relaxation language is lower risk when stress biomarkers or therapeutic outcomes are not implied.",
+          severity: "low",
+        },
+        {
+          jurisdiction: "UK",
+          framework: "ASA",
+          risk_note:
+            "Subjective feeling claims are generally acceptable if not misleading.",
+          severity: "low",
         },
       ],
     }),
@@ -415,14 +632,34 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: "General wellness guests (POC stub)",
         duration: null,
       },
-      analysis: {
-        outcomes: ["subjective wellbeing", "sense of calm", "feeling restored"],
-        effect_summary:
-          "Stub review supports low-risk experiential phrasing focused on how guests may feel.",
-        claim_alignment: "background",
-        relevance_score: 0.82,
-      },
+      analysis: buildAnalysis(
+        ["subjective wellbeing", "sense of calm", "feeling restored"],
+        "Stub review supports low-risk experiential phrasing focused on how guests may feel.",
+        "background",
+        0.82,
+        0.92
+      ),
+      study_limitations: [
+        ...BASE_POC_LIMITATIONS,
+        "Background guidance only; not a clinical study",
+      ],
       regulatory_flags: [],
+      regulatory_context: [
+        {
+          jurisdiction: "GLOBAL",
+          framework: "General marketing substantiation",
+          risk_note:
+            "Subjective experiential language is generally lower risk when therapeutic outcomes are not implied.",
+          severity: "low",
+        },
+        {
+          jurisdiction: "TH",
+          framework: "Thai FDA",
+          risk_note:
+            "Wellness experience claims should avoid unauthorized health or therapeutic claims.",
+          severity: "low",
+        },
+      ],
     }),
   ],
   general: [
@@ -441,13 +678,14 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
         population: null,
         duration: null,
       },
-      analysis: {
-        outcomes: ["claim clarity", "regulatory risk"],
-        effect_summary:
-          "Stub review recommends cautious experiential wording pending real evidence retrieval.",
-        claim_alignment: "insufficient",
-        relevance_score: 0.4,
-      },
+      analysis: buildAnalysis(
+        ["claim clarity", "regulatory risk"],
+        "Stub review recommends cautious experiential wording pending real evidence retrieval.",
+        "insufficient",
+        0.4,
+        0.45
+      ),
+      study_limitations: [...BASE_POC_LIMITATIONS],
       regulatory_flags: [
         {
           flag: "unclassified_claim",
@@ -455,10 +693,40 @@ const EVIDENCE_STUBS: Record<ClaimType, EvidenceSource[]> = {
           note: "Review wording manually when no specific pattern is detected.",
         },
       ],
+      regulatory_context: [
+        {
+          jurisdiction: "GLOBAL",
+          framework: "General marketing substantiation",
+          risk_note:
+            "Unclassified claims should be reviewed for implied health outcomes.",
+          severity: "medium",
+        },
+      ],
     }),
   ],
 };
 
-export function getEvidenceStubs(claimType: ClaimType): EvidenceSource[] {
-  return EVIDENCE_STUBS[claimType];
+export function resolveMaxSources(maxSources?: number): number {
+  if (typeof maxSources !== "number" || !Number.isFinite(maxSources)) {
+    return DEFAULT_MAX_SOURCES;
+  }
+
+  const rounded = Math.floor(maxSources);
+  if (rounded < 1) {
+    return DEFAULT_MAX_SOURCES;
+  }
+
+  return Math.min(rounded, HARD_MAX_SOURCES);
+}
+
+export function getEvidenceStubs(
+  claimType: ClaimType,
+  maxSources?: number
+): EvidenceSource[] {
+  const limit = resolveMaxSources(maxSources);
+
+  return EVIDENCE_STUBS[claimType].slice(0, limit).map((source, index) => ({
+    ...source,
+    source_rank: index + 1,
+  }));
 }

@@ -1,4 +1,4 @@
-# Phase 4: Real evidence object shape
+# Phase 4 / 4.5: Real evidence object shape
 
 Purpose: extend `POST /api/query` source objects so they resemble **future real research records**, while still using **stubbed/static POC data**.
 
@@ -16,14 +16,27 @@ Building on [Phase 3 evidence source stubs](./evidence-source-stubs.md):
 - `regulatory_flags[]` — per-source regulatory notes with severity
 - Expanded `evidence_notes.real_evidence_fields_needed` — fields to populate when moving to real retrieval
 
+## What Phase 4.5 adds
+
+Refinements based on Lucient Evidence Mind feedback:
+
+- `analysis.alignment_confidence` — confidence score (0–1) for the `claim_alignment` assessment
+- `study_limitations[]` — explicit limitations of the source record
+- `regulatory_context[]` — jurisdiction-aware regulatory framing (US/FTC, EU/EFSA, etc.)
+- `source_rank` — rank order when multiple sources are returned (1 = highest relevance)
+- Source count cap — default **3** sources; `filters.max_sources` respected up to hard max **5**
+
+Mind integrations should request **3–5 sources max** to keep Evidence Brief payloads compact.
+
 Top-level response fields are unchanged.
 
-## Full source object schema
+## Full source object schema (Phase 4.5)
 
 ```json
 {
   "source_id": "stub-detox-001",
   "source_type": "evidence_stub",
+  "source_rank": 1,
   "title": "POC stub: detoxification claim substantiation",
   "url": "https://example.com/poc-evidence-stub/detox/001",
   "publication_year": 2026,
@@ -48,28 +61,72 @@ Top-level response fields are unchanged.
     "outcomes": ["toxin elimination", "subjective refreshment"],
     "effect_summary": "No stub evidence supports measurable body detoxification...",
     "claim_alignment": "contradicts",
+    "alignment_confidence": 0.88,
     "relevance_score": 0.35
   },
+  "study_limitations": [
+    "POC placeholder — not a real citation",
+    "No linked pmid or doi",
+    "No clinical biomarker data for toxin elimination"
+  ],
   "regulatory_flags": [
     {
       "flag": "detox_claim",
       "severity": "high",
       "note": "Detoxification claims imply measurable physiological effects..."
     }
+  ],
+  "regulatory_context": [
+    {
+      "jurisdiction": "US",
+      "framework": "FTC",
+      "risk_note": "Detox claims require competent and reliable scientific evidence...",
+      "severity": "high"
+    }
   ]
 }
 ```
 
-| Nested field | Notes |
-|--------------|-------|
+| Field | Notes |
+|-------|-------|
+| `source_rank` | Integer starting at `1`; lower rank = higher priority |
 | `meta.pmid` / `meta.doi` | Always `null` in POC |
 | `meta.citation` | Always `"POC placeholder, not a real citation."` |
-| `methodology.study_design` | `systematic_review`, `randomized_controlled_trial`, `observational`, `guideline`, `background`, `unknown` |
 | `analysis.claim_alignment` | `supports`, `contradicts`, `mixed`, `insufficient`, `background` |
-| `analysis.relevance_score` | Number between `0` and `1` |
-| `regulatory_flags[].severity` | `low`, `medium`, `high`, `critical` |
+| `analysis.alignment_confidence` | Number `0`–`1` — how confident the stub assessment is in the alignment label |
+| `analysis.relevance_score` | Number `0`–`1` — how relevant the source is to the claim |
+| `regulatory_context[].jurisdiction` | `US`, `EU`, `UK`, `AU`, `TH`, `GLOBAL` |
+| `regulatory_context[].framework` | `FTC`, `FDA`, `EFSA`, `ASA`, `TGA`, `Thai FDA`, `General marketing substantiation` |
 
-## Evidence notes (Phase 4)
+### alignment_confidence
+
+`alignment_confidence` expresses how strongly the evidence object supports its `claim_alignment` label. For example, a detox stub with `claim_alignment: "contradicts"` and `alignment_confidence: 0.88` indicates high confidence that the claim is not supported. Low-risk experiential stubs with `claim_alignment: "background"` typically have higher confidence (~0.85–0.92) because the alignment is straightforward.
+
+This field will be populated by real retrieval/ranking logic in a future phase.
+
+### regulatory_context
+
+`regulatory_context` provides jurisdiction-specific framing separate from `regulatory_flags`. Each entry names a jurisdiction, applicable framework, risk note, and severity. This helps Mind artifacts explain *where* a claim may face scrutiny (e.g. US/FTC for detox claims, EU/EFSA for immunity claims).
+
+### Source count limit
+
+| Setting | Value |
+|---------|-------|
+| Default max sources | `3` |
+| Hard max | `5` |
+| Request override | `filters.max_sources` (capped at 5) |
+
+```json
+{
+  "filters": {
+    "max_sources": 3
+  }
+}
+```
+
+The POC currently returns one stub per claim type, so the cap has little effect until Phase 5 adds real multi-source retrieval.
+
+## Evidence notes (Phase 4.5)
 
 ```json
 {
@@ -87,7 +144,12 @@ Top-level response fields are unchanged.
       "population",
       "outcomes",
       "effect_summary",
-      "claim_alignment"
+      "claim_alignment",
+      "alignment_confidence",
+      "study_limitations",
+      "regulatory_context",
+      "jurisdiction",
+      "source_rank"
     ]
   }
 }
@@ -112,16 +174,17 @@ curl -s -X POST "$BASE_URL/api/query" \
     "workspace_id": "demo-evidence",
     "query": "This treatment detoxifies the body.",
     "mode": "evidence_brief",
-    "context": "POC Phase 4 evidence object test."
-  }' | jq '.sources[0].meta, .sources[0].analysis, .sources[0].regulatory_flags, .evidence_notes'
+    "filters": { "max_sources": 3 },
+    "context": "POC Phase 4.5 evidence object test."
+  }' | jq '.sources[0] | {source_rank, analysis, study_limitations, regulatory_context}'
 ```
 
 Expected:
 
-- `meta.pmid` and `meta.doi`: `null`
-- `meta.citation`: `"POC placeholder, not a real citation."`
+- `source_rank`: `1`
 - `analysis.claim_alignment`: `"contradicts"`
-- `regulatory_flags` includes `detox_claim` with `severity: "high"`
+- `analysis.alignment_confidence`: ~`0.88`
+- `regulatory_context` includes US/FTC entry with `severity: "high"`
 
 ### 2. Low-risk relaxation claim
 
@@ -133,16 +196,17 @@ curl -s -X POST "$BASE_URL/api/query" \
     "workspace_id": "demo-evidence",
     "query": "This treatment supports relaxation and helps guests feel restored.",
     "mode": "evidence_brief",
-    "context": "POC Phase 4 evidence object test."
-  }' | jq '.claim_analysis, .sources[0].analysis, .sources[0].regulatory_flags'
+    "filters": { "max_sources": 3 },
+    "context": "POC Phase 4.5 evidence object test."
+  }' | jq '.claim_analysis.claim_type, .sources[0].analysis, .sources[0].regulatory_context'
 ```
 
 Expected:
 
 - `claim_type`: `experiential_wellness`
 - `analysis.claim_alignment`: `"background"`
-- `analysis.relevance_score`: ~`0.82`
-- `regulatory_flags`: `[]` (empty for low-risk experiential)
+- `analysis.alignment_confidence`: ~`0.92`
+- `regulatory_context` severity: `"low"`
 
 ## Related docs
 
@@ -152,6 +216,7 @@ Expected:
 
 ## Notes
 
-- One tailored source object per detected `claim_type` (detox, immunity, inflammation, cortisol/hormone, anti-aging, pain relief, sleep, stress/relaxation, experiential wellness).
+- One tailored source object per detected `claim_type` in the POC (detox, immunity, inflammation, cortisol/hormone, anti-aging, pain relief, sleep, stress/relaxation, experiential wellness).
 - URLs remain `example.com` placeholder paths.
-- Phase 5 may replace stubs with real PubMed/Cochrane retrieval — no retrieval is implemented in Phase 4.
+- Mind calls should cap sources at **3–5** via `filters.max_sources`.
+- Phase 5 may replace stubs with real PubMed/Cochrane retrieval — not implemented here.

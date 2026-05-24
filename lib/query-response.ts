@@ -18,6 +18,7 @@ export type QueryRequestBody = {
   filters?: {
     source_types?: string[];
     recency_years?: number;
+    max_sources?: number;
   };
   context?: string;
 };
@@ -381,7 +382,8 @@ const CLAIM_CONTENT: Record<ClaimType, ClaimContent> = {
 
 export function buildQueryResponse(
   workspaceId: string,
-  query: string
+  query: string,
+  filters?: QueryRequestBody["filters"]
 ): QueryResponse {
   const now = new Date().toISOString();
   const reportId = `${workspaceId}-${Date.now()}`;
@@ -400,7 +402,7 @@ export function buildQueryResponse(
     query,
     claim_analysis,
     ...content,
-    sources: getEvidenceStubs(classification.claim_type),
+    sources: getEvidenceStubs(classification.claim_type, filters?.max_sources),
     evidence_notes: EVIDENCE_NOTES,
     lucient_meta: {
       cached: false,

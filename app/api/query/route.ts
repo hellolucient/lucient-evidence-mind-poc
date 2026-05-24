@@ -51,6 +51,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const response = buildQueryResponse(workspaceId, query);
+  const response = buildQueryResponse(workspaceId, query, body.filters);
   return NextResponse.json(response);
 }
