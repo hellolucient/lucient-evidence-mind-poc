@@ -11,7 +11,7 @@ import {
   type EvidenceNotes,
   type EvidenceSource,
 } from "./evidence-stubs";
-import { fetchPubMedSources, shouldUsePubMed } from "./pubmed-retrieval";
+import { fetchPubMedSources, shouldUsePubMed, buildPubMedReportConfidence } from "./pubmed-retrieval";
 
 export type QueryRequestBody = {
   workspace_id?: string;
@@ -82,13 +82,6 @@ const STUB_REPORT_CONFIDENCE: ReportConfidence = {
   score: 0.25,
   rationale:
     "POC evidence stubs only; no real PubMed retrieval was performed for this response.",
-};
-
-const PUBMED_REPORT_CONFIDENCE: ReportConfidence = {
-  overall: "low",
-  score: 0.35,
-  rationale:
-    "Real PubMed metadata was retrieved, but sources have not yet been appraised for study design, outcomes, or direct claim support.",
 };
 
 const FALLBACK_REPORT_CONFIDENCE: ReportConfidence = {
@@ -447,7 +440,7 @@ export async function buildQueryResponse(
       if (pubmedSources.length > 0) {
         sources = pubmedSources;
         evidence_notes = PUBMED_EVIDENCE_NOTES;
-        report_confidence = PUBMED_REPORT_CONFIDENCE;
+        report_confidence = buildPubMedReportConfidence(pubmedSources);
         pubmed_fetch_status = "success";
       } else {
         pubmed_fetch_status = "failed_fallback_to_stub";

@@ -1,5 +1,13 @@
 import type { ClaimType } from "./claim-classifier";
 
+import type { SourceAppraisal } from "./pubmed-appraisal";
+
+export type EvidenceAbstract = {
+  available: boolean;
+  text: string | null;
+  excerpt: string | null;
+};
+
 export type EvidenceLevel =
   | "systematic_review"
   | "clinical_trial"
@@ -91,11 +99,16 @@ export type EvidenceSource = {
   study_limitations: string[];
   regulatory_flags: RegulatoryFlag[];
   regulatory_context: RegulatoryContextEntry[];
+  abstract?: EvidenceAbstract;
+  appraisal?: SourceAppraisal;
 };
 
 export type EvidenceNotes = {
   source_quality_note: string;
-  citation_status: "placeholder" | "metadata_retrieved_not_appraised";
+  citation_status:
+    | "placeholder"
+    | "metadata_retrieved_not_appraised"
+    | "abstracts_retrieved_not_fully_appraised";
   next_step_for_real_evidence: string;
   real_evidence_fields_needed: string[];
   appraisal_note?: string;
@@ -108,12 +121,12 @@ const POC_CITATION = "POC placeholder, not a real citation.";
 
 export const PUBMED_EVIDENCE_NOTES: EvidenceNotes = {
   source_quality_note:
-    "Phase 5 retrieved real PubMed metadata. Records are not yet appraised for claim substantiation.",
-  citation_status: "metadata_retrieved_not_appraised",
+    "Phase 6 retrieved PubMed metadata and abstracts where available. Basic automated appraisal was applied; this is not final evidence grading.",
+  citation_status: "abstracts_retrieved_not_fully_appraised",
   next_step_for_real_evidence:
-    "Appraise retrieved PubMed records for study design, outcomes, effect direction, and direct claim support.",
+    "Perform full critical appraisal, study design confirmation, outcome extraction, and claim substantiation review.",
   appraisal_note:
-    "PubMed retrieval does not determine whether records substantiate the claim. Phase 5 is metadata-only.",
+    "Phase 6 performs basic automated relevance/appraisal only, not final evidence grading. PubMed retrieval does not determine whether records substantiate the claim.",
   real_evidence_fields_needed: [
     "study_design",
     "sample_size",

@@ -102,4 +102,4 @@ Each retrieved record maps into the existing source schema with metadata-only de
 
 - NCBI E-utilities are called without an API key for this POC; requests include a tool name and are limited to `max_sources` (default 3, max 5).
 - No abstracts or full-text extraction in Phase 5.
-- Phase 6+ may add appraisal, study design parsing, and ranking beyond metadata retrieval.
+- Phase 6 adds abstract retrieval and basic automated appraisal — see [pubmed-abstract-appraisal.md](./pubmed-abstract-appraisal.md).

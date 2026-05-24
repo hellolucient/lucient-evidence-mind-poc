@@ -1,21 +1,32 @@
 import {
   resolveMaxSources,
+  type EvidenceAbstract,
   type EvidenceSource,
+  type StudyDesign,
 } from "./evidence-stubs";
+import {
+  appraisePubMedRecord,
+  isObviouslyIrrelevant,
+  type SourceAppraisal,
+  type StudyDesignDetected,
+} from "./pubmed-appraisal";
 
 const ESEARCH_URL =
   "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
 const ESUMMARY_URL =
   "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi";
+const EFETCH_URL =
+  "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi";
 const NCBI_TOOL = "lucient-evidence-mind-poc";
 const NCBI_EMAIL = "poc@example.com";
-const FETCH_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 10000;
+const ABSTRACT_EXCERPT_MAX = 600;
 
-const PHASE5_LIMITATIONS = [
-  "Phase 5 metadata-only retrieval",
-  "No abstract appraisal yet",
-  "No study design extraction yet",
+const PHASE6_LIMITATIONS = [
+  "Phase 6 metadata and abstract retrieval",
+  "Basic automated appraisal only",
   "No effect-size extraction yet",
+  "Not final evidence grading",
 ];
 
 export type PubMedFetchFilters = {
@@ -54,21 +65,21 @@ function ncbiParams(params: Record<string, string>): URLSearchParams {
   });
 }
 
-async function fetchJson(url: string): Promise<unknown> {
+async function fetchNcbi(url: string, expectJson: boolean): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: { Accept: "application/json" },
+      headers: expectJson ? { Accept: "application/json" } : undefined,
     });
 
     if (!response.ok) {
       throw new Error(`NCBI request failed with status ${response.status}`);
     }
 
-    return response.json();
+    return expectJson ? response.json() : response.text();
   } finally {
     clearTimeout(timeout);
   }
@@ -111,7 +122,7 @@ async function searchPubMedPmids(
     sort: "relevance",
   });
 
-  const data = (await fetchJson(`${ESEARCH_URL}?${params}`)) as ESearchResponse;
+  const data = (await fetchNcbi(`${ESEARCH_URL}?${params}`, true)) as ESearchResponse;
   return data.esearchresult?.idlist ?? [];
 }
 
@@ -126,7 +137,7 @@ async function fetchPubMedSummaries(pmids: string[]): Promise<ESummaryArticle[]>
     retmode: "json",
   });
 
-  const data = (await fetchJson(`${ESUMMARY_URL}?${params}`)) as ESummaryResponse;
+  const data = (await fetchNcbi(`${ESUMMARY_URL}?${params}`, true)) as ESummaryResponse;
   const result = data.result;
   if (!result) {
     return [];
@@ -134,7 +145,53 @@ async function fetchPubMedSummaries(pmids: string[]): Promise<ESummaryArticle[]>
 
   return pmids
     .map((pmid) => result[pmid])
-    .filter((article): article is ESummaryArticle => Boolean(article && typeof article === "object"));
+    .filter((article): article is ESummaryArticle =>
+      Boolean(article && typeof article === "object")
+    );
+}
+
+function parseAbstractsFromXml(xml: string): Record<string, string> {
+  const abstracts: Record<string, string> = {};
+  const articleBlocks = xml.split(/<\/PubmedArticle>/i);
+
+  for (const block of articleBlocks) {
+    const pmidMatch = block.match(/<PMID[^>]*>(\d+)<\/PMID>/i);
+    if (!pmidMatch) {
+      continue;
+    }
+
+    const parts = [...block.matchAll(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/gi)]
+      .map((match) =>
+        match[1]
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+      )
+      .filter(Boolean);
+
+    if (parts.length > 0) {
+      abstracts[pmidMatch[1]] = parts.join(" ");
+    }
+  }
+
+  return abstracts;
+}
+
+async function fetchPubMedAbstracts(
+  pmids: string[]
+): Promise<Record<string, string>> {
+  if (pmids.length === 0) {
+    return {};
+  }
+
+  const params = ncbiParams({
+    db: "pubmed",
+    id: pmids.join(","),
+    retmode: "xml",
+  });
+
+  const xml = (await fetchNcbi(`${EFETCH_URL}?${params}`, false)) as string;
+  return parseAbstractsFromXml(xml);
 }
 
 function extractDoi(article: ESummaryArticle): string | null {
@@ -168,8 +225,7 @@ function buildCitation(article: ESummaryArticle): string {
       .map((author) => author.name)
       .filter(Boolean)
       .join(", ") ?? "Unknown authors";
-  const suffix =
-    (article.authors?.length ?? 0) > 3 ? ", et al." : "";
+  const suffix = (article.authors?.length ?? 0) > 3 ? ", et al." : "";
   const journal = article.fulljournalname ?? article.source ?? "Unknown journal";
   const pubdate = article.pubdate ?? article.epubdate ?? "Unknown date";
   const title = article.title ?? "Untitled";
@@ -187,10 +243,67 @@ function relevanceScoreForRank(rank: number, total: number): number {
   return Math.max(0.35, base - (rank - 1) * step);
 }
 
+function buildAbstract(text: string | undefined): EvidenceAbstract {
+  if (!text?.trim()) {
+    return {
+      available: false,
+      text: null,
+      excerpt: null,
+    };
+  }
+
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const excerpt =
+    normalized.length > ABSTRACT_EXCERPT_MAX
+      ? `${normalized.slice(0, ABSTRACT_EXCERPT_MAX).trim()}…`
+      : normalized;
+
+  return {
+    available: true,
+    text: normalized,
+    excerpt,
+  };
+}
+
+function mapDetectedStudyDesign(detected: StudyDesignDetected): StudyDesign {
+  switch (detected) {
+    case "systematic_review":
+      return "systematic_review";
+    case "randomized_controlled_trial":
+      return "randomized_controlled_trial";
+    case "observational":
+    case "case_report":
+    case "animal_study":
+      return "observational";
+    case "review":
+    case "background":
+      return "background";
+    default:
+      return "unknown";
+  }
+}
+
+function mapDirectnessToRelevance(
+  directness: SourceAppraisal["directness_to_claim"]
+): EvidenceSource["relevance_to_claim"] {
+  switch (directness) {
+    case "direct":
+      return "direct";
+    case "partial":
+      return "indirect";
+    case "irrelevant":
+      return "background";
+    default:
+      return "indirect";
+  }
+}
+
 function mapSummaryToSource(
   article: ESummaryArticle,
   rank: number,
-  total: number
+  total: number,
+  query: string,
+  abstractText: string | undefined
 ): EvidenceSource | null {
   const pmid = article.uid;
   if (!pmid) {
@@ -202,6 +315,13 @@ function mapSummaryToSource(
   const journal = article.fulljournalname ?? article.source ?? null;
   const publication_date = article.pubdate ?? article.epubdate ?? null;
   const title = article.title?.trim() || `PubMed record ${pmid}`;
+  const abstract = buildAbstract(abstractText);
+  const { appraisal, analysis } = appraisePubMedRecord(
+    query,
+    title,
+    abstract.text,
+    relevanceScoreForRank(rank, total)
+  );
 
   return {
     source_id: `pubmed-${pmid}`,
@@ -211,10 +331,9 @@ function mapSummaryToSource(
     url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     publication_year,
     evidence_level: "unknown",
-    relevance_to_claim: "indirect",
-    supports_claim: "unclear",
-    summary:
-      "Retrieved from PubMed as a potentially relevant record. Not yet critically appraised.",
+    relevance_to_claim: mapDirectnessToRelevance(appraisal.directness_to_claim),
+    supports_claim: analysis.supports_claim,
+    summary: appraisal.appraisal_summary,
     meta: {
       pmid,
       doi,
@@ -223,21 +342,71 @@ function mapSummaryToSource(
       citation: buildCitation(article),
     },
     methodology: {
-      study_design: "unknown",
+      study_design: mapDetectedStudyDesign(analysis.study_design),
       sample_size: null,
-      population: null,
+      population:
+        appraisal.species_relevance === "animal"
+          ? "Animal study context (auto-detected)"
+          : appraisal.species_relevance === "human"
+            ? "Human study context (auto-detected)"
+            : null,
       duration: null,
     },
     analysis: {
-      outcomes: [],
-      effect_summary: "Not yet extracted in Phase 5.",
-      claim_alignment: "insufficient",
-      alignment_confidence: 0.25,
-      relevance_score: relevanceScoreForRank(rank, total),
+      outcomes: analysis.outcomes,
+      effect_summary: analysis.effect_summary,
+      claim_alignment: analysis.claim_alignment,
+      alignment_confidence: analysis.alignment_confidence,
+      relevance_score: analysis.relevance_score,
     },
-    study_limitations: [...PHASE5_LIMITATIONS],
+    study_limitations: [...PHASE6_LIMITATIONS],
     regulatory_flags: [],
     regulatory_context: [],
+    abstract,
+    appraisal,
+  };
+}
+
+export type PubMedReportConfidence = {
+  overall: "low" | "medium" | "high";
+  score: number;
+  rationale: string;
+};
+
+export function buildPubMedReportConfidence(
+  sources: EvidenceSource[]
+): PubMedReportConfidence {
+  const pubmedSources = sources.filter((source) => source.source_type === "pubmed");
+
+  if (pubmedSources.length === 0) {
+    return {
+      overall: "low",
+      score: 0.35,
+      rationale:
+        "Real PubMed metadata was retrieved, but sources have not yet been appraised for study design, outcomes, or direct claim support.",
+    };
+  }
+
+  const allIrrelevant = pubmedSources.every(
+    (source) => source.appraisal && isObviouslyIrrelevant(source.appraisal)
+  );
+
+  if (allIrrelevant) {
+    return {
+      overall: "low",
+      score: 0.25,
+      rationale:
+        "PubMed abstracts were retrieved, but automated appraisal flagged all sources as indirect or irrelevant to the claim.",
+    };
+  }
+
+  const hasAbstracts = pubmedSources.some((source) => source.abstract?.available);
+
+  return {
+    overall: "low",
+    score: hasAbstracts ? 0.4 : 0.35,
+    rationale:
+      "PubMed abstracts were retrieved and basic automated appraisal was applied, but sources have not been fully graded for claim substantiation.",
   };
 }
 
@@ -253,9 +422,21 @@ export async function fetchPubMedSources(
     return [];
   }
 
-  const summaries = await fetchPubMedSummaries(pmids.slice(0, limit));
+  const selectedPmids = pmids.slice(0, limit);
+  const [summaries, abstracts] = await Promise.all([
+    fetchPubMedSummaries(selectedPmids),
+    fetchPubMedAbstracts(selectedPmids),
+  ]);
 
   return summaries
-    .map((article, index) => mapSummaryToSource(article, index + 1, summaries.length))
+    .map((article, index) =>
+      mapSummaryToSource(
+        article,
+        index + 1,
+        summaries.length,
+        query,
+        article.uid ? abstracts[article.uid] : undefined
+      )
+    )
     .filter((source): source is EvidenceSource => source !== null);
 }
