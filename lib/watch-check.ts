@@ -55,6 +55,7 @@ export type WatchCheckResponse = {
     known_records_found: number;
     new_records_found: number;
     new_pmids: string[];
+    found_pmids: string[];
   };
   new_sources: EvidenceSource[];
   evidence_delta: {
@@ -293,6 +294,7 @@ export async function buildWatchCheckResponse(
   let recordsFound = 0;
   let knownRecordsFound = 0;
   let newPmids: string[] = [];
+  let foundPmids: string[] = [];
   let newSources: EvidenceSource[] = [];
   let queryStrategy: QueryStrategy = {
     mode: "raw",
@@ -327,10 +329,11 @@ export async function buildWatchCheckResponse(
           ? queryStrategy.structured_query
           : query;
 
-      const foundPmids = searchResult.pmids;
-      recordsFound = foundPmids.length;
-      knownRecordsFound = foundPmids.filter((pmid) => knownPmidSet.has(pmid)).length;
-      newPmids = foundPmids.filter((pmid) => !knownPmidSet.has(pmid));
+      const searchPmids = searchResult.pmids;
+      foundPmids = searchPmids;
+      recordsFound = searchPmids.length;
+      knownRecordsFound = searchPmids.filter((pmid) => knownPmidSet.has(pmid)).length;
+      newPmids = searchPmids.filter((pmid) => !knownPmidSet.has(pmid));
       pubmedStatus = "success";
 
       if (newPmids.length > 0) {
@@ -426,6 +429,7 @@ export async function buildWatchCheckResponse(
       known_records_found: knownRecordsFound,
       new_records_found: newPmids.length,
       new_pmids: newPmids,
+      found_pmids: foundPmids,
     },
     new_sources: newSources,
     ...assessment,

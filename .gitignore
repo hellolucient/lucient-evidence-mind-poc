@@ -35,3 +35,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# poc runtime state
+/data/watchlist-state.json

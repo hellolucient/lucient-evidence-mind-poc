@@ -19,6 +19,7 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 | `GET` | `/api/health` | None | Health check |
 | `POST` | `/api/query` | `Authorization: Bearer <API_KEY>` | Evidence Brief JSON (stubs or optional PubMed) |
 | `POST` | `/api/watch/check` | `Authorization: Bearer <API_KEY>` | Manual live watchlist PubMed check (Phase 9) |
+| `POST` | `/api/watch/run-due` | `Authorization: Bearer <API_KEY>` | Scheduled watchlist simulation (Phase 10) |
 
 ## Documentation
 
@@ -38,6 +39,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/watch-check-endpoint.md](./docs/watch-check-endpoint.md) | Manual live watchlist check (Phase 9) |
 | [docs/contextual-integrity-query-refinement.md](./docs/contextual-integrity-query-refinement.md) | Structured queries + context gates (Phase 9.5) |
 | [docs/delta-attribution-alert-auditability.md](./docs/delta-attribution-alert-auditability.md) | Delta attribution + alert auditability (Phase 9.6) |
+| [docs/scheduled-watchlist-simulation-phase-10.md](./docs/scheduled-watchlist-simulation-phase-10.md) | Persistent baseline + scheduled run (Phase 10) |
 
 ## POC phases (current)
 
@@ -53,6 +55,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 9 | Manual live watchlist check — `POST /api/watch/check` with PMID baseline diff |
 | 9.5 | Contextual integrity — structured PubMed queries, context gates, query_strategy |
 | 9.6 | Delta attribution — auditable contributing/non-contributing sources on watch checks |
+| 10 | Persistent watchlist baseline + `POST /api/watch/run-due` scheduler simulation |
 
 ## Setup
 
