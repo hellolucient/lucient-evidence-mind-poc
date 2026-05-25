@@ -17,6 +17,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [pubmed-appraisal-rules.md](./pubmed-appraisal-rules.md) | Phase 7 — skeptical intervention matching and relevance caps |
 | [evidence-watchlist-architecture.md](./evidence-watchlist-architecture.md) | Phase 7.5 — claim-family watchlists and privacy boundary |
 | [evidence-change-monitoring-simulation.md](./evidence-change-monitoring-simulation.md) | Phase 8 — simulated evidence-change detection and alerts |
+| [watch-check-endpoint.md](./watch-check-endpoint.md) | Phase 9 — manual live PubMed watchlist check |
 
 ## POC phase summary
 
@@ -32,6 +33,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 7 | Skeptical appraisal rules — wrong intervention vs background mention, score caps, `appraisal_debug` |
 | 7.5 | Evidence watchlist — abstracted claim families, watch topics, `evidence_change_status` placeholder, privacy boundary |
 | 8 | Evidence-change monitoring simulation — optional `evidence_monitoring` with simulated deltas and alert routing |
+| 9 | Manual live watchlist check — `POST /api/watch/check` diffs PubMed PMIDs against baseline |
 
 ## Default vs PubMed mode
 
@@ -64,6 +66,8 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `lib/pubmed-appraisal.ts` | Abstract appraisal rules |
 | `lib/evidence-watchlist.ts` | Claim-family watchlist builder |
 | `lib/evidence-monitoring.ts` | Phase 8 evidence-change simulation |
+| `lib/watch-check.ts` | Phase 9 manual live watchlist check |
+| `app/api/watch/check/route.ts` | Phase 9 HTTP handler |
 
 ## Current top-level response fields
 

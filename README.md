@@ -18,6 +18,7 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 |--------|------|------|-------------|
 | `GET` | `/api/health` | None | Health check |
 | `POST` | `/api/query` | `Authorization: Bearer <API_KEY>` | Evidence Brief JSON (stubs or optional PubMed) |
+| `POST` | `/api/watch/check` | `Authorization: Bearer <API_KEY>` | Manual live watchlist PubMed check (Phase 9) |
 
 ## Documentation
 
@@ -34,6 +35,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/pubmed-appraisal-rules.md](./docs/pubmed-appraisal-rules.md) | Skeptical appraisal rules (Phase 7) |
 | [docs/evidence-watchlist-architecture.md](./docs/evidence-watchlist-architecture.md) | Watchlist + claim families (Phase 7.5) |
 | [docs/evidence-change-monitoring-simulation.md](./docs/evidence-change-monitoring-simulation.md) | Evidence-change simulation (Phase 8) |
+| [docs/watch-check-endpoint.md](./docs/watch-check-endpoint.md) | Manual live watchlist check (Phase 9) |
 
 ## POC phases (current)
 
@@ -46,6 +48,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 7 | Skeptical appraisal — intervention vs background mention, relevance caps, `appraisal_debug` |
 | 7.5 | Evidence watchlist — abstracted claim families, watch topics, privacy boundary |
 | 8 | Evidence-change monitoring simulation — optional `evidence_monitoring` via filters |
+| 9 | Manual live watchlist check — `POST /api/watch/check` with PMID baseline diff |
 
 ## Setup
 

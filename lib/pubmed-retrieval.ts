@@ -109,7 +109,7 @@ type ESummaryResponse = {
   };
 };
 
-async function searchPubMedPmids(
+export async function searchPubMedPmids(
   query: string,
   maxResults: number,
   recencyYears?: number
@@ -418,22 +418,17 @@ export function buildPubMedReportConfidence(
   };
 }
 
-export async function fetchPubMedSources(
+export async function fetchPubMedSourcesForPmids(
   query: string,
-  maxSources?: number,
-  recencyYears?: number
+  pmids: string[]
 ): Promise<EvidenceSource[]> {
-  const limit = resolveMaxSources(maxSources);
-  const pmids = await searchPubMedPmids(query, limit, recencyYears);
-
   if (pmids.length === 0) {
     return [];
   }
 
-  const selectedPmids = pmids.slice(0, limit);
   const [summaries, abstracts] = await Promise.all([
-    fetchPubMedSummaries(selectedPmids),
-    fetchPubMedAbstracts(selectedPmids),
+    fetchPubMedSummaries(pmids),
+    fetchPubMedAbstracts(pmids),
   ]);
 
   return summaries
@@ -447,4 +442,19 @@ export async function fetchPubMedSources(
       )
     )
     .filter((source): source is EvidenceSource => source !== null);
+}
+
+export async function fetchPubMedSources(
+  query: string,
+  maxSources?: number,
+  recencyYears?: number
+): Promise<EvidenceSource[]> {
+  const limit = resolveMaxSources(maxSources);
+  const pmids = await searchPubMedPmids(query, limit, recencyYears);
+
+  if (pmids.length === 0) {
+    return [];
+  }
+
+  return fetchPubMedSourcesForPmids(query, pmids.slice(0, limit));
 }

@@ -10,6 +10,9 @@ export default function Home() {
         <li>
           <code>POST /api/query</code> — evidence brief (requires Bearer API key)
         </li>
+        <li>
+          <code>POST /api/watch/check</code> — manual live watchlist check (requires Bearer API key)
+        </li>
       </ul>
     </main>
   );
