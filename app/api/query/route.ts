@@ -4,6 +4,7 @@ import {
   buildQueryResponse,
   type QueryRequestBody,
 } from "@/lib/query-response";
+import { isValidSimulatedChangeType } from "@/lib/evidence-monitoring";
 
 export async function POST(request: NextRequest) {
   const authError = requireApiKey(request);
@@ -47,6 +48,19 @@ export async function POST(request: NextRequest) {
   if (body.mode !== undefined && body.mode !== "evidence_brief") {
     return NextResponse.json(
       { error: 'Validation error: mode must be "evidence_brief" when provided.' },
+      { status: 400 }
+    );
+  }
+
+  if (
+    body.filters?.simulated_change_type !== undefined &&
+    !isValidSimulatedChangeType(body.filters.simulated_change_type)
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'Validation error: simulated_change_type must be "none", "weak_new_source", "potentially_material_new_source", or "regulatory_warning".',
+      },
       { status: 400 }
     );
   }

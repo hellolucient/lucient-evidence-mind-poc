@@ -12,7 +12,16 @@ import {
   type EvidenceSource,
 } from "./evidence-stubs";
 import { buildWatchlist, type Watchlist } from "./evidence-watchlist";
+import {
+  buildEvidenceMonitoring,
+  resolveSimulatedChangeType,
+  shouldSimulateEvidenceChange,
+  type EvidenceMonitoring,
+  type SimulatedChangeType,
+} from "./evidence-monitoring";
 import { fetchPubMedSources, shouldUsePubMed, buildPubMedReportConfidence } from "./pubmed-retrieval";
+
+export type { SimulatedChangeType };
 
 export type QueryRequestBody = {
   workspace_id?: string;
@@ -23,6 +32,8 @@ export type QueryRequestBody = {
     recency_years?: number;
     max_sources?: number;
     use_real_pubmed?: boolean;
+    simulate_evidence_change?: boolean;
+    simulated_change_type?: SimulatedChangeType;
   };
   context?: string;
 };
@@ -54,6 +65,7 @@ export type QueryResponse = {
   sources: EvidenceSource[];
   evidence_notes: EvidenceNotes;
   watchlist: Watchlist;
+  evidence_monitoring?: EvidenceMonitoring;
   report_confidence: ReportConfidence;
   recommended_wording: {
     safer_claim: string;
@@ -456,7 +468,7 @@ export async function buildQueryResponse(
 
   const watchlist = buildWatchlist(classification.claim_type, query);
 
-  return {
+  const response: QueryResponse = {
     report_id: reportId,
     generated_at: now,
     report_status: "preliminary",
@@ -476,4 +488,15 @@ export async function buildQueryResponse(
       pubmed_fetch_status,
     },
   };
+
+  if (shouldSimulateEvidenceChange(filters)) {
+    response.evidence_monitoring = buildEvidenceMonitoring(
+      watchlist,
+      resolveSimulatedChangeType(filters),
+      sources.length,
+      now
+    );
+  }
+
+  return response;
 }

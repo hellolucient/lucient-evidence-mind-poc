@@ -33,6 +33,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/pubmed-abstract-appraisal.md](./docs/pubmed-abstract-appraisal.md) | Abstracts + appraisal (Phase 6) |
 | [docs/pubmed-appraisal-rules.md](./docs/pubmed-appraisal-rules.md) | Skeptical appraisal rules (Phase 7) |
 | [docs/evidence-watchlist-architecture.md](./docs/evidence-watchlist-architecture.md) | Watchlist + claim families (Phase 7.5) |
+| [docs/evidence-change-monitoring-simulation.md](./docs/evidence-change-monitoring-simulation.md) | Evidence-change simulation (Phase 8) |
 
 ## POC phases (current)
 
@@ -44,6 +45,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 6 | PubMed abstracts + basic appraisal |
 | 7 | Skeptical appraisal — intervention vs background mention, relevance caps, `appraisal_debug` |
 | 7.5 | Evidence watchlist — abstracted claim families, watch topics, privacy boundary |
+| 8 | Evidence-change monitoring simulation — optional `evidence_monitoring` via filters |
 
 ## Setup
 
@@ -126,6 +128,8 @@ See [docs/pubmed-retrieval-test.md](./docs/pubmed-retrieval-test.md) and [docs/p
 | `use_real_pubmed` | `false` | Must be `true` to call NCBI |
 | `max_sources` | `3` | Hard max `5` |
 | `recency_years` | none | PubMed publication date filter when set |
+| `simulate_evidence_change` | `false` | When `true`, include `evidence_monitoring` (Phase 8) |
+| `simulated_change_type` | `"none"` | `none`, `weak_new_source`, `potentially_material_new_source`, `regulatory_warning` |
 
 Without `use_real_pubmed: true`, `max_sources` still caps stub count (currently one stub per claim type).
 

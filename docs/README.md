@@ -16,6 +16,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [pubmed-abstract-appraisal.md](./pubmed-abstract-appraisal.md) | Phase 6 — abstract retrieval + basic appraisal |
 | [pubmed-appraisal-rules.md](./pubmed-appraisal-rules.md) | Phase 7 — skeptical intervention matching and relevance caps |
 | [evidence-watchlist-architecture.md](./evidence-watchlist-architecture.md) | Phase 7.5 — claim-family watchlists and privacy boundary |
+| [evidence-change-monitoring-simulation.md](./evidence-change-monitoring-simulation.md) | Phase 8 — simulated evidence-change detection and alerts |
 
 ## POC phase summary
 
@@ -30,6 +31,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 6 | PubMed abstract fetch (`efetch`) + basic automated appraisal |
 | 7 | Skeptical appraisal rules — wrong intervention vs background mention, score caps, `appraisal_debug` |
 | 7.5 | Evidence watchlist — abstracted claim families, watch topics, `evidence_change_status` placeholder, privacy boundary |
+| 8 | Evidence-change monitoring simulation — optional `evidence_monitoring` with simulated deltas and alert routing |
 
 ## Default vs PubMed mode
 
@@ -61,10 +63,11 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `lib/pubmed-retrieval.ts` | NCBI E-utilities + source mapping |
 | `lib/pubmed-appraisal.ts` | Abstract appraisal rules |
 | `lib/evidence-watchlist.ts` | Claim-family watchlist builder |
+| `lib/evidence-monitoring.ts` | Phase 8 evidence-change simulation |
 
 ## Current top-level response fields
 
-`report_id`, `generated_at`, `report_status`, `workspace_id`, `query`, `claim_analysis`, `evidence_summary`, `evidence_grade`, `risk_assessment`, `recommended_wording`, `sources`, `evidence_notes`, `watchlist`, `report_confidence`, `lucient_meta`
+`report_id`, `generated_at`, `report_status`, `workspace_id`, `query`, `claim_analysis`, `evidence_summary`, `evidence_grade`, `risk_assessment`, `recommended_wording`, `sources`, `evidence_notes`, `watchlist`, `evidence_monitoring` (optional, Phase 8), `report_confidence`, `lucient_meta`
 
 ## What this POC does not include
 

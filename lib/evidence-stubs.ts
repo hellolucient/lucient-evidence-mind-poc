@@ -113,10 +113,14 @@ export type EvidenceNotes = {
   real_evidence_fields_needed: string[];
   appraisal_note?: string;
   watchlist_note?: string;
+  monitoring_note?: string;
 };
 
 export const WATCHLIST_NOTE =
   "Phase 7.5 introduces abstracted claim-family watch topics. These are designed for evidence monitoring without exposing client-private wording to the Mind.";
+
+export const MONITORING_NOTE =
+  "Phase 8 simulates evidence-change detection and alert routing for claim families. This is not yet real background monitoring.";
 
 export const DEFAULT_MAX_SOURCES = 3;
 export const HARD_MAX_SOURCES = 5;
@@ -132,6 +136,7 @@ export const PUBMED_EVIDENCE_NOTES: EvidenceNotes = {
   appraisal_note:
     "Phase 7 performs skeptical automated relevance/appraisal only. Mention of magnesium or cortisol in a paper does not mean the intervention was tested or substantiates the claim.",
   watchlist_note: WATCHLIST_NOTE,
+  monitoring_note: MONITORING_NOTE,
   real_evidence_fields_needed: [
     "study_design",
     "sample_size",
@@ -152,6 +157,7 @@ export const EVIDENCE_NOTES: EvidenceNotes = {
   next_step_for_real_evidence:
     "Replace evidence stubs with retrieved sources from PubMed, Cochrane, clinical guidelines, or curated evidence databases.",
   watchlist_note: WATCHLIST_NOTE,
+  monitoring_note: MONITORING_NOTE,
   real_evidence_fields_needed: [
     "pmid",
     "doi",
