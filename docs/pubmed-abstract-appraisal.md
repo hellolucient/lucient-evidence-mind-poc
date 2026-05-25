@@ -5,7 +5,10 @@ Purpose: extend Phase 5 PubMed retrieval with **abstract fetching** and a **basi
 **Important:**
 
 - This is **not full claim substantiation**. Phase 6 applies deterministic rules only — not clinical grading or effect-size extraction.
+- **Phase 7 supersedes** the Phase 6 appraisal rules with skeptical intervention matching, relevance caps, and `appraisal_debug`. See [pubmed-appraisal-rules.md](./pubmed-appraisal-rules.md) for current behavior.
 - Use demo workspace IDs and synthetic queries only. Do **not** send real client-private data.
+
+See [docs/README.md](./README.md) for the full documentation index.
 
 ## What Phase 6 adds
 
@@ -74,19 +77,22 @@ curl -s -X POST "$BASE_URL/api/query" \
 | `species_relevance` | `human`, `animal`, `mixed`, `unclear` | Animal terms (goats, rats, mice, etc.) trigger `animal` |
 | `study_design_detected` | `systematic_review`, `review`, `randomized_controlled_trial`, `observational`, `case_report`, `animal_study`, `unknown` | Detected from title/abstract keywords |
 | `directness_to_claim` | `direct`, `partial`, `indirect`, `irrelevant` | Wrong intervention or animal-only often → `irrelevant` |
-| `intervention_match` | `direct`, `partial`, `wrong_intervention`, `unclear` | Magnesium query vs chromium-only record → `wrong_intervention` |
+| `intervention_match` | `direct`, `partial`, `background`, `wrong_intervention`, `unclear` | Phase 7 distinguishes tested intervention vs biomarker mention vs wrong subject |
 | `outcome_match` | `direct`, `partial`, `missing`, `unclear` | Cortisol query without cortisol/HPA terms → `missing` |
 | `exclusion_flags` | e.g. `animal_only`, `wrong_intervention`, `case_report`, `no_cortisol_endpoint` | Drives relevance_score penalties |
+| `appraisal_debug` | object | Phase 7 — `intervention_terms_found`, `outcome_terms_found`, `study_design_terms_found`, `downgrade_reasons` |
 
-### Automated rules (Phase 6)
+### Automated rules
+
+Phase 6 introduced basic keyword rules. **Phase 7** tightened them — see [pubmed-appraisal-rules.md](./pubmed-appraisal-rules.md) for current caps and examples:
 
 - **Animal-only:** goats, rats, mice, bovine, etc. → `animal_only`, lower relevance
 - **Case report:** "case report" in text → `case_report` flag
 - **Wrong intervention:** magnesium query but chromium/other nutrient without magnesium → `wrong_intervention`
+- **Background mention:** magnesium measured but not tested → `background` (not `direct`)
 - **Missing cortisol endpoint:** cortisol query but no cortisol/HPA/stress-hormone terms → `no_cortisol_endpoint`
-- **Boost:** magnesium + cortisol/stress terms in human/mixed context → slight relevance increase
 
-`supports_claim` remains `"unclear"` unless obviously irrelevant (`"no"`). `claim_alignment` stays `"insufficient"` in Phase 6.
+`supports_claim` remains `"unclear"` unless obviously irrelevant (`"no"`). `claim_alignment` stays `"insufficient"`.
 
 ## Warning
 
@@ -103,6 +109,7 @@ curl -s -X POST "$BASE_URL/api/query" \
 
 ## Related docs
 
+- [pubmed-appraisal-rules.md](./pubmed-appraisal-rules.md) — Phase 7 current appraisal rules (supersedes Phase 6 rules)
 - [pubmed-retrieval-test.md](./pubmed-retrieval-test.md) — Phase 5 base PubMed path
 - [real-evidence-object-shape.md](./real-evidence-object-shape.md) — source object schema
 - [magnesium-test.md](./magnesium-test.md) — base request/response schema

@@ -2,9 +2,11 @@
 
 Purpose: extend `POST /api/query` source objects so they resemble **future real research records**, while still using **stubbed/static POC data**.
 
-**Important:** These are **not real citations**. `pmid` and `doi` are `null`; `meta.citation` reads `"POC placeholder, not a real citation."` Use demo workspace IDs and synthetic queries only. Do **not** send real client-private data.
+**Important:** Stub sources are **not real citations**. `pmid` and `doi` are `null`; `meta.citation` reads `"POC placeholder, not a real citation."` Use demo workspace IDs and synthetic queries only. Do **not** send real client-private data.
 
-Phase 5 may add real retrieval from PubMed, Cochrane, or curated databases.
+See [docs/README.md](./README.md) for the full documentation index.
+
+**PubMed sources (Phases 5–7):** When `filters.use_real_pubmed` is `true` and retrieval succeeds, `source_type` is `"pubmed"` with real `meta.pmid`, plus `abstract` and `appraisal` fields. See [pubmed-retrieval-test.md](./pubmed-retrieval-test.md) and [pubmed-appraisal-rules.md](./pubmed-appraisal-rules.md).
 
 ## What Phase 4 adds
 
@@ -124,7 +126,7 @@ This field will be populated by real retrieval/ranking logic in a future phase.
 }
 ```
 
-The POC currently returns one stub per claim type, so the cap has little effect until Phase 5 adds real multi-source retrieval.
+The POC returns one stub per claim type in stub mode. In PubMed mode, `max_sources` caps real records returned (default 3, hard max 5).
 
 ## Evidence notes (Phase 4.5)
 
@@ -213,10 +215,10 @@ Expected:
 - [evidence-source-stubs.md](./evidence-source-stubs.md) — Phase 3 base stub schema
 - [dynamic-claim-tests.md](./dynamic-claim-tests.md) — claim classification tests
 - [magnesium-test.md](./magnesium-test.md) — base request/response schema
+- [pubmed-retrieval-test.md](./pubmed-retrieval-test.md) — real PubMed retrieval (Phases 5–7)
 
 ## Notes
 
-- One tailored source object per detected `claim_type` in the POC (detox, immunity, inflammation, cortisol/hormone, anti-aging, pain relief, sleep, stress/relaxation, experiential wellness).
-- URLs remain `example.com` placeholder paths.
+- One tailored source object per detected `claim_type` in stub mode (detox, immunity, inflammation, cortisol/hormone, anti-aging, pain relief, sleep, stress/relaxation, experiential wellness).
+- URLs remain `example.com` placeholder paths for stubs; PubMed sources link to NCBI.
 - Mind calls should cap sources at **3–5** via `filters.max_sources`.
-- Phase 5 may replace stubs with real PubMed/Cochrane retrieval — not implemented here.

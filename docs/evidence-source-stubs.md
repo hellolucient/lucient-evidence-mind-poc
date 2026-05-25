@@ -4,6 +4,10 @@ Purpose: provide **structured, claim-tailored evidence stubs** in `POST /api/que
 
 **Important:** These are **POC placeholder stubs only** — not real PubMed, Cochrane, or clinical citations. Use demo workspace IDs and synthetic queries. Do **not** send real client-private data.
 
+See [docs/README.md](./README.md) for the full documentation index.
+
+**When stubs are returned:** default responses (no `use_real_pubmed`) and PubMed fallback when retrieval fails or returns no records (`lucient_meta.pubmed_fetch_status: "failed_fallback_to_stub"`).
+
 ## What Phase 3 adds
 
 - Richer `sources[]` objects with evidence level, relevance, support assessment, and summary
@@ -12,9 +16,9 @@ Purpose: provide **structured, claim-tailored evidence stubs** in `POST /api/que
 
 Existing response fields (`report_id`, `claim_analysis`, `evidence_summary`, `risk_assessment`, etc.) are unchanged.
 
-## Source object schema
+## Source object schema (Phase 3 base)
 
-Each item in `sources`:
+Each item in `sources` includes at minimum:
 
 ```json
 {
@@ -30,9 +34,11 @@ Each item in `sources`:
 }
 ```
 
+Phase 4/4.5 extends this with nested `meta`, `methodology`, `analysis`, `study_limitations`, `regulatory_flags`, `regulatory_context`, and `source_rank`. See [real-evidence-object-shape.md](./real-evidence-object-shape.md).
+
 | Field | Values |
 |-------|--------|
-| `source_type` | Always `"evidence_stub"` in this POC |
+| `source_type` | `"evidence_stub"` in stub mode; `"pubmed"` when PubMed retrieval succeeds |
 | `evidence_level` | `systematic_review`, `clinical_trial`, `observational`, `guideline`, `background`, `unknown` |
 | `relevance_to_claim` | `direct`, `indirect`, `background` |
 | `supports_claim` | `yes`, `no`, `mixed`, `unclear` |
@@ -123,10 +129,11 @@ Expected:
 
 - [dynamic-claim-tests.md](./dynamic-claim-tests.md) — claim classification and risk-level tests
 - [magnesium-test.md](./magnesium-test.md) — base request/response schema
+- [real-evidence-object-shape.md](./real-evidence-object-shape.md) — Phase 4/4.5 nested source schema
+- [pubmed-retrieval-test.md](./pubmed-retrieval-test.md) — optional real PubMed retrieval (Phases 5–7)
 
 ## Notes
 
 - URLs point to `example.com` placeholder paths — not live citations.
-- Replace stubs with real retrieval logic when moving beyond POC.
+- PubMed mode (`use_real_pubmed: true`) returns real `pubmed` sources when successful; stubs remain the fallback.
 - `workspace_id` and `query` echo the request; timestamps are generated at request time.
-- See [real-evidence-object-shape.md](./real-evidence-object-shape.md) for Phase 4 nested evidence object schema (`meta`, `methodology`, `analysis`, `regulatory_flags`).

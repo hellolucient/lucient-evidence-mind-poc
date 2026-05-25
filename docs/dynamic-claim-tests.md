@@ -4,6 +4,8 @@ Purpose: verify that `POST /api/query` returns **deterministic, keyword-classifi
 
 **Important:** Use demo workspace IDs and synthetic queries only. Do **not** send real client-private data.
 
+See [docs/README.md](./README.md) for the full documentation index.
+
 ## Request schema
 
 Same as [magnesium-test.md](./magnesium-test.md):
@@ -13,8 +15,18 @@ Same as [magnesium-test.md](./magnesium-test.md):
 | `workspace_id` | Yes | Echoed in response |
 | `query` | Yes | Drives keyword-based `claim_analysis` |
 | `mode` | No | If provided, must be `"evidence_brief"` |
-| `filters` | No | Accepted but ignored in POC |
-| `context` | No | Accepted but ignored in POC |
+| `filters` | No | Optional; see below |
+| `context` | No | Accepted; not used in POC logic |
+
+### Filters (stub vs PubMed)
+
+These tests use **stub mode** (no `use_real_pubmed`). Claim classification is the same in both modes.
+
+| Filter | Stub mode | PubMed mode |
+|--------|-----------|-------------|
+| `max_sources` | Caps stub count (currently one per claim type) | Caps PubMed records returned |
+| `use_real_pubmed` | omit or `false` | must be `true` with `source_types: ["pubmed"]` |
+| `recency_years` | ignored | PubMed date filter |
 
 ## Response additions
 
@@ -146,8 +158,9 @@ Expected:
 
 ## Notes
 
-- Evidence content and sources are **placeholder only**.
+- Evidence content and sources are **placeholder only** in stub mode.
 - `workspace_id` and `query` echo the request.
 - Replace `$BASE_URL` with your Vercel deployment URL for remote testing.
-- See [evidence-source-stubs.md](./evidence-source-stubs.md) for Phase 3 evidence stub schema and curl examples.
-- See [real-evidence-object-shape.md](./real-evidence-object-shape.md) for Phase 4 nested evidence object schema.
+- See [evidence-source-stubs.md](./evidence-source-stubs.md) for Phase 3 evidence stubs.
+- See [real-evidence-object-shape.md](./real-evidence-object-shape.md) for Phase 4/4.5 nested source schema.
+- See [pubmed-retrieval-test.md](./pubmed-retrieval-test.md) and [pubmed-appraisal-rules.md](./pubmed-appraisal-rules.md) for PubMed mode.

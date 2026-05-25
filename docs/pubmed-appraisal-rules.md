@@ -6,6 +6,8 @@ Purpose: tighten Phase 6 automated appraisal so the POC does **not** treat “me
 
 Use demo queries only. Do **not** send real client-private data.
 
+See [docs/README.md](./README.md) for the full documentation index.
+
 ## What Phase 7 adds
 
 - Skeptical **intervention matching** (tested vs biomarker vs background vs wrong intervention)
@@ -134,6 +136,9 @@ Each PubMed source may include:
 ## Request example
 
 ```bash
+export API_KEY="your-secret-api-key-here"
+export BASE_URL="http://localhost:3000"
+
 curl -s -X POST "$BASE_URL/api/query" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $API_KEY" \

@@ -11,6 +11,7 @@ import {
   type EvidenceNotes,
   type EvidenceSource,
 } from "./evidence-stubs";
+import { buildWatchlist, type Watchlist } from "./evidence-watchlist";
 import { fetchPubMedSources, shouldUsePubMed, buildPubMedReportConfidence } from "./pubmed-retrieval";
 
 export type QueryRequestBody = {
@@ -52,6 +53,7 @@ export type QueryResponse = {
   };
   sources: EvidenceSource[];
   evidence_notes: EvidenceNotes;
+  watchlist: Watchlist;
   report_confidence: ReportConfidence;
   recommended_wording: {
     safer_claim: string;
@@ -452,6 +454,8 @@ export async function buildQueryResponse(
     }
   }
 
+  const watchlist = buildWatchlist(classification.claim_type, query);
+
   return {
     report_id: reportId,
     generated_at: now,
@@ -462,6 +466,7 @@ export async function buildQueryResponse(
     ...content,
     sources,
     evidence_notes,
+    watchlist,
     report_confidence,
     lucient_meta: {
       cached: false,

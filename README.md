@@ -7,27 +7,43 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 1. Call our HTTPS endpoint
 2. Authenticate with an API key
 3. Send a `workspace_id` and evidence query
-4. Receive structured JSON
-5. Turn that JSON into an Evidence Brief artifact
+4. Receive structured JSON suitable for an Evidence Brief
+5. Optionally retrieve real PubMed metadata with automated appraisal (Phases 5–7)
 
-All evidence output is **static/dummy** for integration testing only, unless `filters.use_real_pubmed` is enabled (Phase 5 — see below).
+**Use demo workspace IDs and synthetic queries only.** Do not send real client-private data.
 
 ## Endpoints
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/api/health` | None | Health check |
-| `POST` | `/api/query` | `Authorization: Bearer <API_KEY>` | Returns an Evidence Brief JSON (stubs or optional PubMed metadata) |
+| `POST` | `/api/query` | `Authorization: Bearer <API_KEY>` | Evidence Brief JSON (stubs or optional PubMed) |
 
-See [docs/magnesium-test.md](./docs/magnesium-test.md) for request/response schemas and curl examples.
+## Documentation
 
-### Phase 5: optional PubMed retrieval
+Full doc index: [docs/README.md](./docs/README.md)
 
-When `filters.use_real_pubmed` is `true` and `filters.source_types` includes `"pubmed"`, the API calls NCBI E-utilities and maps results into the existing source object schema. Metadata only — no claim substantiation yet.
+| Doc | Topic |
+|-----|-------|
+| [docs/magnesium-test.md](./docs/magnesium-test.md) | Base API reference |
+| [docs/dynamic-claim-tests.md](./docs/dynamic-claim-tests.md) | Claim classification (Phase 2) |
+| [docs/evidence-source-stubs.md](./docs/evidence-source-stubs.md) | Evidence stubs (Phase 3) |
+| [docs/real-evidence-object-shape.md](./docs/real-evidence-object-shape.md) | Source object schema (Phase 4/4.5) |
+| [docs/pubmed-retrieval-test.md](./docs/pubmed-retrieval-test.md) | PubMed metadata (Phase 5) |
+| [docs/pubmed-abstract-appraisal.md](./docs/pubmed-abstract-appraisal.md) | Abstracts + appraisal (Phase 6) |
+| [docs/pubmed-appraisal-rules.md](./docs/pubmed-appraisal-rules.md) | Skeptical appraisal rules (Phase 7) |
+| [docs/evidence-watchlist-architecture.md](./docs/evidence-watchlist-architecture.md) | Watchlist + claim families (Phase 7.5) |
 
-See [docs/pubmed-retrieval-test.md](./docs/pubmed-retrieval-test.md) for curl examples and fallback behavior.
+## POC phases (current)
 
-Phase 7 tightens skeptical PubMed appraisal rules — see [docs/pubmed-appraisal-rules.md](./docs/pubmed-appraisal-rules.md).
+| Phase | Capability |
+|-------|------------|
+| 1–2 | API + dynamic `claim_analysis` from query keywords |
+| 3–4.5 | Rich `sources[]` stubs with nested research-record fields |
+| 5 | Optional PubMed metadata (`use_real_pubmed` + `source_types: ["pubmed"]`) |
+| 6 | PubMed abstracts + basic appraisal |
+| 7 | Skeptical appraisal — intervention vs background mention, relevance caps, `appraisal_debug` |
+| 7.5 | Evidence watchlist — abstracted claim families, watch topics, privacy boundary |
 
 ## Setup
 
@@ -38,7 +54,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and set your API key:
+Edit `.env.local`:
 
 ```bash
 EIE_TOOL_API_KEY=your-secret-api-key-here
@@ -50,9 +66,9 @@ EIE_TOOL_API_KEY=your-secret-api-key-here
 npm run dev
 ```
 
-The API runs at [http://localhost:3000](http://localhost:3000).
+API: [http://localhost:3000](http://localhost:3000)
 
-### Quick test
+## Quick tests
 
 Health check:
 
@@ -60,7 +76,27 @@ Health check:
 curl -s http://localhost:3000/api/health
 ```
 
-Query (replace the API key with your value from `.env.local`):
+### Stub mode (default)
+
+Returns claim-classified evidence stubs — no PubMed call:
+
+```bash
+curl -s -X POST http://localhost:3000/api/query \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-secret-api-key-here" \
+  -d '{
+    "workspace_id": "demo-magnesium",
+    "query": "Magnesium for cortisol regulation",
+    "mode": "evidence_brief",
+    "context": "Animoca Mind integration test. No real client data."
+  }' | jq '.claim_analysis, .sources[0].source_type, .lucient_meta.pubmed_fetch_status'
+```
+
+Expected: `source_type: "evidence_stub"`, `pubmed_fetch_status: "not_requested"`.
+
+### PubMed mode (Phases 5–7)
+
+Requires outbound HTTPS to NCBI E-utilities:
 
 ```bash
 curl -s -X POST http://localhost:3000/api/query \
@@ -72,11 +108,26 @@ curl -s -X POST http://localhost:3000/api/query \
     "mode": "evidence_brief",
     "filters": {
       "source_types": ["pubmed"],
+      "use_real_pubmed": true,
+      "max_sources": 3,
       "recency_years": 10
     },
-    "context": "Animoca Mind integration test. No real client data."
-  }'
+    "context": "PubMed integration test. No real client data."
+  }' | jq '.lucient_meta.pubmed_fetch_status, .evidence_notes.citation_status, .report_confidence, .sources[0] | {source_type, appraisal: .appraisal.intervention_match, relevance: .analysis.relevance_score}'
 ```
+
+See [docs/pubmed-retrieval-test.md](./docs/pubmed-retrieval-test.md) and [docs/pubmed-appraisal-rules.md](./docs/pubmed-appraisal-rules.md) for fallback behavior and appraisal rules.
+
+## Filters reference
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| `source_types` | — | Include `"pubmed"` for PubMed mode |
+| `use_real_pubmed` | `false` | Must be `true` to call NCBI |
+| `max_sources` | `3` | Hard max `5` |
+| `recency_years` | none | PubMed publication date filter when set |
+
+Without `use_real_pubmed: true`, `max_sources` still caps stub count (currently one stub per claim type).
 
 ## Scripts
 
@@ -91,33 +142,33 @@ curl -s -X POST http://localhost:3000/api/query \
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `EIE_TOOL_API_KEY` | Yes (for `/api/query`) | Bearer token expected in the `Authorization` header |
+| `EIE_TOOL_API_KEY` | Yes (for `/api/query`) | Bearer token in `Authorization` header |
 
-If `EIE_TOOL_API_KEY` is missing at runtime, `/api/query` returns `500` with a safe error message. The key is never logged or exposed in responses.
+If missing at runtime, `/api/query` returns `500`. The key is never logged or exposed in responses.
 
 ## Deploy to Vercel
 
-1. Push this repo to GitHub (if not already).
-2. Import the project in [Vercel](https://vercel.com/new).
-3. Set the environment variable:
-   - **Name:** `EIE_TOOL_API_KEY`
-   - **Value:** a strong secret (generate one for production)
-4. Deploy. Vercel detects Next.js automatically.
+1. Push this repo to GitHub.
+2. Import in [Vercel](https://vercel.com/new).
+3. Set `EIE_TOOL_API_KEY` in project environment variables.
+4. Deploy (Next.js auto-detected).
 
-After deploy, test:
+After deploy:
 
 ```bash
 curl -s https://YOUR-PROJECT.vercel.app/api/health
 ```
 
-Use the same `POST /api/query` curl as above, replacing the host and API key.
+Use the curl examples above with your Vercel URL and API key. PubMed mode requires Vercel outbound network access to `eutils.ncbi.nlm.nih.gov`.
 
 ## What this does not include
 
 - Database, Supabase, auth provider, dashboard, RLS
 - Full evidence search, PDF handling, full workspace system
 - Background jobs, webhooks
-- Full claim substantiation or final evidence grading (Phase 7 is conservative automated appraisal only)
+- Final claim substantiation or clinical evidence grading
+
+PubMed retrieval and Phase 7 appraisal are **conservative and automated only** — not proof that a claim is supported.
 
 ## License
 
