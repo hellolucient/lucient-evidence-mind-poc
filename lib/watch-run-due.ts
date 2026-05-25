@@ -19,6 +19,7 @@ export type RunDueRequestBody = {
   dry_run?: boolean;
   max_watches?: number;
   context?: string;
+  debug_only?: boolean;
 };
 
 export type WatchRunResultStatus = "completed" | "skipped" | "error";
@@ -87,7 +88,7 @@ export type WatchRunFailedResponse = {
   debug: {
     route: "/api/watch/run-due";
     phase: "10.5";
-    likely_cause: string;
+    stage: string;
   };
 };
 
@@ -407,17 +408,12 @@ export async function buildRunDueResponse(
   };
 }
 
-export function buildWatchRunFailedResponse(error: unknown): WatchRunFailedResponse {
-  const message = error instanceof Error ? error.message : "Unknown error during watch run.";
-  const lower = message.toLowerCase();
-
-  let likelyCause = "Unexpected error during scheduled watch run.";
-  if (lower.includes("eacces") || lower.includes("read-only") || lower.includes("erofs")) {
-    likelyCause =
-      "Attempted filesystem write on a read-only serverless filesystem (e.g. Vercel).";
-  } else if (lower.includes("pubmed") || lower.includes("fetch")) {
-    likelyCause = "PubMed retrieval or network failure during watch check.";
-  }
+export function buildWatchRunFailedResponse(
+  error: unknown,
+  stage = "unknown"
+): WatchRunFailedResponse {
+  const message =
+    error instanceof Error ? error.message : "Unknown error during watch run.";
 
   return {
     error: "watch_run_failed",
@@ -426,7 +422,7 @@ export function buildWatchRunFailedResponse(error: unknown): WatchRunFailedRespo
     debug: {
       route: "/api/watch/run-due",
       phase: "10.5",
-      likely_cause: likelyCause,
+      stage,
     },
   };
 }

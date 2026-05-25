@@ -1,5 +1,3 @@
-import { createHash } from "crypto";
-
 import { buildQueryStrategy } from "@/lib/structured-query";
 
 import type { StoredQueryStrategy, WatchTopicState } from "./watchlist-store";
@@ -12,6 +10,18 @@ export type QueryHashInput = {
   query_version: string;
 };
 
+/** Pure JS FNV-1a — safe in Node and Edge without importing `crypto`. */
+function fnv1aHex(input: string): string {
+  let hash = 2166136261;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 export function hashQueryStrategy(input: QueryHashInput): string {
   const payload = JSON.stringify({
     watch_topic_id: input.watch_topic_id,
@@ -21,7 +31,10 @@ export function hashQueryStrategy(input: QueryHashInput): string {
     structured_query: input.structured_query ?? "",
   });
 
-  return createHash("sha256").update(payload).digest("hex").slice(0, 16);
+  const primary = fnv1aHex(payload);
+  const secondary = fnv1aHex(`${payload}:watchlist-query-hash`);
+
+  return `${primary}${secondary}`.slice(0, 16);
 }
 
 export function hashStoredQueryStrategy(topic: WatchTopicState): string {

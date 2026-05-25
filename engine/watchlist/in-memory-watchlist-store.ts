@@ -64,6 +64,10 @@ const IN_MEMORY_STORE_STATUS: WatchlistStoreStatus = {
   next_step: "Select and configure a durable store before real autonomous monitoring.",
 };
 
+function cloneWatchTopic(topic: WatchTopicState): WatchTopicState {
+  return JSON.parse(JSON.stringify(topic)) as WatchTopicState;
+}
+
 export class InMemoryWatchlistStore implements WatchlistStore {
   private topics: Map<string, WatchTopicState> = new Map();
 
@@ -76,7 +80,7 @@ export class InMemoryWatchlistStore implements WatchlistStore {
   }
 
   async saveWatchTopic(topic: WatchTopicState): Promise<void> {
-    this.topics.set(topic.watch_topic_id, structuredClone(topic));
+    this.topics.set(topic.watch_topic_id, cloneWatchTopic(topic));
   }
 
   async updateWatchTopicState(
@@ -134,9 +138,14 @@ export class InMemoryWatchlistStore implements WatchlistStore {
 let defaultStore: InMemoryWatchlistStore | null = null;
 
 export function getInMemoryWatchlistStore(): InMemoryWatchlistStore {
-  if (!defaultStore) {
-    defaultStore = new InMemoryWatchlistStore();
-  }
+  try {
+    if (!defaultStore) {
+      defaultStore = new InMemoryWatchlistStore();
+    }
 
-  return defaultStore;
+    return defaultStore;
+  } catch {
+    defaultStore = new InMemoryWatchlistStore();
+    return defaultStore;
+  }
 }
