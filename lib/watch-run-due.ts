@@ -4,7 +4,6 @@ import {
   loadWatchlistState,
   mergeKnownPmids,
   resolveCurrentQueryHash,
-  saveWatchlistState,
   type StoredLastAlert,
   type StoredLastHeartbeat,
   type WatchTopicState,
@@ -51,6 +50,12 @@ export type WatchRunTopicResult = {
   error_message?: string;
 };
 
+export type PersistenceWarning = {
+  durable: false;
+  reason: string;
+  next_step: string;
+};
+
 export type RunDueResponse = {
   run_id: string;
   generated_at: string;
@@ -66,7 +71,19 @@ export type RunDueResponse = {
     scheduled_runner_does_not_receive: string[];
     app_maps_back_to_clients: true;
   };
+  persistence_warning: PersistenceWarning;
   limitations: string[];
+};
+
+export type WatchRunFailedResponse = {
+  error: "watch_run_failed";
+  message: string;
+  generated_at: string;
+  debug: {
+    route: "/api/watch/run-due";
+    phase: "10";
+    likely_cause: string;
+  };
 };
 
 const DEFAULT_SCHEDULED_FILTERS: PubMedFetchFilters = {
@@ -77,10 +94,16 @@ const DEFAULT_SCHEDULED_FILTERS: PubMedFetchFilters = {
   use_structured_query: true,
 };
 
+const RUN_DUE_PERSISTENCE_WARNING: PersistenceWarning = {
+  durable: false,
+  reason: "Vercel serverless filesystem is not suitable for durable JSON file writes.",
+  next_step: "Move watchlist_state to Supabase or another external persistence layer.",
+};
+
 const RUN_DUE_LIMITATIONS = [
   "POC scheduler simulation only",
   "No real cron configured yet",
-  "State stored in JSON file for demonstration",
+  "Phase 10 currently uses in-memory POC state on Vercel. State may reset between serverless invocations. Durable persistence should use Supabase or another external store in the next persistence phase.",
   "No client workspace mapping yet",
   "No non-PubMed regulatory source integration yet",
 ];
@@ -348,10 +371,6 @@ export async function buildRunDueResponse(
     results.push(await runWatchTopicCheck(topic, workspaceId, dryRun));
   }
 
-  if (!dryRun) {
-    await saveWatchlistState(state);
-  }
-
   const activeCount = state.watch_topics.filter((topic) => topic.active).length;
   const completed = results.filter((result) => result.status === "completed").length;
   const skippedCount = results.filter((result) => result.status === "skipped").length;
@@ -367,6 +386,31 @@ export async function buildRunDueResponse(
     watches_skipped: skippedCount,
     results,
     privacy_boundary: RUN_DUE_PRIVACY_BOUNDARY,
+    persistence_warning: RUN_DUE_PERSISTENCE_WARNING,
     limitations: RUN_DUE_LIMITATIONS,
+  };
+}
+
+export function buildWatchRunFailedResponse(error: unknown): WatchRunFailedResponse {
+  const message = error instanceof Error ? error.message : "Unknown error during watch run.";
+  const lower = message.toLowerCase();
+
+  let likelyCause = "Unexpected error during scheduled watch run.";
+  if (lower.includes("eacces") || lower.includes("read-only") || lower.includes("erofs")) {
+    likelyCause =
+      "Attempted filesystem write on a read-only serverless filesystem (e.g. Vercel).";
+  } else if (lower.includes("pubmed") || lower.includes("fetch")) {
+    likelyCause = "PubMed retrieval or network failure during watch check.";
+  }
+
+  return {
+    error: "watch_run_failed",
+    message,
+    generated_at: new Date().toISOString(),
+    debug: {
+      route: "/api/watch/run-due",
+      phase: "10",
+      likely_cause: likelyCause,
+    },
   };
 }

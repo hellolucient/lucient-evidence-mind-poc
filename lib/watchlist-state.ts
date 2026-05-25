@@ -1,6 +1,4 @@
 import { createHash } from "crypto";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { join } from "path";
 
 import type { ContributingSourceToDelta } from "./delta-attribution";
 import {
@@ -61,14 +59,15 @@ export type WatchlistState = {
   watch_topics: WatchTopicState[];
 };
 
-export const WATCHLIST_STATE_PATH = join(process.cwd(), "data", "watchlist-state.json");
-
 export const MAGNESIUM_CORTISOL_QUERY_VERSION = "watch-magnesium-cortisol@v1";
 
 const MAGNESIUM_CORTISOL_BASELINE_POLICY =
   "Avoid direct cortisol-regulation claims; use relaxation/general wellbeing wording unless stronger direct human evidence emerges.";
 
 const MAGNESIUM_CORTISOL_RAW_QUERY = "Magnesium for cortisol regulation";
+
+/** POC in-memory state; resets when the serverless instance cold-starts. */
+let inMemoryWatchlistState: WatchlistState | null = null;
 
 function buildSeedQueryStrategy(): StoredQueryStrategy {
   const strategy = {
@@ -142,25 +141,16 @@ export function resolveCurrentQueryHash(topic: WatchTopicState): string {
 }
 
 export async function loadWatchlistState(): Promise<WatchlistState> {
-  try {
-    const raw = await readFile(WATCHLIST_STATE_PATH, "utf8");
-    const parsed = JSON.parse(raw) as WatchlistState;
-
-    if (!Array.isArray(parsed.watch_topics)) {
-      return createSeedWatchlistState();
-    }
-
-    return parsed;
-  } catch {
-    const seed = createSeedWatchlistState();
-    await saveWatchlistState(seed);
-    return seed;
+  if (!inMemoryWatchlistState) {
+    inMemoryWatchlistState = createSeedWatchlistState();
   }
+
+  return inMemoryWatchlistState;
 }
 
+/** No-op for POC: state is held in memory and mutated in place. */
 export async function saveWatchlistState(state: WatchlistState): Promise<void> {
-  await mkdir(join(process.cwd(), "data"), { recursive: true });
-  await writeFile(WATCHLIST_STATE_PATH, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  void state;
 }
 
 export function calculateNextCheckUtc(
