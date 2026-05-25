@@ -11,7 +11,7 @@ export async function GET() {
     service: "lucient-evidence-mind",
     endpoint: "/api/watch/run-due",
     status: "ok",
-    phase: "10",
+    phase: "10.5",
   });
 }
 

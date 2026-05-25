@@ -1,11 +1,13 @@
 import {
   calculateNextCheckUtc,
   getDueWatchTopics,
-  loadWatchlistState,
+  getWatchlistStore,
   mergeKnownPmids,
   resolveCurrentQueryHash,
   type StoredLastAlert,
   type StoredLastHeartbeat,
+  type WatchlistStore,
+  type WatchlistStoreStatus,
   type WatchTopicState,
 } from "./watchlist-state";
 import { buildWatchCheckResponse, type WatchCheckResponse } from "./watch-check";
@@ -56,6 +58,8 @@ export type PersistenceWarning = {
   next_step: string;
 };
 
+export type PersistenceStatus = WatchlistStoreStatus;
+
 export type RunDueResponse = {
   run_id: string;
   generated_at: string;
@@ -71,6 +75,7 @@ export type RunDueResponse = {
     scheduled_runner_does_not_receive: string[];
     app_maps_back_to_clients: true;
   };
+  persistence_status: PersistenceStatus;
   persistence_warning: PersistenceWarning;
   limitations: string[];
 };
@@ -81,7 +86,7 @@ export type WatchRunFailedResponse = {
   generated_at: string;
   debug: {
     route: "/api/watch/run-due";
-    phase: "10";
+    phase: "10.5";
     likely_cause: string;
   };
 };
@@ -96,14 +101,16 @@ const DEFAULT_SCHEDULED_FILTERS: PubMedFetchFilters = {
 
 const RUN_DUE_PERSISTENCE_WARNING: PersistenceWarning = {
   durable: false,
-  reason: "Vercel serverless filesystem is not suitable for durable JSON file writes.",
-  next_step: "Move watchlist_state to Supabase or another external persistence layer.",
+  reason:
+    "Current POC store is in-memory only. Vercel serverless memory may reset between invocations.",
+  next_step: "Choose durable persistence provider in the next phase.",
 };
 
 const RUN_DUE_LIMITATIONS = [
   "POC scheduler simulation only",
   "No real cron configured yet",
-  "Phase 10 currently uses in-memory POC state on Vercel. State may reset between serverless invocations. Durable persistence should use Supabase or another external store in the next persistence phase.",
+  "Phase 10.5 uses in-memory WatchlistStore adapter; state may reset between serverless cold starts",
+  "Durable store adapter not configured yet",
   "No client workspace mapping yet",
   "No non-PubMed regulatory source integration yet",
 ];
@@ -211,6 +218,7 @@ function buildStoredAlert(
 }
 
 export async function runWatchTopicCheck(
+  store: WatchlistStore,
   topic: WatchTopicState,
   workspaceId: string,
   dryRun: boolean,
@@ -285,20 +293,24 @@ export async function runWatchTopicCheck(
     }
 
     if (!dryRun && checkSucceeded) {
-      topic.last_checked_utc = generatedAt;
-      topic.next_check_utc = nextCheck;
-      topic.baseline.known_pmids = merged;
-      if (!topic.baseline.baseline_created_utc) {
-        topic.baseline.baseline_created_utc = generatedAt;
-      }
-      topic.query_strategy.query_hash = currentHash;
-
-      if (check.evidence_change_alert.alert_required) {
-        topic.last_alert = buildStoredAlert(check, generatedAt);
-        topic.last_heartbeat = null;
-      } else {
-        topic.last_heartbeat = heartbeat;
-      }
+      await store.updateWatchTopicState(topic.watch_topic_id, {
+        last_checked_utc: generatedAt,
+        next_check_utc: nextCheck,
+        baseline: {
+          known_pmids: merged,
+          baseline_created_utc:
+            topic.baseline.baseline_created_utc ?? generatedAt,
+        },
+        query_strategy: {
+          query_hash: currentHash,
+        },
+        last_alert: check.evidence_change_alert.alert_required
+          ? buildStoredAlert(check, generatedAt)
+          : null,
+        last_heartbeat: check.evidence_change_alert.alert_required
+          ? null
+          : heartbeat,
+      });
     }
 
     return result;
@@ -358,8 +370,10 @@ export async function buildRunDueResponse(
       ? Math.floor(body.max_watches)
       : 5;
 
-  const state = await loadWatchlistState();
-  const { due, skipped } = getDueWatchTopics(state, force, now);
+  const store = getWatchlistStore();
+  await store.seedDefaultWatchTopicsIfEmpty();
+  const topics = await store.listWatchTopics();
+  const { due, skipped } = getDueWatchTopics(topics, force, now);
   const toRun = due.slice(0, maxWatches);
   const results: WatchRunTopicResult[] = [];
 
@@ -368,12 +382,13 @@ export async function buildRunDueResponse(
   }
 
   for (const topic of toRun) {
-    results.push(await runWatchTopicCheck(topic, workspaceId, dryRun));
+    results.push(await runWatchTopicCheck(store, topic, workspaceId, dryRun));
   }
 
-  const activeCount = state.watch_topics.filter((topic) => topic.active).length;
+  const activeCount = topics.filter((topic) => topic.active).length;
   const completed = results.filter((result) => result.status === "completed").length;
   const skippedCount = results.filter((result) => result.status === "skipped").length;
+  const persistenceStatus = store.getStoreStatus();
 
   return {
     run_id: `${workspaceId}-run-${Date.now()}`,
@@ -386,6 +401,7 @@ export async function buildRunDueResponse(
     watches_skipped: skippedCount,
     results,
     privacy_boundary: RUN_DUE_PRIVACY_BOUNDARY,
+    persistence_status: persistenceStatus,
     persistence_warning: RUN_DUE_PERSISTENCE_WARNING,
     limitations: RUN_DUE_LIMITATIONS,
   };
@@ -409,7 +425,7 @@ export function buildWatchRunFailedResponse(error: unknown): WatchRunFailedRespo
     generated_at: new Date().toISOString(),
     debug: {
       route: "/api/watch/run-due",
-      phase: "10",
+      phase: "10.5",
       likely_cause: likelyCause,
     },
   };

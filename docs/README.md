@@ -21,6 +21,8 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [contextual-integrity-query-refinement.md](./contextual-integrity-query-refinement.md) | Phase 9.5 — structured queries and context gates |
 | [delta-attribution-alert-auditability.md](./delta-attribution-alert-auditability.md) | Phase 9.6 — delta attribution and alert auditability |
 | [scheduled-watchlist-simulation-phase-10.md](./scheduled-watchlist-simulation-phase-10.md) | Phase 10 — persistent baseline and scheduled run simulation |
+| [watchlist-persistence-readiness-phase-10-5.md](./watchlist-persistence-readiness-phase-10-5.md) | Phase 10.5 — store adapter and persistence readiness |
+| [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md) | Future durable watchlist schema (design only) |
 
 ## POC phase summary
 
@@ -39,7 +41,8 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 9 | Manual live watchlist check — `POST /api/watch/check` diffs PubMed PMIDs against baseline |
 | 9.5 | Contextual integrity — structured PubMed queries, context gates, `query_strategy` metadata |
 | 9.6 | Delta attribution — `contributing_sources_to_delta`, `non_contributing_sources`, alert reason codes |
-| 10 | Persistent watchlist baseline — JSON state file + `POST /api/watch/run-due` |
+| 10 | Persistent watchlist baseline — in-memory state + `POST /api/watch/run-due` |
+| 10.5 | WatchlistStore interface — in-memory adapter, persistence_status, future durable stub |
 
 ## Default vs PubMed mode
 
@@ -76,7 +79,10 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `lib/structured-query.ts` | Phase 9.5 structured PubMed query builder |
 | `lib/contextual-appraisal.ts` | Phase 9.5 context gates and score caps |
 | `lib/delta-attribution.ts` | Phase 9.6 delta attribution and alert auditability |
-| `lib/watchlist-state.ts` | Phase 10 JSON state persistence |
+| `lib/watchlist-state.ts` | Scheduling helpers + re-exports from engine/watchlist |
+| `engine/watchlist/watchlist-store.ts` | Phase 10.5 WatchlistStore interface |
+| `engine/watchlist/in-memory-watchlist-store.ts` | Phase 10.5 in-memory adapter |
+| `engine/watchlist/query-hash.ts` | Phase 10.5 query hash + drift detection |
 | `lib/watch-run-due.ts` | Phase 10 scheduled run orchestration |
 | `app/api/watch/run-due/route.ts` | Phase 10 HTTP handler |
 | `app/api/watch/check/route.ts` | Phase 9 HTTP handler |
