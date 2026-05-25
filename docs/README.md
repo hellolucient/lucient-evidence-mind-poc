@@ -19,6 +19,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [evidence-change-monitoring-simulation.md](./evidence-change-monitoring-simulation.md) | Phase 8 — simulated evidence-change detection and alerts |
 | [watch-check-endpoint.md](./watch-check-endpoint.md) | Phase 9 — manual live PubMed watchlist check |
 | [contextual-integrity-query-refinement.md](./contextual-integrity-query-refinement.md) | Phase 9.5 — structured queries and context gates |
+| [delta-attribution-alert-auditability.md](./delta-attribution-alert-auditability.md) | Phase 9.6 — delta attribution and alert auditability |
 
 ## POC phase summary
 
@@ -36,6 +37,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 8 | Evidence-change monitoring simulation — optional `evidence_monitoring` with simulated deltas and alert routing |
 | 9 | Manual live watchlist check — `POST /api/watch/check` diffs PubMed PMIDs against baseline |
 | 9.5 | Contextual integrity — structured PubMed queries, context gates, `query_strategy` metadata |
+| 9.6 | Delta attribution — `contributing_sources_to_delta`, `non_contributing_sources`, alert reason codes |
 
 ## Default vs PubMed mode
 
@@ -71,6 +73,7 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `lib/watch-check.ts` | Phase 9 manual live watchlist check |
 | `lib/structured-query.ts` | Phase 9.5 structured PubMed query builder |
 | `lib/contextual-appraisal.ts` | Phase 9.5 context gates and score caps |
+| `lib/delta-attribution.ts` | Phase 9.6 delta attribution and alert auditability |
 | `app/api/watch/check/route.ts` | Phase 9 HTTP handler |
 
 ## Current top-level response fields

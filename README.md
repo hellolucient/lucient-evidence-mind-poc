@@ -37,6 +37,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/evidence-change-monitoring-simulation.md](./docs/evidence-change-monitoring-simulation.md) | Evidence-change simulation (Phase 8) |
 | [docs/watch-check-endpoint.md](./docs/watch-check-endpoint.md) | Manual live watchlist check (Phase 9) |
 | [docs/contextual-integrity-query-refinement.md](./docs/contextual-integrity-query-refinement.md) | Structured queries + context gates (Phase 9.5) |
+| [docs/delta-attribution-alert-auditability.md](./docs/delta-attribution-alert-auditability.md) | Delta attribution + alert auditability (Phase 9.6) |
 
 ## POC phases (current)
 
@@ -51,6 +52,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 8 | Evidence-change monitoring simulation — optional `evidence_monitoring` via filters |
 | 9 | Manual live watchlist check — `POST /api/watch/check` with PMID baseline diff |
 | 9.5 | Contextual integrity — structured PubMed queries, context gates, query_strategy |
+| 9.6 | Delta attribution — auditable contributing/non-contributing sources on watch checks |
 
 ## Setup
 

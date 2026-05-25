@@ -5,6 +5,13 @@ import type {
   EvidenceDeltaDirection,
 } from "./evidence-monitoring";
 import { isContextuallyMaterialSource } from "./contextual-appraisal";
+import {
+  buildDeltaAttribution,
+  emptyDeltaAttribution,
+  type ContributingSourceToDelta,
+  type DeltaAttribution,
+  type NonContributingSource,
+} from "./delta-attribution";
 import type { QueryStrategy } from "./structured-query";
 import {
   fetchPubMedSourcesForPmids,
@@ -55,6 +62,10 @@ export type WatchCheckResponse = {
     direction: EvidenceDeltaDirection;
     delta_summary: string;
     delta_confidence: number;
+    contributing_sources_to_delta: ContributingSourceToDelta[];
+    non_contributing_sources: NonContributingSource[];
+    alert_reason_codes: string[];
+    alert_threshold_explanation: string;
   };
   policy_impact: {
     policy_change_recommended: boolean;
@@ -85,6 +96,7 @@ const WATCH_CHECK_LIMITATIONS = [
   "PubMed query construction is still basic",
   "Automated appraisal is conservative and not final evidence grading",
   "Phase 9.5 structured queries and context gates reduce but do not eliminate retrieval noise",
+  "Phase 9.6 delta attribution is computed per request and not persisted",
 ];
 
 const WATCH_CHECK_PRIVACY_BOUNDARY: WatchCheckResponse["privacy_boundary"] = {
@@ -114,6 +126,26 @@ function hasMaterialNewSource(sources: EvidenceSource[]): boolean {
   );
 }
 
+function withDeltaAttribution(
+  evidenceDelta: Omit<
+    WatchCheckResponse["evidence_delta"],
+    keyof DeltaAttribution
+  >,
+  alertType: EvidenceChangeAlertType,
+  newSources: EvidenceSource[],
+  newPmidCount: number
+): WatchCheckResponse["evidence_delta"] {
+  return {
+    ...evidenceDelta,
+    ...buildDeltaAttribution(
+      newSources,
+      evidenceDelta.change_level,
+      alertType,
+      newPmidCount
+    ),
+  };
+}
+
 function assessWatchCheckOutcome(
   claimFamily: string,
   baselinePolicy: string,
@@ -140,14 +172,20 @@ function assessWatchCheckOutcome(
   };
 
   if (newPmids.length === 0) {
+    const alertType = "none" as EvidenceChangeAlertType;
     return {
-      evidence_delta: {
-        change_level: "none",
-        direction: "no_change",
-        delta_summary:
-          "No new PubMed records found since baseline; evidence profile unchanged.",
-        delta_confidence: 0.9,
-      },
+      evidence_delta: withDeltaAttribution(
+        {
+          change_level: "none",
+          direction: "no_change",
+          delta_summary:
+            "No new PubMed records found since baseline; evidence profile unchanged.",
+          delta_confidence: 0.9,
+        },
+        alertType,
+        newSources,
+        0
+      ),
       policy_impact: {
         ...basePolicyImpact,
         policy_reason: "Baseline PMID set covers all records returned by the current search.",
@@ -164,15 +202,21 @@ function assessWatchCheckOutcome(
       materialSource?.appraisal?.contextual_relevance === "direct"
         ? "strengthens_support"
         : "unclear";
+    const alertType = "human_review" as EvidenceChangeAlertType;
 
     return {
-      evidence_delta: {
-        change_level: "possible_material",
-        direction,
-        delta_summary:
-          "New human RCT or systematic review with context-gate pass and relevant intervention/outcome roles detected; human review recommended.",
-        delta_confidence: 0.65,
-      },
+      evidence_delta: withDeltaAttribution(
+        {
+          change_level: "possible_material",
+          direction,
+          delta_summary:
+            "New human RCT or systematic review with context-gate pass and relevant intervention/outcome roles detected; human review recommended.",
+          delta_confidence: 0.65,
+        },
+        alertType,
+        newSources,
+        newPmids.length
+      ),
       policy_impact: {
         policy_change_recommended: false,
         previous_policy: baselinePolicy,
@@ -182,7 +226,7 @@ function assessWatchCheckOutcome(
       },
       evidence_change_alert: {
         alert_required: true,
-        alert_type: "human_review",
+        alert_type: alertType,
         affected_claim_family_id: claimFamily,
         affected_workspace_ids_visible_to_mind: false,
         app_should_map_to_private_workspaces: true,
@@ -197,16 +241,22 @@ function assessWatchCheckOutcome(
       source.appraisal?.context_gate === "fail" ||
       source.appraisal?.exclusion_flags.includes("context_gate_fail")
   );
+  const alertType: EvidenceChangeAlertType = hasOnlyGatedNoise ? "none" : "monitor";
 
   return {
-    evidence_delta: {
-      change_level: hasOnlyGatedNoise ? "none" : "minor",
-      direction: "unclear",
-      delta_summary: hasOnlyGatedNoise
-        ? "New PubMed records were found but failed contextual integrity gates (animal/veterinary/pathological noise)."
-        : "New PubMed records found, but contextual appraisal flags them as indirect, weak, or not directly relevant.",
-      delta_confidence: hasOnlyGatedNoise ? 0.85 : 0.35,
-    },
+    evidence_delta: withDeltaAttribution(
+      {
+        change_level: hasOnlyGatedNoise ? "none" : "minor",
+        direction: "unclear",
+        delta_summary: hasOnlyGatedNoise
+          ? "New PubMed records were found but failed contextual integrity gates (animal/veterinary/pathological noise)."
+          : "New PubMed records found, but contextual appraisal flags them as indirect, weak, or not directly relevant.",
+        delta_confidence: hasOnlyGatedNoise ? 0.85 : 0.35,
+      },
+      alertType,
+      newSources,
+      newPmids.length
+    ),
     policy_impact: {
       ...basePolicyImpact,
       policy_reason: hasOnlyGatedNoise
@@ -215,7 +265,7 @@ function assessWatchCheckOutcome(
     },
     evidence_change_alert: {
       alert_required: false,
-      alert_type: hasOnlyGatedNoise ? "none" : "monitor",
+      alert_type: alertType,
       affected_claim_family_id: claimFamily,
       affected_workspace_ids_visible_to_mind: false,
       app_should_map_to_private_workspaces: true,
@@ -300,6 +350,11 @@ export async function buildWatchCheckResponse(
             delta_summary:
               "PubMed check failed; unable to compare against baseline PMID list.",
             delta_confidence: 0.2,
+            ...emptyDeltaAttribution(
+              "none",
+              "PubMed retrieval failed; no source attribution available.",
+              ["PUBMED_CHECK_ERROR"]
+            ),
           },
           policy_impact: {
             policy_change_recommended: false,
@@ -325,6 +380,11 @@ export async function buildWatchCheckResponse(
               delta_summary:
                 'PubMed check skipped; set filters.use_real_pubmed=true and filters.source_types=["pubmed"] to run a live check.',
               delta_confidence: 0.5,
+              ...emptyDeltaAttribution(
+                "none",
+                "Live PubMed check was not performed; no source attribution available.",
+                ["PUBMED_CHECK_SKIPPED"]
+              ),
             },
             policy_impact: {
               policy_change_recommended: false,
