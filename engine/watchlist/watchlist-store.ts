@@ -63,6 +63,22 @@ export type WatchlistStoreStatus = {
   state_survives_cold_start: boolean;
   suitable_for_production_monitoring: boolean;
   next_step: string;
+  watch_topic_loaded_from?: "database" | "memory";
+  watch_topic_saved?: boolean;
+  fallback_reason?: string | null;
+};
+
+export type WatchlistStoreEnvDebug = {
+  has_supabase_url: boolean;
+  has_supabase_service_role_key: boolean;
+  supabase_url_host: string | null;
+  selected_store: "supabase" | "in_memory";
+  fallback_reason: string | null;
+};
+
+export type WatchlistStoreSelection = {
+  store: WatchlistStore;
+  env_debug: WatchlistStoreEnvDebug;
 };
 
 export interface WatchlistStore {

@@ -11,7 +11,7 @@ function buildRouteErrorResponse(error: unknown, stage: string) {
     generated_at: new Date().toISOString(),
     debug: {
       route: "/api/watch/run-due" as const,
-      phase: "10.5" as const,
+      phase: "11" as const,
       stage,
     },
   };
@@ -22,7 +22,7 @@ export async function GET() {
     service: "lucient-evidence-mind",
     endpoint: "/api/watch/run-due",
     status: "ok",
-    phase: "10.5",
+    phase: "11",
   });
 }
 
@@ -49,20 +49,26 @@ export async function POST(request: NextRequest) {
 
     if (body.debug_only === true) {
       stage = "debug_only";
-      const { getWatchlistStore } = await import("@/engine/watchlist");
-      const store = getWatchlistStore();
-      const persistenceStatus = store.getStoreStatus();
+      const { buildPersistenceStatus, resolveWatchlistStore } = await import(
+        "@/engine/watchlist"
+      );
+      const selection = await resolveWatchlistStore();
+      const persistenceStatus = buildPersistenceStatus(selection);
 
       return NextResponse.json({
         service: "lucient-evidence-mind",
         endpoint: "/api/watch/run-due",
         status: "post_ok",
-        phase: "10.5",
+        phase: "11",
         persistence_status: {
           durable: persistenceStatus.durable,
           store: persistenceStatus.store,
           adapter: persistenceStatus.adapter,
+          state_survives_cold_start: persistenceStatus.state_survives_cold_start,
+          suitable_for_production_monitoring:
+            persistenceStatus.suitable_for_production_monitoring,
         },
+        env_debug: selection.env_debug,
       });
     }
 

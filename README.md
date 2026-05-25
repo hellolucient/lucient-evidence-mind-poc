@@ -42,6 +42,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/scheduled-watchlist-simulation-phase-10.md](./docs/scheduled-watchlist-simulation-phase-10.md) | Persistent baseline + scheduled run (Phase 10) |
 | [docs/watchlist-persistence-readiness-phase-10-5.md](./docs/watchlist-persistence-readiness-phase-10-5.md) | Store adapter + persistence readiness (Phase 10.5) |
 | [docs/future-watchlist-persistence-schema.md](./docs/future-watchlist-persistence-schema.md) | Future durable watchlist schema (design only) |
+| [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) | Supabase durable watchlist store (Phase 11) |
 
 ## POC phases (current)
 
@@ -59,6 +60,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 9.6 | Delta attribution — auditable contributing/non-contributing sources on watch checks |
 | 10 | Persistent watchlist baseline + `POST /api/watch/run-due` scheduler simulation |
 | 10.5 | Watchlist store interface + in-memory adapter; persistence readiness without external DB |
+| 11 | SupabaseWatchlistStore — durable `watchlist_topics` persistence with in-memory fallback |
 
 ## Setup
 

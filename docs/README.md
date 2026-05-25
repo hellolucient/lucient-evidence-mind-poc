@@ -23,6 +23,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [scheduled-watchlist-simulation-phase-10.md](./scheduled-watchlist-simulation-phase-10.md) | Phase 10 — persistent baseline and scheduled run simulation |
 | [watchlist-persistence-readiness-phase-10-5.md](./watchlist-persistence-readiness-phase-10-5.md) | Phase 10.5 — store adapter and persistence readiness |
 | [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md) | Future durable watchlist schema (design only) |
+| [supabase-watchlist-store-phase-11.md](./supabase-watchlist-store-phase-11.md) | Phase 11 — Supabase durable watchlist store |
 
 ## POC phase summary
 
@@ -43,6 +44,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 9.6 | Delta attribution — `contributing_sources_to_delta`, `non_contributing_sources`, alert reason codes |
 | 10 | Persistent watchlist baseline — in-memory state + `POST /api/watch/run-due` |
 | 10.5 | WatchlistStore interface — in-memory adapter, persistence_status, future durable stub |
+| 11 | SupabaseWatchlistStore — durable watchlist_topics with env-based fallback |
 
 ## Default vs PubMed mode
 
@@ -83,6 +85,8 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `engine/watchlist/watchlist-store.ts` | Phase 10.5 WatchlistStore interface |
 | `engine/watchlist/in-memory-watchlist-store.ts` | Phase 10.5 in-memory adapter |
 | `engine/watchlist/query-hash.ts` | Phase 10.5 query hash + drift detection |
+| `engine/watchlist/supabase-watchlist-store.ts` | Phase 11 Supabase durable adapter |
+| `engine/watchlist/store-selector.ts` | Phase 11 adapter selection + fallback |
 | `lib/watch-run-due.ts` | Phase 10 scheduled run orchestration |
 | `app/api/watch/run-due/route.ts` | Phase 10 HTTP handler |
 | `app/api/watch/check/route.ts` | Phase 9 HTTP handler |

@@ -1,12 +1,14 @@
 import {
+  buildPersistenceStatus,
   calculateNextCheckUtc,
   getDueWatchTopics,
-  getWatchlistStore,
   mergeKnownPmids,
   resolveCurrentQueryHash,
+  resolveWatchlistStore,
   type StoredLastAlert,
   type StoredLastHeartbeat,
   type WatchlistStore,
+  type WatchlistStoreSelection,
   type WatchlistStoreStatus,
   type WatchTopicState,
 } from "./watchlist-state";
@@ -54,7 +56,7 @@ export type WatchRunTopicResult = {
 };
 
 export type PersistenceWarning = {
-  durable: false;
+  durable: boolean;
   reason: string;
   next_step: string;
 };
@@ -87,7 +89,7 @@ export type WatchRunFailedResponse = {
   generated_at: string;
   debug: {
     route: "/api/watch/run-due";
-    phase: "10.5";
+    phase: "11";
     stage: string;
   };
 };
@@ -100,21 +102,51 @@ const DEFAULT_SCHEDULED_FILTERS: PubMedFetchFilters = {
   use_structured_query: true,
 };
 
-const RUN_DUE_PERSISTENCE_WARNING: PersistenceWarning = {
+const RUN_DUE_PERSISTENCE_WARNING_IN_MEMORY: PersistenceWarning = {
   durable: false,
   reason:
     "Current POC store is in-memory only. Vercel serverless memory may reset between invocations.",
-  next_step: "Choose durable persistence provider in the next phase.",
+  next_step: "Configure Supabase env vars or choose durable persistence provider.",
 };
 
-const RUN_DUE_LIMITATIONS = [
+const RUN_DUE_PERSISTENCE_WARNING_SUPABASE: PersistenceWarning = {
+  durable: true,
+  reason: "Watchlist state is persisted to Supabase watchlist_topics.",
+  next_step: "Configure Vercel cron or scheduled trigger for autonomous monitoring.",
+};
+
+const RUN_DUE_LIMITATIONS_BASE = [
   "POC scheduler simulation only",
   "No real cron configured yet",
-  "Phase 10.5 uses in-memory WatchlistStore adapter; state may reset between serverless cold starts",
-  "Durable store adapter not configured yet",
   "No client workspace mapping yet",
   "No non-PubMed regulatory source integration yet",
 ];
+
+function buildPersistenceWarning(
+  selection: WatchlistStoreSelection
+): PersistenceWarning {
+  if (selection.env_debug.selected_store === "supabase") {
+    return RUN_DUE_PERSISTENCE_WARNING_SUPABASE;
+  }
+
+  return RUN_DUE_PERSISTENCE_WARNING_IN_MEMORY;
+}
+
+function buildRunDueLimitations(selection: WatchlistStoreSelection): string[] {
+  if (selection.env_debug.selected_store === "supabase") {
+    return [
+      ...RUN_DUE_LIMITATIONS_BASE,
+      "Phase 11 uses SupabaseWatchlistStore for durable watchlist persistence",
+    ];
+  }
+
+  return [
+    ...RUN_DUE_LIMITATIONS_BASE,
+    selection.env_debug.fallback_reason
+      ? `Supabase fallback active: ${selection.env_debug.fallback_reason}`
+      : "Phase 11 fell back to in-memory WatchlistStore adapter",
+  ];
+}
 
 const RUN_DUE_PRIVACY_BOUNDARY: RunDueResponse["privacy_boundary"] = {
   scheduled_runner_receives: [
@@ -294,6 +326,11 @@ export async function runWatchTopicCheck(
     }
 
     if (!dryRun && checkSucceeded) {
+      const heartbeatUpdate =
+        heartbeat.emitted && !check.evidence_change_alert.alert_required
+          ? heartbeat
+          : null;
+
       await store.updateWatchTopicState(topic.watch_topic_id, {
         last_checked_utc: generatedAt,
         next_check_utc: nextCheck,
@@ -304,13 +341,12 @@ export async function runWatchTopicCheck(
         },
         query_strategy: {
           query_hash: currentHash,
+          query_version: topic.query_strategy.query_version,
         },
         last_alert: check.evidence_change_alert.alert_required
           ? buildStoredAlert(check, generatedAt)
           : null,
-        last_heartbeat: check.evidence_change_alert.alert_required
-          ? null
-          : heartbeat,
+        last_heartbeat: heartbeatUpdate,
       });
     }
 
@@ -371,7 +407,8 @@ export async function buildRunDueResponse(
       ? Math.floor(body.max_watches)
       : 5;
 
-  const store = getWatchlistStore();
+  const selection = await resolveWatchlistStore();
+  const store = selection.store;
   await store.seedDefaultWatchTopicsIfEmpty();
   const topics = await store.listWatchTopics();
   const { due, skipped } = getDueWatchTopics(topics, force, now);
@@ -389,7 +426,7 @@ export async function buildRunDueResponse(
   const activeCount = topics.filter((topic) => topic.active).length;
   const completed = results.filter((result) => result.status === "completed").length;
   const skippedCount = results.filter((result) => result.status === "skipped").length;
-  const persistenceStatus = store.getStoreStatus();
+  const persistenceStatus = buildPersistenceStatus(selection);
 
   return {
     run_id: `${workspaceId}-run-${Date.now()}`,
@@ -403,8 +440,8 @@ export async function buildRunDueResponse(
     results,
     privacy_boundary: RUN_DUE_PRIVACY_BOUNDARY,
     persistence_status: persistenceStatus,
-    persistence_warning: RUN_DUE_PERSISTENCE_WARNING,
-    limitations: RUN_DUE_LIMITATIONS,
+    persistence_warning: buildPersistenceWarning(selection),
+    limitations: buildRunDueLimitations(selection),
   };
 }
 
@@ -421,7 +458,7 @@ export function buildWatchRunFailedResponse(
     generated_at: new Date().toISOString(),
     debug: {
       route: "/api/watch/run-due",
-      phase: "10.5",
+      phase: "11",
       stage,
     },
   };

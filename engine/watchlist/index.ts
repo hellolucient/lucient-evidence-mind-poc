@@ -1,5 +1,8 @@
-import { getInMemoryWatchlistStore } from "./in-memory-watchlist-store";
-import type { WatchlistStore } from "./watchlist-store";
+import type {
+  WatchlistStore,
+  WatchlistStoreEnvDebug,
+  WatchlistStoreSelection,
+} from "./watchlist-store";
 
 export type {
   StoredLastAlert,
@@ -10,6 +13,8 @@ export type {
   WatchTopicState,
   WatchTopicStatePatch,
   WatchlistStore,
+  WatchlistStoreEnvDebug,
+  WatchlistStoreSelection,
   WatchlistStoreStatus,
 } from "./watchlist-store";
 
@@ -27,7 +32,11 @@ export {
   MAGNESIUM_CORTISOL_QUERY_VERSION,
 } from "./in-memory-watchlist-store";
 
-/** Returns the active watchlist store. Defaults to in-memory for POC Phase 10.5. */
-export function getWatchlistStore(): WatchlistStore {
-  return getInMemoryWatchlistStore();
-}
+export { SupabaseWatchlistStore } from "./supabase-watchlist-store";
+export { createSupabaseServerClient, getSupabaseEnvConfig } from "./supabase-client";
+
+export {
+  buildPersistenceStatus,
+  getWatchlistStore,
+  resolveWatchlistStore,
+} from "./store-selector";

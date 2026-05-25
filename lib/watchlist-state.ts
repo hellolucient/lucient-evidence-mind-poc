@@ -1,6 +1,8 @@
 import {
+  buildPersistenceStatus,
   createSeedWatchTopic,
   getWatchlistStore,
+  resolveWatchlistStore,
   hashQueryStrategy,
   MAGNESIUM_CORTISOL_QUERY_VERSION,
   resolveCurrentQueryHash,
@@ -12,6 +14,8 @@ import {
   type WatchTopicState,
   type WatchTopicStatePatch,
   type WatchlistStore,
+  type WatchlistStoreEnvDebug,
+  type WatchlistStoreSelection,
   type WatchlistStoreStatus,
 } from "@/engine/watchlist";
 
@@ -24,12 +28,16 @@ export type {
   WatchTopicState,
   WatchTopicStatePatch,
   WatchlistStore,
+  WatchlistStoreEnvDebug,
+  WatchlistStoreSelection,
   WatchlistStoreStatus,
 };
 
 export {
+  buildPersistenceStatus,
   createSeedWatchTopic,
   getWatchlistStore,
+  resolveWatchlistStore,
   hashQueryStrategy,
   MAGNESIUM_CORTISOL_QUERY_VERSION,
   resolveCurrentQueryHash,
@@ -98,9 +106,9 @@ export function mergeKnownPmids(
   return { merged, added };
 }
 
-/** @deprecated Use getWatchlistStore().seedDefaultWatchTopicsIfEmpty() instead. */
+/** @deprecated Use resolveWatchlistStore() for async adapter selection. */
 export async function loadWatchlistState(): Promise<{ watch_topics: WatchTopicState[] }> {
-  const store = getWatchlistStore();
+  const { store } = await resolveWatchlistStore();
   await store.seedDefaultWatchTopicsIfEmpty();
   const watch_topics = await store.listWatchTopics();
   return { watch_topics };
