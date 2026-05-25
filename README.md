@@ -36,6 +36,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/evidence-watchlist-architecture.md](./docs/evidence-watchlist-architecture.md) | Watchlist + claim families (Phase 7.5) |
 | [docs/evidence-change-monitoring-simulation.md](./docs/evidence-change-monitoring-simulation.md) | Evidence-change simulation (Phase 8) |
 | [docs/watch-check-endpoint.md](./docs/watch-check-endpoint.md) | Manual live watchlist check (Phase 9) |
+| [docs/contextual-integrity-query-refinement.md](./docs/contextual-integrity-query-refinement.md) | Structured queries + context gates (Phase 9.5) |
 
 ## POC phases (current)
 
@@ -49,6 +50,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 7.5 | Evidence watchlist — abstracted claim families, watch topics, privacy boundary |
 | 8 | Evidence-change monitoring simulation — optional `evidence_monitoring` via filters |
 | 9 | Manual live watchlist check — `POST /api/watch/check` with PMID baseline diff |
+| 9.5 | Contextual integrity — structured PubMed queries, context gates, query_strategy |
 
 ## Setup
 
@@ -133,6 +135,7 @@ See [docs/pubmed-retrieval-test.md](./docs/pubmed-retrieval-test.md) and [docs/p
 | `recency_years` | none | PubMed publication date filter when set |
 | `simulate_evidence_change` | `false` | When `true`, include `evidence_monitoring` (Phase 8) |
 | `simulated_change_type` | `"none"` | `none`, `weak_new_source`, `potentially_material_new_source`, `regulatory_warning` |
+| `use_structured_query` | `false` on `/api/query`; `true` on `/api/watch/check` | Structured PubMed query for supported watch topics (Phase 9.5) |
 
 Without `use_real_pubmed: true`, `max_sources` still caps stub count (currently one stub per claim type).
 

@@ -10,6 +10,12 @@ import {
   type SourceAppraisal,
   type StudyDesignDetected,
 } from "./pubmed-appraisal";
+import { applyContextualAppraisal } from "./contextual-appraisal";
+import {
+  buildQueryStrategy,
+  resolveUseStructuredQuery,
+  type QueryStrategy,
+} from "./structured-query";
 
 const ESEARCH_URL =
   "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
@@ -34,6 +40,12 @@ export type PubMedFetchFilters = {
   recency_years?: number;
   max_sources?: number;
   use_real_pubmed?: boolean;
+  use_structured_query?: boolean;
+};
+
+export type PubMedSearchResult = {
+  pmids: string[];
+  query_strategy: QueryStrategy;
 };
 
 export function shouldUsePubMed(filters?: PubMedFetchFilters): boolean {
@@ -124,6 +136,70 @@ export async function searchPubMedPmids(
 
   const data = (await fetchNcbi(`${ESEARCH_URL}?${params}`, true)) as ESearchResponse;
   return data.esearchresult?.idlist ?? [];
+}
+
+export async function searchPubMedWithStrategy(
+  rawQuery: string,
+  maxResults: number,
+  recencyYears: number | undefined,
+  options: {
+    watch_topic_id?: string | null;
+    claim_family?: string | null;
+    use_structured_query?: boolean;
+    default_structured_query_when_unset?: boolean;
+  }
+): Promise<PubMedSearchResult> {
+  const useStructured = resolveUseStructuredQuery(
+    { use_structured_query: options.use_structured_query },
+    options.default_structured_query_when_unset ?? false
+  );
+
+  const strategy = buildQueryStrategy(
+    rawQuery,
+    options.watch_topic_id ?? null,
+    options.claim_family ?? null,
+    useStructured
+  );
+
+  if (strategy.mode === "structured" && strategy.structured_query) {
+    try {
+      const pmids = await searchPubMedPmids(
+        strategy.structured_query,
+        maxResults,
+        recencyYears
+      );
+      return {
+        pmids,
+        query_strategy: {
+          ...strategy,
+          fallback_used: false,
+          fallback_reason: null,
+        },
+      };
+    } catch {
+      const pmids = await searchPubMedPmids(rawQuery, maxResults, recencyYears);
+      return {
+        pmids,
+        query_strategy: {
+          ...strategy,
+          mode: "raw",
+          fallback_used: true,
+          fallback_reason:
+            "Structured PubMed query failed; fell back to raw query.",
+        },
+      };
+    }
+  }
+
+  const pmids = await searchPubMedPmids(rawQuery, maxResults, recencyYears);
+  return {
+    pmids,
+    query_strategy: {
+      ...strategy,
+      fallback_used: false,
+      fallback_reason: null,
+    },
+  };
 }
 
 async function fetchPubMedSummaries(pmids: string[]): Promise<ESummaryArticle[]> {
@@ -321,11 +397,17 @@ function mapSummaryToSource(
   const publication_date = article.pubdate ?? article.epubdate ?? null;
   const title = article.title?.trim() || `PubMed record ${pmid}`;
   const abstract = buildAbstract(abstractText);
-  const { appraisal, analysis } = appraisePubMedRecord(
+  const baseAppraisal = appraisePubMedRecord(
     query,
     title,
     abstract.text,
     relevanceScoreForRank(rank, total)
+  );
+  const { appraisal, analysis } = applyContextualAppraisal(
+    title,
+    abstract.text,
+    baseAppraisal.appraisal,
+    baseAppraisal.analysis
   );
 
   return {

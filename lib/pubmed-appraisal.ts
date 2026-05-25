@@ -27,7 +27,10 @@ export type ExclusionFlag =
   | "case_report"
   | "no_cortisol_endpoint"
   | "not_magnesium_specific"
-  | "not_human_wellness_context";
+  | "not_human_wellness_context"
+  | "context_gate_fail"
+  | "pathological_context"
+  | "outside_wellness_context";
 
 export type AppraisalDebug = {
   intervention_terms_found: string[];
@@ -45,6 +48,28 @@ export type SourceAppraisal = {
   exclusion_flags: ExclusionFlag[];
   appraisal_summary: string;
   appraisal_debug: AppraisalDebug;
+  population_type?: "human" | "animal" | "mixed" | "unclear";
+  domain_context?:
+    | "wellness"
+    | "clinical"
+    | "psychiatric"
+    | "veterinary"
+    | "unrelated"
+    | "unclear";
+  exposure_role?:
+    | "tested_intervention"
+    | "biomarker"
+    | "background_mention"
+    | "unrelated"
+    | "unclear";
+  outcome_role?:
+    | "primary_outcome"
+    | "secondary_outcome"
+    | "biomarker_mention"
+    | "background_mention"
+    | "unclear";
+  contextual_relevance?: "direct" | "partial" | "weak" | "irrelevant";
+  context_gate?: "pass" | "caution" | "fail";
 };
 
 export type AppraisalAnalysis = {
@@ -689,6 +714,8 @@ export function appraisePubMedRecord(
 
 export function isObviouslyIrrelevant(appraisal: SourceAppraisal): boolean {
   return (
+    appraisal.context_gate === "fail" ||
+    appraisal.exclusion_flags.includes("context_gate_fail") ||
     appraisal.directness_to_claim === "irrelevant" ||
     appraisal.exclusion_flags.includes("wrong_intervention") ||
     (appraisal.exclusion_flags.includes("animal_only") &&

@@ -18,6 +18,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [evidence-watchlist-architecture.md](./evidence-watchlist-architecture.md) | Phase 7.5 — claim-family watchlists and privacy boundary |
 | [evidence-change-monitoring-simulation.md](./evidence-change-monitoring-simulation.md) | Phase 8 — simulated evidence-change detection and alerts |
 | [watch-check-endpoint.md](./watch-check-endpoint.md) | Phase 9 — manual live PubMed watchlist check |
+| [contextual-integrity-query-refinement.md](./contextual-integrity-query-refinement.md) | Phase 9.5 — structured queries and context gates |
 
 ## POC phase summary
 
@@ -34,6 +35,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 7.5 | Evidence watchlist — abstracted claim families, watch topics, `evidence_change_status` placeholder, privacy boundary |
 | 8 | Evidence-change monitoring simulation — optional `evidence_monitoring` with simulated deltas and alert routing |
 | 9 | Manual live watchlist check — `POST /api/watch/check` diffs PubMed PMIDs against baseline |
+| 9.5 | Contextual integrity — structured PubMed queries, context gates, `query_strategy` metadata |
 
 ## Default vs PubMed mode
 
@@ -67,6 +69,8 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `lib/evidence-watchlist.ts` | Claim-family watchlist builder |
 | `lib/evidence-monitoring.ts` | Phase 8 evidence-change simulation |
 | `lib/watch-check.ts` | Phase 9 manual live watchlist check |
+| `lib/structured-query.ts` | Phase 9.5 structured PubMed query builder |
+| `lib/contextual-appraisal.ts` | Phase 9.5 context gates and score caps |
 | `app/api/watch/check/route.ts` | Phase 9 HTTP handler |
 
 ## Current top-level response fields

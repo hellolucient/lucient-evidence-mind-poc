@@ -4,10 +4,11 @@ import type {
   EvidenceChangeLevel,
   EvidenceDeltaDirection,
 } from "./evidence-monitoring";
-import { isObviouslyIrrelevant, type SourceAppraisal } from "./pubmed-appraisal";
+import { isContextuallyMaterialSource } from "./contextual-appraisal";
+import type { QueryStrategy } from "./structured-query";
 import {
   fetchPubMedSourcesForPmids,
-  searchPubMedPmids,
+  searchPubMedWithStrategy,
   shouldUsePubMed,
   type PubMedFetchFilters,
 } from "./pubmed-retrieval";
@@ -39,6 +40,7 @@ export type WatchCheckResponse = {
   watch_topic_id: string;
   claim_family: string;
   query_used: string;
+  query_strategy: QueryStrategy;
   baseline: WatchCheckBaseline;
   pubmed_check: {
     status: PubMedCheckStatus;
@@ -82,6 +84,7 @@ const WATCH_CHECK_LIMITATIONS = [
   "No scheduler yet",
   "PubMed query construction is still basic",
   "Automated appraisal is conservative and not final evidence grading",
+  "Phase 9.5 structured queries and context gates reduce but do not eliminate retrieval noise",
 ];
 
 const WATCH_CHECK_PRIVACY_BOUNDARY: WatchCheckResponse["privacy_boundary"] = {
@@ -105,35 +108,9 @@ function normalizeKnownPmids(knownPmids: string[]): string[] {
   return [...new Set(knownPmids.map((pmid) => pmid.trim()).filter(Boolean))];
 }
 
-function isStrongStudyDesign(
-  design: SourceAppraisal["study_design_detected"]
-): boolean {
-  return design === "systematic_review" || design === "randomized_controlled_trial";
-}
-
-function isMaterialNewSource(appraisal: SourceAppraisal): boolean {
-  if (isObviouslyIrrelevant(appraisal)) {
-    return false;
-  }
-
-  const humanRelevant =
-    appraisal.species_relevance === "human" || appraisal.species_relevance === "mixed";
-  const interventionRelevant =
-    appraisal.intervention_match === "direct" || appraisal.intervention_match === "partial";
-  const outcomeRelevant =
-    appraisal.outcome_match === "direct" || appraisal.outcome_match === "partial";
-
-  return (
-    isStrongStudyDesign(appraisal.study_design_detected) &&
-    humanRelevant &&
-    interventionRelevant &&
-    outcomeRelevant
-  );
-}
-
 function hasMaterialNewSource(sources: EvidenceSource[]): boolean {
   return sources.some(
-    (source) => source.appraisal && isMaterialNewSource(source.appraisal)
+    (source) => source.appraisal && isContextuallyMaterialSource(source.appraisal)
   );
 }
 
@@ -181,11 +158,10 @@ function assessWatchCheckOutcome(
 
   if (hasMaterialNewSource(newSources)) {
     const materialSource = newSources.find(
-      (source) => source.appraisal && isMaterialNewSource(source.appraisal)
+      (source) => source.appraisal && isContextuallyMaterialSource(source.appraisal)
     );
     const direction: EvidenceDeltaDirection =
-      materialSource?.appraisal?.intervention_match === "direct" &&
-      materialSource.appraisal.outcome_match === "direct"
+      materialSource?.appraisal?.contextual_relevance === "direct"
         ? "strengthens_support"
         : "unclear";
 
@@ -194,7 +170,7 @@ function assessWatchCheckOutcome(
         change_level: "possible_material",
         direction,
         delta_summary:
-          "New human RCT or systematic review with relevant intervention/outcome signals detected; human review recommended.",
+          "New human RCT or systematic review with context-gate pass and relevant intervention/outcome roles detected; human review recommended.",
         delta_confidence: 0.65,
       },
       policy_impact: {
@@ -216,27 +192,36 @@ function assessWatchCheckOutcome(
     };
   }
 
+  const hasOnlyGatedNoise = newSources.every(
+    (source) =>
+      source.appraisal?.context_gate === "fail" ||
+      source.appraisal?.exclusion_flags.includes("context_gate_fail")
+  );
+
   return {
     evidence_delta: {
-      change_level: "minor",
+      change_level: hasOnlyGatedNoise ? "none" : "minor",
       direction: "unclear",
-      delta_summary:
-        "New PubMed records found, but automated appraisal flags them as indirect, weak, or not directly relevant.",
-      delta_confidence: 0.35,
+      delta_summary: hasOnlyGatedNoise
+        ? "New PubMed records were found but failed contextual integrity gates (animal/veterinary/pathological noise)."
+        : "New PubMed records found, but contextual appraisal flags them as indirect, weak, or not directly relevant.",
+      delta_confidence: hasOnlyGatedNoise ? 0.85 : 0.35,
     },
     policy_impact: {
       ...basePolicyImpact,
-      policy_reason:
-        "New sources appear weak or indirect; current cautious policy remains appropriate.",
+      policy_reason: hasOnlyGatedNoise
+        ? "Context-gated noise does not change the current cautious policy."
+        : "New sources appear weak or indirect; current cautious policy remains appropriate.",
     },
     evidence_change_alert: {
       alert_required: false,
-      alert_type: "monitor",
+      alert_type: hasOnlyGatedNoise ? "none" : "monitor",
       affected_claim_family_id: claimFamily,
       affected_workspace_ids_visible_to_mind: false,
       app_should_map_to_private_workspaces: true,
-      alert_summary:
-        "Continue routine monitoring; new records do not yet warrant human re-review.",
+      alert_summary: hasOnlyGatedNoise
+        ? "No alert required; new records failed context gates and are treated as retrieval noise."
+        : "Continue routine monitoring; new records do not yet warrant human re-review.",
     },
   };
 }
@@ -259,15 +244,40 @@ export async function buildWatchCheckResponse(
   let knownRecordsFound = 0;
   let newPmids: string[] = [];
   let newSources: EvidenceSource[] = [];
+  let queryStrategy: QueryStrategy = {
+    mode: "raw",
+    raw_query: query,
+    structured_query: null,
+    watch_topic_id: watchTopicId,
+    query_intent: "Keyword search using the provided query text.",
+    exclusion_terms_applied: [],
+  };
+  let queryUsed = query;
 
   if (shouldUsePubMed(filters)) {
     try {
       const limit = resolveMaxSources(filters?.max_sources);
-      const foundPmids = await searchPubMedPmids(
+      const searchResult = await searchPubMedWithStrategy(
         query,
         limit,
-        filters?.recency_years
+        filters?.recency_years,
+        {
+          watch_topic_id: watchTopicId,
+          claim_family: claimFamily,
+          use_structured_query: filters?.use_structured_query,
+          default_structured_query_when_unset: true,
+        }
       );
+
+      queryStrategy = searchResult.query_strategy;
+      queryUsed =
+        queryStrategy.mode === "structured" &&
+        queryStrategy.structured_query &&
+        !queryStrategy.fallback_used
+          ? queryStrategy.structured_query
+          : query;
+
+      const foundPmids = searchResult.pmids;
       recordsFound = foundPmids.length;
       knownRecordsFound = foundPmids.filter((pmid) => knownPmidSet.has(pmid)).length;
       newPmids = foundPmids.filter((pmid) => !knownPmidSet.has(pmid));
@@ -313,7 +323,7 @@ export async function buildWatchCheckResponse(
               change_level: "none" as EvidenceChangeLevel,
               direction: "no_change" as EvidenceDeltaDirection,
               delta_summary:
-                "PubMed check skipped; set filters.use_real_pubmed=true and filters.source_types=[\"pubmed\"] to run a live check.",
+                'PubMed check skipped; set filters.use_real_pubmed=true and filters.source_types=["pubmed"] to run a live check.',
               delta_confidence: 0.5,
             },
             policy_impact: {
@@ -344,7 +354,8 @@ export async function buildWatchCheckResponse(
     workspace_id: workspaceId,
     watch_topic_id: watchTopicId,
     claim_family: claimFamily,
-    query_used: query,
+    query_used: queryUsed,
+    query_strategy: queryStrategy,
     baseline: {
       ...baseline,
       known_pmids: knownPmids,

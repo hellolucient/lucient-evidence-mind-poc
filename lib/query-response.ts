@@ -8,6 +8,7 @@ import {
   EVIDENCE_NOTES,
   PUBMED_EVIDENCE_NOTES,
   getEvidenceStubs,
+  resolveMaxSources,
   type EvidenceNotes,
   type EvidenceSource,
 } from "./evidence-stubs";
@@ -19,7 +20,8 @@ import {
   type EvidenceMonitoring,
   type SimulatedChangeType,
 } from "./evidence-monitoring";
-import { fetchPubMedSources, shouldUsePubMed, buildPubMedReportConfidence } from "./pubmed-retrieval";
+import { fetchPubMedSources, fetchPubMedSourcesForPmids, searchPubMedWithStrategy, shouldUsePubMed, buildPubMedReportConfidence } from "./pubmed-retrieval";
+import type { QueryStrategy } from "./structured-query";
 
 export type { SimulatedChangeType };
 
@@ -32,6 +34,7 @@ export type QueryRequestBody = {
     recency_years?: number;
     max_sources?: number;
     use_real_pubmed?: boolean;
+    use_structured_query?: boolean;
     simulate_evidence_change?: boolean;
     simulated_change_type?: SimulatedChangeType;
   };
@@ -66,6 +69,7 @@ export type QueryResponse = {
   evidence_notes: EvidenceNotes;
   watchlist: Watchlist;
   evidence_monitoring?: EvidenceMonitoring;
+  query_strategy?: QueryStrategy;
   report_confidence: ReportConfidence;
   recommended_wording: {
     safer_claim: string;
@@ -442,14 +446,36 @@ export async function buildQueryResponse(
   let evidence_notes: EvidenceNotes = EVIDENCE_NOTES;
   let report_confidence: ReportConfidence = STUB_REPORT_CONFIDENCE;
   let pubmed_fetch_status: PubMedFetchStatus = "not_requested";
+  let query_strategy: QueryStrategy | undefined;
+  const watchlist = buildWatchlist(classification.claim_type, query);
 
   if (shouldUsePubMed(filters)) {
     try {
-      const pubmedSources = await fetchPubMedSources(
-        query,
-        filters?.max_sources,
-        filters?.recency_years
-      );
+      let pubmedSources: EvidenceSource[] = [];
+
+      if (filters?.use_structured_query === true) {
+        const searchResult = await searchPubMedWithStrategy(
+          query,
+          resolveMaxSources(filters?.max_sources),
+          filters?.recency_years,
+          {
+            watch_topic_id: watchlist.watch_topic.topic_id,
+            claim_family: watchlist.claim_family,
+            use_structured_query: true,
+            default_structured_query_when_unset: false,
+          }
+        );
+        query_strategy = searchResult.query_strategy;
+        if (searchResult.pmids.length > 0) {
+          pubmedSources = await fetchPubMedSourcesForPmids(query, searchResult.pmids);
+        }
+      } else {
+        pubmedSources = await fetchPubMedSources(
+          query,
+          filters?.max_sources,
+          filters?.recency_years
+        );
+      }
 
       if (pubmedSources.length > 0) {
         sources = pubmedSources;
@@ -465,8 +491,6 @@ export async function buildQueryResponse(
       report_confidence = FALLBACK_REPORT_CONFIDENCE;
     }
   }
-
-  const watchlist = buildWatchlist(classification.claim_type, query);
 
   const response: QueryResponse = {
     report_id: reportId,
@@ -496,6 +520,10 @@ export async function buildQueryResponse(
       sources.length,
       now
     );
+  }
+
+  if (query_strategy) {
+    response.query_strategy = query_strategy;
   }
 
   return response;
