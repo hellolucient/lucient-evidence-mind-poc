@@ -22,7 +22,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [delta-attribution-alert-auditability.md](./delta-attribution-alert-auditability.md) | Phase 9.6 — delta attribution and alert auditability |
 | [scheduled-watchlist-simulation-phase-10.md](./scheduled-watchlist-simulation-phase-10.md) | Phase 10 — persistent baseline and scheduled run simulation |
 | [watchlist-persistence-readiness-phase-10-5.md](./watchlist-persistence-readiness-phase-10-5.md) | Phase 10.5 — store adapter and persistence readiness |
-| [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md) | Future durable watchlist schema (design only) |
+| [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md) | Watchlist persistence schema (`watchlist_topics`, Phase 11) |
 | [supabase-watchlist-store-phase-11.md](./supabase-watchlist-store-phase-11.md) | Phase 11 — Supabase durable watchlist store |
 
 ## POC phase summary
@@ -86,10 +86,21 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `engine/watchlist/in-memory-watchlist-store.ts` | Phase 10.5 in-memory adapter |
 | `engine/watchlist/query-hash.ts` | Phase 10.5 query hash + drift detection |
 | `engine/watchlist/supabase-watchlist-store.ts` | Phase 11 Supabase durable adapter |
+| `engine/watchlist/supabase-client.ts` | Phase 11 server-side Supabase client |
 | `engine/watchlist/store-selector.ts` | Phase 11 adapter selection + fallback |
-| `lib/watch-run-due.ts` | Phase 10 scheduled run orchestration |
-| `app/api/watch/run-due/route.ts` | Phase 10 HTTP handler |
+| `lib/watch-run-due.ts` | Phase 10+ scheduled run orchestration |
+| `app/api/watch/run-due/route.ts` | Phase 10+ HTTP handler (GET health, POST run, `debug_only`) |
 | `app/api/watch/check/route.ts` | Phase 9 HTTP handler |
+
+## Current endpoints
+
+| Method | Path | Auth | Phase |
+|--------|------|------|-------|
+| `GET` | `/api/health` | None | 1 |
+| `POST` | `/api/query` | Bearer | 1+ |
+| `POST` | `/api/watch/check` | Bearer | 9 |
+| `GET` | `/api/watch/run-due` | None | 10+ |
+| `POST` | `/api/watch/run-due` | Bearer | 10+ |
 
 ## Current top-level response fields
 
@@ -97,4 +108,6 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 
 ## What this POC does not include
 
-Database, Supabase, auth providers, dashboard, full evidence engine, PDF handling, real claim substantiation, or real client data.
+Dashboard, auth providers, client workspace mapping UI, full evidence engine, PDF handling, Vercel cron, non-PubMed regulatory sources, or real client data.
+
+**Included since Phase 11:** server-side Supabase persistence for `watchlist_topics` only (watch topic metadata, PMIDs, alerts — not client copy).

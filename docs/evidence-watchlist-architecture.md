@@ -1,5 +1,7 @@
 # Evidence watchlist architecture (Phase 7.5)
 
+> **Later phases:** Real scheduled checks arrived in Phase 10 (`POST /api/watch/run-due`), live PubMed diffing in Phase 9 (`POST /api/watch/check`), and durable persistence in Phase 11 (Supabase `watchlist_topics`). This doc describes the Phase 7.5 watchlist model on `/api/query`.
+
 Phase 7.5 reframes the Lucient Evidence Mind POC from one-off evidence brief generation toward **evidence watchlists** and **evidence-change monitoring**.
 
 The existing `POST /api/query` endpoint is unchanged in request shape. Responses now include a top-level `watchlist` object alongside the Phase 7 appraisal output.
@@ -11,7 +13,7 @@ The existing `POST /api/query` endpoint is unchanged in request shape. Responses
 3. **Reserve evidence-change status** — structured fields for future diffing (`not_checked` in this POC).
 4. **Document privacy boundaries** — what Mind may receive vs what stays in the Lucient app.
 
-This is a proof of concept. There is no database, no scheduled checks, and no real change detection yet.
+This is a proof of concept at Phase 7.5 scope. Scheduled checks and durable storage were added in Phases 10–11; see [scheduled-watchlist-simulation-phase-10.md](./scheduled-watchlist-simulation-phase-10.md) and [supabase-watchlist-store-phase-11.md](./supabase-watchlist-store-phase-11.md).
 
 ## Roles: App vs EIE vs Mind
 

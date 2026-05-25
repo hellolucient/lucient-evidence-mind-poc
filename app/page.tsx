@@ -14,7 +14,10 @@ export default function Home() {
           <code>POST /api/watch/check</code> — manual live watchlist check (requires Bearer API key)
         </li>
         <li>
-          <code>POST /api/watch/run-due</code> — scheduled watchlist simulation (requires Bearer API key)
+          <code>GET /api/watch/run-due</code> — scheduled runner health check
+        </li>
+        <li>
+          <code>POST /api/watch/run-due</code> — scheduled watchlist run (requires Bearer API key)
         </li>
       </ul>
     </main>

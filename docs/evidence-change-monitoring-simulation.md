@@ -1,5 +1,7 @@
 # Evidence-change monitoring simulation (Phase 8)
 
+> **Later phases:** Phase 8 simulation on `/api/query` was followed by real PubMed monitoring on `/api/watch/check` (Phase 9) and scheduled runs with durable baseline on `/api/watch/run-due` (Phases 10–11).
+
 Phase 8 simulates the core Evidence Mind use case: the **Lucient app** checks whether a claim is supportable today, while the **Evidence Mind** watches whether evidence behind a **claim family** changes over time.
 
 The existing `POST /api/query` endpoint is unchanged in default behavior. When `filters.simulate_evidence_change` is `true`, responses include a top-level `evidence_monitoring` object with simulated deltas, policy impact, and alert routing.
@@ -11,7 +13,7 @@ The existing `POST /api/query` endpoint is unchanged in default behavior. When `
 3. **Simulate policy impact** — show when regulatory warnings tighten policy vs when new studies only trigger human review.
 4. **Bridge Phase 7.5 watchlists to actionable monitoring** — watch topics become checkable claim-family baselines.
 
-This is a proof of concept. There is no database, no scheduler, and no real diffing against stored snapshots.
+This is a proof of concept at Phase 8 scope — simulated deltas only on `/api/query`. Real PubMed diffing and durable persistence are documented in Phases 9–11.
 
 ## Why this gives Mind a stronger role
 

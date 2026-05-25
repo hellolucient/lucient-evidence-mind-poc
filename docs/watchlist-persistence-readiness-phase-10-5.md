@@ -1,17 +1,18 @@
 # Phase 10.5 — Watchlist persistence readiness + store adapter
 
-Phase 10 proved the scheduled-watch runner pattern using in-memory state on Vercel. Phase 10.5 prepares the codebase for durable persistence **without** configuring an external store yet.
+> **Superseded for persistence by Phase 11.** Durable storage is now implemented via `SupabaseWatchlistStore`. This doc describes the adapter pattern introduced in 10.5, which remains the architecture for all store implementations.
 
-## Why Phase 10 in-memory persistence is insufficient
+Phase 10 proved the scheduled-watch runner pattern using in-memory state on Vercel. Phase 10.5 introduced the `WatchlistStore` interface so durable persistence could be added without changing route logic. Phase 11 activated Supabase.
 
-Phase 10 (and the Vercel hotfix) use a module-level in-memory map:
+## Why in-memory persistence alone is insufficient
 
-- State survives only for the lifetime of a warm serverless instance.
-- Cold starts reset baselines — the same PMIDs may alert again.
-- `next_check_utc` scheduling is unreliable across invocations.
-- No audit trail of historical alerts or heartbeats across deploys.
+The in-memory fallback (`InMemoryWatchlistStore`) survives only for the lifetime of a warm serverless instance:
 
-This is acceptable for **scheduler simulation** but not for production autonomous monitoring.
+- Cold starts reset baselines — the same PMIDs may alert again
+- `next_check_utc` scheduling is unreliable across invocations
+- No audit trail of historical alerts and heartbeats across deploys
+
+This is acceptable for **scheduler simulation** and as a **fallback**, but not for production autonomous monitoring.
 
 ## What the store interface does
 
@@ -26,55 +27,26 @@ This is acceptable for **scheduler simulation** but not for production autonomou
 | `seedDefaultWatchTopicsIfEmpty()` | Seed POC default topic if store is empty |
 | `getStoreStatus()` | Report durability and adapter metadata |
 
-`/api/watch/run-due` uses `getWatchlistStore()` — currently the in-memory adapter only.
+`/api/watch/run-due` uses `resolveWatchlistStore()` (Phase 11) to select the active adapter.
 
-## Current in-memory adapter
+## Adapters
 
-`engine/watchlist/in-memory-watchlist-store.ts` (`InMemoryWatchlistStore`):
+| Adapter | When active | Durable |
+|---------|-------------|---------|
+| `SupabaseWatchlistStore` | Supabase env vars set + table reachable | Yes |
+| `InMemoryWatchlistStore` | Fallback or env vars missing | No |
 
-- Seeds `watch-magnesium-cortisol` on first access.
-- Mutates state in place for non-dry-run checks.
-- Returns `persistence_status.store = "in_memory"`.
-- Does **not** write to the filesystem.
+See [supabase-watchlist-store-phase-11.md](./supabase-watchlist-store-phase-11.md) for Phase 11 behavior.
 
-## Why no external DB is added yet
-
-This POC deliberately avoids:
-
-- Supabase setup and credentials
-- Vercel KV / Redis provisioning
-- Postgres migrations
-- New environment variables for persistence
-
-Phase 10.5 only introduces **adapter boundaries** so a durable store can be swapped in later with minimal route changes.
-
-## Future durable store options
-
-See `engine/watchlist/durable-watchlist-store.placeholder.ts` (stub only, not imported):
-
-- **Supabase** — Postgres rows with RLS; good for relational queries and audit history
-- **Vercel KV / Redis** — JSON documents keyed by `watch_topic_id`; fast reads for scheduler
-- **Postgres** — direct or via ORM; same schema as Supabase without Supabase-specific APIs
-- **Other** — DynamoDB, PlanetScale, etc.
-
-Recommended next phase: **choose one provider**, implement `WatchlistStore`, wire via `getWatchlistStore()` factory.
+The file `engine/watchlist/durable-watchlist-store.placeholder.ts` documents other future providers (Vercel KV, direct Postgres) — **not imported** in production code.
 
 ## Required durable fields
 
-Full schema: [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md)
-
-Minimum per watch topic:
-
-- Identity: `watch_topic_id`, `claim_family`, `label`, `active`, `frequency`
-- Schedule: `last_checked_utc`, `next_check_utc`
-- Baseline: `known_pmids`, `baseline_evidence_grade`, `baseline_policy`
-- Query: `query_mode`, `raw_query`, `structured_query`, `query_hash`, `query_version`
-- Outcomes: `last_alert`, `last_heartbeat`
-- Audit: `created_at`, `updated_at`
+Implemented schema: [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md) — table `public.watchlist_topics`.
 
 ## Query hash / monitoring drift
 
-`engine/watchlist/query-hash.ts` computes a stable 16-char SHA-256 prefix from:
+`engine/watchlist/query-hash.ts` computes a stable 16-char **FNV-1a** hash from:
 
 - `watch_topic_id`
 - `query_mode`
@@ -82,13 +54,7 @@ Minimum per watch topic:
 - `structured_query`
 - `query_version`
 
-If stored `query_hash` differs from the currently computed hash:
-
-- Response includes `query_strategy_changed: true`
-- `previous_query_hash` and `current_query_hash`
-- Recommendation: *"Reset or re-baseline this watch before interpreting deltas."*
-
-Phase 10.5 warns only — no reset workflow yet.
+If stored `query_hash` differs from the currently computed hash, the response includes `query_strategy_changed: true` and a re-baseline recommendation. No reset workflow yet.
 
 ## Dry run vs real run
 
@@ -97,93 +63,42 @@ Phase 10.5 warns only — no reset workflow yet.
 | `dry_run: true` | Read topics, run PubMed check, return preview; `state_update.updated = false`; no store mutation |
 | `dry_run: false` | After successful check, `updateWatchTopicState()` merges PMIDs, updates schedule, stores alert or heartbeat |
 
-## Alert storage requirements
-
-When `evidence_change_alert.alert_required = true`, store:
-
-- `alert_type`, `alert_summary`, `generated_at`
-- `contributing_sources_to_delta`
-- `evidence_delta_change_level`, `delta_confidence`
-
-Clear `last_heartbeat` when a material alert is stored.
-
-## Heartbeat storage requirements
-
-When no material alert:
-
-- `last_heartbeat.emitted = true`
-- `last_heartbeat.no_material_change = true`
-- Summary: *"Watch checked successfully. No material evidence change requiring human review."*
-
 ## Privacy boundary
 
 **May store:**
 
 - Watch topic metadata, claim family, PMIDs, query strategy
-- Policy state (`baseline_policy`, `baseline_evidence_grade`)
-- Source metadata references (PMIDs, titles in alert attribution)
-- Last alert and last heartbeat summaries
+- Policy state, last alert and heartbeat metadata
 
 **Must NOT store:**
 
-- Client exact wording
-- Client IDs
-- Brand confidential copy
-- Private legal notes
-- Commercial strategy
+- Client exact wording, client IDs, brand confidential copy, private legal notes, commercial strategy
 
 ## Endpoint: `POST /api/watch/run-due`
 
-Every successful response includes:
+Responses include `persistence_status` and (when not durable) `persistence_warning`. Use `debug_only: true` to inspect adapter selection without running PubMed.
 
-```json
-"persistence_status": {
-  "durable": false,
-  "store": "in_memory",
-  "adapter": "InMemoryWatchlistStore",
-  "state_survives_cold_start": false,
-  "suitable_for_production_monitoring": false,
-  "next_step": "Select and configure a durable store before real autonomous monitoring."
-},
-"persistence_warning": {
-  "durable": false,
-  "reason": "Current POC store is in-memory only. Vercel serverless memory may reset between invocations.",
-  "next_step": "Choose durable persistence provider in the next phase."
-}
-```
-
-`GET /api/watch/run-due` returns health JSON with `"phase": "10.5"`.
-
-## Manual test checklist
-
-| Test | Request | Expected |
-|------|---------|----------|
-| A | `GET /api/watch/run-due` | HTTP 200, `status: "ok"`, `phase: "10.5"` |
-| B | `POST` `force=true`, `dry_run=true` | `state_update.updated=false`, `persistence_status.store=in_memory` |
-| C | `POST` `force=true`, `dry_run=false` | `state_update.updated=true`, attribution preserved |
-| D | Immediate second `POST` `dry_run=false` | Heartbeat if memory warm; or baseline reset if cold start |
-| E | `POST` `force=false` | Skipped if `next_check_utc` in future (when memory persists) |
+`GET /api/watch/run-due` returns health JSON with `"phase": "11"`.
 
 ## Key files
 
 | File | Role |
 |------|------|
 | `engine/watchlist/watchlist-store.ts` | Interface + types |
-| `engine/watchlist/in-memory-watchlist-store.ts` | Current POC adapter |
-| `engine/watchlist/durable-watchlist-store.placeholder.ts` | Future adapter stub (not imported) |
+| `engine/watchlist/in-memory-watchlist-store.ts` | Fallback adapter |
+| `engine/watchlist/supabase-watchlist-store.ts` | Durable adapter (Phase 11) |
+| `engine/watchlist/store-selector.ts` | `resolveWatchlistStore()` |
 | `engine/watchlist/query-hash.ts` | Query hash + drift detection |
-| `engine/watchlist/index.ts` | `getWatchlistStore()` factory |
 | `lib/watch-run-due.ts` | Scheduled run orchestration |
 | `app/api/watch/run-due/route.ts` | HTTP handler |
 
 ## Limitations
 
-- In-memory only; no durable persistence configured
-- No real cron
+- No Vercel cron yet
 - No client workspace mapping
 - No non-PubMed regulatory sources
 - Query hash drift warns but does not auto-rebaseline
 
-## Recommended next phase
+## Next step (post Phase 11)
 
-Choose and configure a durable provider, implement `WatchlistStore`, update `getWatchlistStore()` to select by environment variable, and add integration tests against the durable adapter.
+Configure **Vercel cron** or external scheduled trigger for autonomous `POST /api/watch/run-due` with `force=false`.

@@ -1,8 +1,8 @@
-# Future watchlist persistence schema
+# Watchlist persistence schema
 
-Design reference for a durable `WatchlistStore` adapter. **Not a migration** — no database is configured in the POC yet.
+Schema reference for the durable `WatchlistStore` adapter. **Implemented in Phase 11** as `public.watchlist_topics` in Supabase.
 
-## Table: `watch_topics` (suggested)
+## Table: `public.watchlist_topics`
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -25,6 +25,8 @@ Design reference for a durable `WatchlistStore` adapter. **Not a migration** —
 | `last_heartbeat` | `jsonb` nullable | Last no-change heartbeat payload |
 | `created_at` | `timestamptz` | Record creation |
 | `updated_at` | `timestamptz` | Last mutation |
+
+Mapped in `engine/watchlist/supabase-watchlist-store.ts`.
 
 ## `last_alert` JSON shape
 
@@ -60,7 +62,7 @@ Implemented in `engine/watchlist/query-hash.ts`. Inputs:
 - `structured_query`
 - `query_version`
 
-Output: 16-character hex prefix of SHA-256.
+Output: 16-character hex string (FNV-1a, pure JS — no Node `crypto` dependency).
 
 ## Monitoring drift
 
@@ -79,8 +81,8 @@ Do not interpret evidence deltas until baseline is reset or re-established.
 
 ## Dry run vs real run
 
-| Mode | Durable store behavior |
-|------|------------------------|
+| Mode | Store behavior |
+|------|----------------|
 | `dry_run: true` | Read only; no `updated_at` change |
 | `dry_run: false` | Update `known_pmids`, schedule fields, `last_alert` or `last_heartbeat`, `query_hash`, `updated_at` |
 
@@ -94,23 +96,25 @@ Do not interpret evidence deltas until baseline is reset or re-established.
 
 The durable store holds **abstracted claim-family monitoring state** only. Client mapping remains in the private Lucient app layer.
 
-## Index suggestions (when implemented)
+## Index suggestions
 
 - PK on `watch_topic_id`
 - Index on `(active, next_check_utc)` for due-watch queries
 - Index on `claim_family` for alert routing lookups
 
-## Adapter implementation checklist
+## Implementation status (Phase 11)
 
-1. Implement all `WatchlistStore` methods against chosen provider
-2. Map rows ↔ `WatchTopicState` type
-3. Use transactions for check + baseline update
-4. Return accurate `getStoreStatus()` (`durable: true`, etc.)
-5. Wire `getWatchlistStore()` in `engine/watchlist/index.ts`
-6. Add env var e.g. `WATCHLIST_STORE=in_memory|supabase|vercel_kv`
-7. Integration tests: seed → check → baseline merge → heartbeat on repeat
+| Item | Status |
+|------|--------|
+| `WatchlistStore` interface | Done (Phase 10.5) |
+| `SupabaseWatchlistStore` | Done (Phase 11) |
+| `resolveWatchlistStore()` selector | Done — env-based with fallback |
+| Row ↔ `WatchTopicState` mapping | Done |
+| Seed default topic if empty | Done |
+| Integration tests | Manual via `debug_only` + run-due |
 
 ## Related docs
 
+- [supabase-watchlist-store-phase-11.md](./supabase-watchlist-store-phase-11.md)
 - [watchlist-persistence-readiness-phase-10-5.md](./watchlist-persistence-readiness-phase-10-5.md)
 - [scheduled-watchlist-simulation-phase-10.md](./scheduled-watchlist-simulation-phase-10.md)
