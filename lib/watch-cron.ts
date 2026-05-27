@@ -17,7 +17,7 @@ export type WatchCronResponse = {
   phase: "13";
   route: "/api/watch/cron";
   trigger: CronAuthTrigger;
-  source: "vercel_cron";
+  source: CronAuthTrigger;
   durable: boolean;
   store: string;
   adapter: string;
@@ -82,7 +82,7 @@ export async function buildWatchCronResponse(
       buildRunDueWatchRunInput({
         route: "/api/watch/cron",
         trigger,
-        source: "vercel_cron",
+        source: trigger,
         phase: "13",
         startedAt,
         finishedAt,
@@ -96,7 +96,7 @@ export async function buildWatchCronResponse(
       phase: "13",
       route: "/api/watch/cron",
       trigger,
-      source: "vercel_cron",
+      source: trigger,
       durable: runDue.persistence_status.durable,
       store: runDue.persistence_status.store,
       adapter: runDue.persistence_status.adapter,
@@ -118,7 +118,7 @@ export async function buildWatchCronResponse(
       startedAt,
       finishedAt,
       trigger,
-      source: "vercel_cron",
+      source: trigger,
       phase: "13",
       route: "/api/watch/cron",
       force: false,

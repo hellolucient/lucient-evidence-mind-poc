@@ -132,13 +132,18 @@ describe("watch-cron", () => {
       force: false,
       dry_run: false,
     });
-    expect(mockedLogWatchRun).toHaveBeenCalledTimes(1);
+    expect(mockedLogWatchRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: "manual_authorized",
+        source: "manual_authorized",
+      })
+    );
     expect(response).toMatchObject({
       ok: true,
       phase: "13",
       route: "/api/watch/cron",
       trigger: "manual_authorized",
-      source: "vercel_cron",
+      source: "manual_authorized",
       durable: true,
       store: "supabase",
       adapter: "SupabaseWatchlistStore",
