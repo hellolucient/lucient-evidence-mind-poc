@@ -143,12 +143,11 @@ Phase 11 warns only — no reset workflow.
 
 ## Limitations
 
-- No Vercel cron yet — manual or external scheduler only
 - No client workspace mapping
 - No non-PubMed regulatory sources
 - No query re-baseline workflow
 - Service role key must be protected in Vercel env only
 
-## Next step
+## Next step (Phase 12 — implemented)
 
-Configure **Vercel cron** or external scheduled trigger to call `POST /api/watch/run-due` with `force=false` on a schedule.
+Production autonomous monitoring uses **Vercel Cron** → `GET /api/watch/cron` daily at **21:00 UTC** (**4:00 AM Bangkok**), configured in `vercel.json` as `0 21 * * *`. Manual/debug runs remain on `POST /api/watch/run-due`. See [vercel-cron-phase-12.md](./vercel-cron-phase-12.md).

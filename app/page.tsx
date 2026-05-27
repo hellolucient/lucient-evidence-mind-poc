@@ -17,7 +17,10 @@ export default function Home() {
           <code>GET /api/watch/run-due</code> — scheduled runner health check
         </li>
         <li>
-          <code>POST /api/watch/run-due</code> — scheduled watchlist run (requires Bearer API key)
+          <code>POST /api/watch/run-due</code> — manual scheduled watchlist run (requires Bearer API key)
+        </li>
+        <li>
+          <code>GET /api/watch/cron</code> — production Vercel Cron watchlist run (daily 21:00 UTC / 4:00 AM Bangkok)
         </li>
       </ul>
     </main>

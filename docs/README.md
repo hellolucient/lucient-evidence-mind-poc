@@ -24,6 +24,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [watchlist-persistence-readiness-phase-10-5.md](./watchlist-persistence-readiness-phase-10-5.md) | Phase 10.5 — store adapter and persistence readiness |
 | [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md) | Watchlist persistence schema (`watchlist_topics`, Phase 11) |
 | [supabase-watchlist-store-phase-11.md](./supabase-watchlist-store-phase-11.md) | Phase 11 — Supabase durable watchlist store |
+| [vercel-cron-phase-12.md](./vercel-cron-phase-12.md) | Phase 12 — Vercel Cron scheduled watchlist monitoring |
 
 ## POC phase summary
 
@@ -45,6 +46,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 10 | Persistent watchlist baseline — in-memory state + `POST /api/watch/run-due` |
 | 10.5 | WatchlistStore interface — in-memory adapter, persistence_status, future durable stub |
 | 11 | SupabaseWatchlistStore — durable watchlist_topics with env-based fallback |
+| 12 | Vercel Cron — `GET /api/watch/cron` daily 21:00 UTC (4:00 AM Bangkok); CRON_SECRET + user-agent auth |
 
 ## Default vs PubMed mode
 
@@ -89,8 +91,12 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `engine/watchlist/supabase-client.ts` | Phase 11 server-side Supabase client |
 | `engine/watchlist/store-selector.ts` | Phase 11 adapter selection + fallback |
 | `lib/watch-run-due.ts` | Phase 10+ scheduled run orchestration |
+| `lib/watch-cron.ts` | Phase 12 cron wrapper + response shape |
+| `lib/cron-auth.ts` | Phase 12 cron authorization |
 | `app/api/watch/run-due/route.ts` | Phase 10+ HTTP handler (GET health, POST run, `debug_only`) |
+| `app/api/watch/cron/route.ts` | Phase 12 Vercel Cron HTTP handler (GET) |
 | `app/api/watch/check/route.ts` | Phase 9 HTTP handler |
+| `vercel.json` | Phase 12 cron schedule (`0 21 * * *` = 4:00 AM Bangkok) |
 
 ## Current endpoints
 
@@ -101,6 +107,7 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `POST` | `/api/watch/check` | Bearer | 9 |
 | `GET` | `/api/watch/run-due` | None | 10+ |
 | `POST` | `/api/watch/run-due` | Bearer | 10+ |
+| `GET` | `/api/watch/cron` | Vercel Cron UA or `CRON_SECRET` Bearer | 12 |
 
 ## Current top-level response fields
 
@@ -108,6 +115,8 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 
 ## What this POC does not include
 
-Dashboard, auth providers, client workspace mapping UI, full evidence engine, PDF handling, Vercel cron, non-PubMed regulatory sources, or real client data.
+Dashboard, auth providers, client workspace mapping UI, full evidence engine, PDF handling, webhooks, non-PubMed regulatory sources, or real client data.
 
 **Included since Phase 11:** server-side Supabase persistence for `watchlist_topics` only (watch topic metadata, PMIDs, alerts — not client copy).
+
+**Included since Phase 12:** Vercel Cron scheduled `GET /api/watch/cron` at 21:00 UTC daily (4:00 AM Bangkok). See [vercel-cron-phase-12.md](./vercel-cron-phase-12.md).

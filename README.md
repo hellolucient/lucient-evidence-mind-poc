@@ -20,7 +20,8 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 | `POST` | `/api/query` | `Authorization: Bearer <API_KEY>` | Evidence Brief JSON (stubs or optional PubMed) |
 | `POST` | `/api/watch/check` | `Authorization: Bearer <API_KEY>` | Manual live watchlist PubMed check (Phase 9) |
 | `GET` | `/api/watch/run-due` | None | Scheduled runner health check (Phase 10+) |
-| `POST` | `/api/watch/run-due` | `Authorization: Bearer <API_KEY>` | Scheduled watchlist run (Phases 10–11) |
+| `POST` | `/api/watch/run-due` | `Authorization: Bearer <API_KEY>` | Manual scheduled watchlist run (Phases 10–11) |
+| `GET` | `/api/watch/cron` | Vercel Cron user-agent **or** `Authorization: Bearer <CRON_SECRET>` | Production scheduled watchlist run (Phase 12) |
 
 ## Documentation
 
@@ -44,6 +45,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/watchlist-persistence-readiness-phase-10-5.md](./docs/watchlist-persistence-readiness-phase-10-5.md) | Store adapter + persistence readiness (Phase 10.5) |
 | [docs/future-watchlist-persistence-schema.md](./docs/future-watchlist-persistence-schema.md) | Watchlist persistence schema (`watchlist_topics`, Phase 11) |
 | [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) | Supabase durable watchlist store (Phase 11) |
+| [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md) | Vercel Cron scheduled monitoring (Phase 12) |
 
 ## POC phases (current)
 
@@ -62,6 +64,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 10 | Persistent watchlist baseline + `POST /api/watch/run-due` scheduler simulation |
 | 10.5 | Watchlist store interface + in-memory adapter; persistence readiness without external DB |
 | 11 | SupabaseWatchlistStore — durable `watchlist_topics` persistence with in-memory fallback |
+| 12 | Vercel Cron — `GET /api/watch/cron` daily at 21:00 UTC (4:00 AM Bangkok); Supabase-backed autonomous monitoring |
 
 ## Setup
 
@@ -76,6 +79,9 @@ Edit `.env.local`:
 
 ```bash
 EIE_TOOL_API_KEY=your-secret-api-key-here
+
+# Phase 12 — manual cron smoke tests (server-side only; generate with: openssl rand -hex 32)
+CRON_SECRET=replace_me_with_a_long_random_secret
 
 # Optional Phase 11 — durable watchlist persistence (server-side only)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -161,6 +167,30 @@ curl -s -X POST http://localhost:3000/api/watch/run-due \
 
 See [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) for full run-due behavior.
 
+### Production cron (Phase 12)
+
+Vercel Cron hits `GET /api/watch/cron` daily at **21:00 UTC** (**4:00 AM Bangkok**, UTC+7). Configured in `vercel.json`:
+
+```json
+{ "crons": [{ "path": "/api/watch/cron", "schedule": "0 21 * * *" }] }
+```
+
+Unauthorized probe (expect `401`):
+
+```bash
+curl -i https://YOUR-PROJECT.vercel.app/api/watch/cron
+```
+
+Authorized manual smoke test:
+
+```bash
+curl -i \
+  -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://YOUR-PROJECT.vercel.app/api/watch/cron
+```
+
+See [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md) for auth, response shape, and operator checklist. **Redeploy after any `vercel.json` schedule change.**
+
 ## Filters reference
 
 | Field | Default | Notes |
@@ -189,6 +219,7 @@ Without `use_real_pubmed: true`, `max_sources` still caps stub count (currently 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `EIE_TOOL_API_KEY` | Yes (for protected endpoints) | Bearer token in `Authorization` header |
+| `CRON_SECRET` | No (Phase 12 manual cron tests) | Bearer token for authorized `GET /api/watch/cron` smoke tests |
 | `NEXT_PUBLIC_SUPABASE_URL` | No (Phase 11) | Supabase project URL — enables durable watchlist persistence |
 | `SUPABASE_SERVICE_ROLE_KEY` | No (Phase 11) | **Server-only** — never expose to client code or API responses |
 
@@ -200,8 +231,9 @@ If `EIE_TOOL_API_KEY` is missing at runtime, protected endpoints return `500`. K
 2. Import in [Vercel](https://vercel.com/new).
 3. Set environment variables:
    - `EIE_TOOL_API_KEY` (required)
+   - `CRON_SECRET` (required for manual cron smoke tests; Vercel Cron uses user-agent auth)
    - `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (optional, Phase 11 durable watchlist)
-4. Deploy (Next.js auto-detected).
+4. Deploy (Next.js auto-detected). Vercel picks up the cron job from `vercel.json` — confirm under **Settings → Cron Jobs** (`GET /api/watch/cron`, schedule `0 21 * * *` = 4:00 AM Bangkok).
 
 After deploy:
 
@@ -215,13 +247,15 @@ Use the curl examples above with your Vercel URL and API key. PubMed mode requir
 
 - Dashboard, auth provider, RLS policies, or client workspace mapping UI
 - Full evidence search, PDF handling, or final claim substantiation
-- Background jobs, webhooks, or Vercel cron (next step after Phase 11)
+- Webhooks or client-facing alert delivery
 - Non-PubMed regulatory source integration
 - Real client data — demo workspace IDs and synthetic queries only
 
 PubMed retrieval and Phase 7 appraisal are **conservative and automated only** — not proof that a claim is supported.
 
 **Phase 11 note:** Supabase is used server-side for durable watchlist state (`watchlist_topics`) only — not for client claims, private copy, or general app data.
+
+**Phase 12 note:** Vercel Cron runs `GET /api/watch/cron` daily at 21:00 UTC (4:00 AM Bangkok). See [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md).
 
 ## License
 

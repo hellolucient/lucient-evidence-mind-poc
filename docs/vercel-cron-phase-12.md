@@ -25,13 +25,23 @@ Configured in `vercel.json`:
   "crons": [
     {
       "path": "/api/watch/cron",
-      "schedule": "0 2 * * *"
+      "schedule": "0 21 * * *"
     }
   ]
 }
 ```
 
-Vercel cron schedules are UTC. `0 2 * * *` runs daily at **02:00 UTC** (10:00 Malaysia time).
+Vercel cron schedules are **UTC**. Production runs daily at:
+
+| UTC | Local (Bangkok, UTC+7) |
+|-----|-------------------------|
+| `21:00` | **04:00** next calendar day |
+
+Expression: `0 21 * * *` — 21:00 UTC every day, which is **4:00 AM Bangkok time**.
+
+Per-topic `frequency` and `next_check_utc` still govern whether a watch is actually checked on each cron invocation (`force: false`).
+
+**Schedule changes require redeploy.** Vercel reads `vercel.json` at deploy time; confirm under Project → Settings → Cron Jobs after each deploy.
 
 ## Environment variables
 
@@ -133,6 +143,6 @@ If `CRON_SECRET` is missing and a manual Bearer call is attempted:
 
 ## Limitations
 
-- Cron schedule is daily at 02:00 UTC only; per-topic `frequency` still governs `next_check_utc` skip logic.
+- Production cron is daily at 21:00 UTC (4:00 AM Bangkok); per-topic `frequency` still governs `next_check_utc` skip logic.
 - `/api/watch/run-due` remains the manual/debug path protected by `EIE_TOOL_API_KEY`.
 - Duplicate-alert suppression and durable state depend on Supabase being configured in production.
