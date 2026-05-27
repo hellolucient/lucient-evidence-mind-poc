@@ -6,10 +6,15 @@ import {
   type CronAuthTrigger,
 } from "./cron-auth";
 import { buildRunDueResponse } from "./watch-run-due";
+import {
+  buildRunDueWatchRunInput,
+  logWatchRun,
+  logWatchRunFailure,
+} from "./watch/watch-run-logger";
 
 export type WatchCronResponse = {
   ok: true;
-  phase: "12";
+  phase: "13";
   route: "/api/watch/cron";
   trigger: CronAuthTrigger;
   source: "vercel_cron";
@@ -25,6 +30,8 @@ export type WatchCronResponse = {
   started_at: string;
   finished_at: string;
   cron_secret_configured: boolean;
+  watch_run_logged: boolean;
+  watch_run_id: string | null;
 };
 
 export type WatchCronUnauthorizedResponse = ReturnType<
@@ -58,36 +65,66 @@ export async function buildWatchCronResponse(
 ): Promise<WatchCronResponse> {
   const startedAt = new Date().toISOString();
 
-  const runDue = await buildRunDueResponse({
-    force: false,
-    dry_run: false,
-  });
+  try {
+    const runDue = await buildRunDueResponse({
+      force: false,
+      dry_run: false,
+    });
+    const finishedAt = new Date().toISOString();
+    const alertsCount = runDue.results.filter(
+      (result) => result.evidence_change_alert.alert_required
+    ).length;
+    const errorsCount = runDue.results.filter(
+      (result) => result.status === "error"
+    ).length;
 
-  const finishedAt = new Date().toISOString();
-  const alertsCount = runDue.results.filter(
-    (result) => result.evidence_change_alert.alert_required
-  ).length;
-  const errorsCount = runDue.results.filter(
-    (result) => result.status === "error"
-  ).length;
+    const logResult = await logWatchRun(
+      buildRunDueWatchRunInput({
+        route: "/api/watch/cron",
+        trigger,
+        source: "vercel_cron",
+        phase: "13",
+        startedAt,
+        finishedAt,
+        runDue,
+        status: "success",
+      })
+    );
 
-  return {
-    ok: true,
-    phase: "12",
-    route: "/api/watch/cron",
-    trigger,
-    source: "vercel_cron",
-    durable: runDue.persistence_status.durable,
-    store: runDue.persistence_status.store,
-    adapter: runDue.persistence_status.adapter,
-    force: false,
-    dry_run: false,
-    checked_count: runDue.watches_run,
-    skipped_count: runDue.watches_skipped,
-    alerts_count: alertsCount,
-    errors_count: errorsCount,
-    started_at: startedAt,
-    finished_at: finishedAt,
-    cron_secret_configured: isCronSecretConfigured(),
-  };
+    return {
+      ok: true,
+      phase: "13",
+      route: "/api/watch/cron",
+      trigger,
+      source: "vercel_cron",
+      durable: runDue.persistence_status.durable,
+      store: runDue.persistence_status.store,
+      adapter: runDue.persistence_status.adapter,
+      force: false,
+      dry_run: false,
+      checked_count: runDue.watches_run,
+      skipped_count: runDue.watches_skipped,
+      alerts_count: alertsCount,
+      errors_count: errorsCount,
+      started_at: startedAt,
+      finished_at: finishedAt,
+      cron_secret_configured: isCronSecretConfigured(),
+      watch_run_logged: logResult.logged,
+      watch_run_id: logResult.watch_run_id,
+    };
+  } catch (error) {
+    const finishedAt = new Date().toISOString();
+    await logWatchRunFailure({
+      startedAt,
+      finishedAt,
+      trigger,
+      source: "vercel_cron",
+      phase: "13",
+      route: "/api/watch/cron",
+      force: false,
+      dryRun: false,
+      error,
+    });
+    throw error;
+  }
 }

@@ -50,7 +50,7 @@ describe("cron-auth", () => {
     expect(buildCronUnauthorizedResponse(auth)).toMatchObject({
       ok: false,
       error: "unauthorized",
-      phase: "12",
+      phase: "13",
       route: "/api/watch/cron",
       cron_secret_configured: true,
     });

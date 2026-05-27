@@ -6,13 +6,21 @@ vi.mock("./watch-run-due", () => ({
   buildRunDueResponse: vi.fn(),
 }));
 
+vi.mock("./watch/watch-run-logger", () => ({
+  buildRunDueWatchRunInput: vi.fn((options) => options),
+  logWatchRun: vi.fn(),
+  logWatchRunFailure: vi.fn(),
+}));
+
 import { buildRunDueResponse } from "./watch-run-due";
+import { logWatchRun } from "./watch/watch-run-logger";
 import {
   authorizeWatchCronRequest,
   buildWatchCronResponse,
 } from "./watch-cron";
 
 const mockedBuildRunDueResponse = vi.mocked(buildRunDueResponse);
+const mockedLogWatchRun = vi.mocked(logWatchRun);
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -33,13 +41,13 @@ describe("watch-cron", () => {
       return;
     }
 
-    expect(result.body.status).toBeUndefined();
     expect(result.body).toMatchObject({
       ok: false,
-      phase: "12",
+      phase: "13",
       route: "/api/watch/cron",
       cron_secret_configured: true,
     });
+    expect(mockedLogWatchRun).not.toHaveBeenCalled();
   });
 
   it("calls run-due service with force=false and dry_run=false", async () => {
@@ -112,6 +120,10 @@ describe("watch-cron", () => {
       },
       limitations: [],
     });
+    mockedLogWatchRun.mockResolvedValue({
+      logged: true,
+      watch_run_id: "run-uuid-123",
+    });
 
     process.env.CRON_SECRET = "secret";
     const response = await buildWatchCronResponse("manual_authorized");
@@ -120,9 +132,10 @@ describe("watch-cron", () => {
       force: false,
       dry_run: false,
     });
+    expect(mockedLogWatchRun).toHaveBeenCalledTimes(1);
     expect(response).toMatchObject({
       ok: true,
-      phase: "12",
+      phase: "13",
       route: "/api/watch/cron",
       trigger: "manual_authorized",
       source: "vercel_cron",
@@ -136,6 +149,8 @@ describe("watch-cron", () => {
       alerts_count: 0,
       errors_count: 0,
       cron_secret_configured: true,
+      watch_run_logged: true,
+      watch_run_id: "run-uuid-123",
     });
     expect(response.started_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(response.finished_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);

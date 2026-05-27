@@ -22,6 +22,9 @@ export default function Home() {
         <li>
           <code>GET /api/watch/cron</code> — production Vercel Cron watchlist run (daily 21:00 UTC / 4:00 AM Bangkok)
         </li>
+        <li>
+          <code>GET /api/watch/runs</code> — latest watch run history (requires cron auth)
+        </li>
       </ul>
     </main>
   );

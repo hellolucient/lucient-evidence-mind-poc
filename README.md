@@ -21,7 +21,8 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 | `POST` | `/api/watch/check` | `Authorization: Bearer <API_KEY>` | Manual live watchlist PubMed check (Phase 9) |
 | `GET` | `/api/watch/run-due` | None | Scheduled runner health check (Phase 10+) |
 | `POST` | `/api/watch/run-due` | `Authorization: Bearer <API_KEY>` | Manual scheduled watchlist run (Phases 10–11) |
-| `GET` | `/api/watch/cron` | Vercel Cron user-agent **or** `Authorization: Bearer <CRON_SECRET>` | Production scheduled watchlist run (Phase 12) |
+| `GET` | `/api/watch/cron` | Vercel Cron user-agent **or** `Authorization: Bearer <CRON_SECRET>` | Production scheduled watchlist run (Phase 12–13) |
+| `GET` | `/api/watch/runs` | Same as cron | Latest watch run history (Phase 13) |
 
 ## Documentation
 
@@ -46,6 +47,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/future-watchlist-persistence-schema.md](./docs/future-watchlist-persistence-schema.md) | Watchlist persistence schema (`watchlist_topics`, Phase 11) |
 | [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) | Supabase durable watchlist store (Phase 11) |
 | [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md) | Vercel Cron scheduled monitoring (Phase 12) |
+| [docs/watch-run-logging-phase-13.md](./docs/watch-run-logging-phase-13.md) | Durable watch run logging (Phase 13) |
 
 ## POC phases (current)
 
@@ -65,6 +67,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 10.5 | Watchlist store interface + in-memory adapter; persistence readiness without external DB |
 | 11 | SupabaseWatchlistStore — durable `watchlist_topics` persistence with in-memory fallback |
 | 12 | Vercel Cron — `GET /api/watch/cron` daily at 21:00 UTC (4:00 AM Bangkok); Supabase-backed autonomous monitoring |
+| 13 | Durable watch run logging — `public.watch_runs` audit trail for cron and manual runs |
 
 ## Setup
 

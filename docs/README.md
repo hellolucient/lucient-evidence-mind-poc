@@ -25,6 +25,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md) | Watchlist persistence schema (`watchlist_topics`, Phase 11) |
 | [supabase-watchlist-store-phase-11.md](./supabase-watchlist-store-phase-11.md) | Phase 11 — Supabase durable watchlist store |
 | [vercel-cron-phase-12.md](./vercel-cron-phase-12.md) | Phase 12 — Vercel Cron scheduled watchlist monitoring |
+| [watch-run-logging-phase-13.md](./watch-run-logging-phase-13.md) | Phase 13 — durable watch run logging (`watch_runs`) |
 
 ## POC phase summary
 
@@ -47,6 +48,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 10.5 | WatchlistStore interface — in-memory adapter, persistence_status, future durable stub |
 | 11 | SupabaseWatchlistStore — durable watchlist_topics with env-based fallback |
 | 12 | Vercel Cron — `GET /api/watch/cron` daily 21:00 UTC (4:00 AM Bangkok); CRON_SECRET + user-agent auth |
+| 13 | Durable run logging — `watch_runs` table; cron + run-due audit trail |
 
 ## Default vs PubMed mode
 
@@ -95,6 +97,8 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `lib/cron-auth.ts` | Phase 12 cron authorization |
 | `app/api/watch/run-due/route.ts` | Phase 10+ HTTP handler (GET health, POST run, `debug_only`) |
 | `app/api/watch/cron/route.ts` | Phase 12 Vercel Cron HTTP handler (GET) |
+| `app/api/watch/runs/route.ts` | Phase 13 protected run history read |
+| `lib/watch/watch-run-logger.ts` | Phase 13 durable run logging service |
 | `app/api/watch/check/route.ts` | Phase 9 HTTP handler |
 | `vercel.json` | Phase 12 cron schedule (`0 21 * * *` = 4:00 AM Bangkok) |
 
@@ -107,7 +111,8 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `POST` | `/api/watch/check` | Bearer | 9 |
 | `GET` | `/api/watch/run-due` | None | 10+ |
 | `POST` | `/api/watch/run-due` | Bearer | 10+ |
-| `GET` | `/api/watch/cron` | Vercel Cron UA or `CRON_SECRET` Bearer | 12 |
+| `GET` | `/api/watch/cron` | Vercel Cron UA or `CRON_SECRET` Bearer | 12–13 |
+| `GET` | `/api/watch/runs` | Vercel Cron UA or `CRON_SECRET` Bearer | 13 |
 
 ## Current top-level response fields
 
@@ -120,3 +125,5 @@ Dashboard, auth providers, client workspace mapping UI, full evidence engine, PD
 **Included since Phase 11:** server-side Supabase persistence for `watchlist_topics` only (watch topic metadata, PMIDs, alerts — not client copy).
 
 **Included since Phase 12:** Vercel Cron scheduled `GET /api/watch/cron` at 21:00 UTC daily (4:00 AM Bangkok). See [vercel-cron-phase-12.md](./vercel-cron-phase-12.md).
+
+**Included since Phase 13:** Durable run history in Supabase `watch_runs`. See [watch-run-logging-phase-13.md](./watch-run-logging-phase-13.md).

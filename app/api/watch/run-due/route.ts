@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiKey } from "@/lib/auth";
+import {
+  buildRunDueWatchRunInput,
+  logWatchRun,
+  logWatchRunFailure,
+} from "@/lib/watch/watch-run-logger";
 
 export const runtime = "nodejs";
 
@@ -28,6 +33,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   let stage = "init";
+  const startedAt = new Date().toISOString();
+  let dryRun = false;
 
   try {
     stage = "auth";
@@ -77,8 +84,49 @@ export async function POST(request: NextRequest) {
 
     stage = "run_due";
     const response = await buildRunDueResponse(body);
-    return NextResponse.json(response);
+    const finishedAt = new Date().toISOString();
+    dryRun = body.dry_run === true;
+
+    if (!dryRun) {
+      const logResult = await logWatchRun(
+        buildRunDueWatchRunInput({
+          route: "/api/watch/run-due",
+          trigger: "manual_api",
+          source: "run_due",
+          phase: "13",
+          startedAt,
+          finishedAt,
+          runDue: response,
+          status: "success",
+        })
+      );
+
+      return NextResponse.json({
+        ...response,
+        watch_run_logged: logResult.logged,
+        watch_run_id: logResult.watch_run_id,
+      });
+    }
+
+    return NextResponse.json({
+      ...response,
+      watch_run_logged: false,
+      watch_run_id: null,
+    });
   } catch (error) {
+    const finishedAt = new Date().toISOString();
+
+    await logWatchRunFailure({
+      startedAt,
+      finishedAt,
+      trigger: "manual_api",
+      source: "run_due",
+      phase: "13",
+      route: "/api/watch/run-due",
+      dryRun,
+      error,
+    });
+
     try {
       const { buildWatchRunFailedResponse } = await import("@/lib/watch-run-due");
       return NextResponse.json(buildWatchRunFailedResponse(error, stage), {

@@ -81,6 +81,8 @@ export type RunDueResponse = {
   persistence_status: PersistenceStatus;
   persistence_warning: PersistenceWarning;
   limitations: string[];
+  watch_run_logged?: boolean;
+  watch_run_id?: string | null;
 };
 
 export type WatchRunFailedResponse = {
