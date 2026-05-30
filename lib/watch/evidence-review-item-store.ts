@@ -60,6 +60,7 @@ export type PrivacySafeReviewItem = {
 
 export type ReviewItemListFilters = {
   workspace_id?: string;
+  workspace_ids?: string[];
   status?: string;
   claim_family?: string;
   signal?: string;
@@ -330,7 +331,9 @@ export async function listReviewItems(
     const client = createSupabaseServerClient();
     let query = client.from(EVIDENCE_REVIEW_ITEMS_TABLE).select("*");
 
-    if (filters.workspace_id) {
+    if (filters.workspace_ids?.length) {
+      query = query.in("workspace_id", filters.workspace_ids);
+    } else if (filters.workspace_id) {
       query = query.eq("workspace_id", filters.workspace_id);
     }
     if (filters.status) {

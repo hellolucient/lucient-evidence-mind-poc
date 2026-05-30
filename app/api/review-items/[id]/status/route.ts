@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { authorizeInternalReviewApiRequest } from "@/lib/internal-review-access";
+import {
+  authorizeReviewQueueApiRequest,
+  buildReviewForbiddenApiBody,
+  isReviewQueueAccessContext,
+} from "@/lib/operator-auth";
 import { buildReviewItemStatusUpdateApiResponse } from "@/lib/review/review-items-api";
 
 export const runtime = "nodejs";
@@ -10,20 +14,20 @@ type RouteContext = {
 };
 
 /**
- * Phase 18/21 review queue — update review item status for operator actions.
- *
- * Auth: internal review session cookie or Bearer INTERNAL_REVIEW_ACCESS_TOKEN.
+ * Phase 18/21/23A review queue — update review item status for operator actions.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await authorizeInternalReviewApiRequest(
+  const auth = await authorizeReviewQueueApiRequest(
     {
       authorization: request.headers.get("authorization"),
     },
     "/api/review-items/[id]/status"
   );
 
-  if (!auth.authorized) {
-    return NextResponse.json(auth.body, { status: auth.status });
+  if (!isReviewQueueAccessContext(auth)) {
+    return NextResponse.json(auth.body ?? { ok: false, error: "unauthorized" }, {
+      status: auth.status,
+    });
   }
 
   const { id } = await context.params;
@@ -41,7 +45,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const responseBody = await buildReviewItemStatusUpdateApiResponse(id, body);
+  const responseBody = await buildReviewItemStatusUpdateApiResponse(id, body, auth);
+
+  if (!responseBody.ok && responseBody.error === "forbidden") {
+    return NextResponse.json(
+      buildReviewForbiddenApiBody(
+        "/api/review-items/[id]/status",
+        "Review item is outside your workspace scope."
+      ),
+      { status: 403 }
+    );
+  }
 
   return NextResponse.json(responseBody, {
     status: "status" in responseBody ? responseBody.status : 200,

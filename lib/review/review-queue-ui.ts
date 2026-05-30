@@ -1,4 +1,9 @@
 import {
+  applyWorkspaceScopeToListFilters,
+  canAccessReviewItemWorkspace,
+  type ReviewQueueAccessContext,
+} from "@/lib/operator-auth";
+import {
   getReviewItemById,
   isReviewItemPersistenceConfigured,
   isSupportedReviewItemStatus,
@@ -118,6 +123,8 @@ export function reviewQueueErrorMessage(error: string | null | undefined): strin
       return "The evidence_review_items table is missing. Apply the Phase 18 migration in Supabase.";
     case "review_item_not_found":
       return "Review item not found.";
+    case "forbidden":
+      return "Review item is outside your workspace scope.";
     case "unsupported_review_item_status":
       return "Unsupported review item status.";
     default:
@@ -217,10 +224,12 @@ export function parseReviewQueuePageFiltersWithSelection(
 }
 
 export async function buildReviewQueuePageData(
-  params: Record<string, string | string[] | undefined>
+  params: Record<string, string | string[] | undefined>,
+  access: ReviewQueueAccessContext
 ): Promise<ReviewQueuePageData> {
   const filtersWithSelection = parseReviewQueuePageFiltersWithSelection(params);
   const { selected_id: selectedId, ...filters } = filtersWithSelection;
+  const scopedFilters = applyWorkspaceScopeToListFilters(filters, access);
   const configured = isReviewItemPersistenceConfigured();
 
   if (!configured) {
@@ -241,13 +250,18 @@ export async function buildReviewQueuePageData(
   }
 
   const countFilters: ReviewItemListFilters = {
-    workspace_id: filters.workspace_id,
-    claim_family: filters.claim_family,
-    signal: filters.signal,
-    limit: 50,
+    ...applyWorkspaceScopeToListFilters(
+      {
+        workspace_id: filters.workspace_id,
+        claim_family: filters.claim_family,
+        signal: filters.signal,
+        limit: 50,
+      },
+      access
+    ),
   };
 
-  const listResult = await listReviewItems(filters);
+  const listResult = await listReviewItems(scopedFilters);
   const items = listResult.items.map(shapeReviewQueueListRow);
   const effectiveSelectedId = resolveEffectiveSelectedId(selectedId, items);
 
@@ -259,15 +273,23 @@ export async function buildReviewQueuePageData(
   ]);
 
   const listError = listResult.error ?? null;
-  const selectedError =
+  let selectedError =
     selectedResult && ("error" in selectedResult ? (selectedResult.error ?? null) : null);
+
+  if (
+    selectedResult?.item &&
+    !canAccessReviewItemWorkspace(access, selectedResult.item.workspace_id)
+  ) {
+    selectedError = "forbidden";
+  }
 
   return {
     configured: true,
     filters,
     items,
     selectedItem:
-      selectedResult && selectedResult.item
+      selectedResult?.item &&
+      canAccessReviewItemWorkspace(access, selectedResult.item.workspace_id)
         ? shapeReviewQueueDetailView(selectedResult.item)
         : null,
     effectiveSelectedId,
@@ -299,7 +321,8 @@ export type ReviewQueueStatusUpdateSubmission = {
 };
 
 export async function processReviewItemStatusUpdateSubmission(
-  formData: FormData
+  formData: FormData,
+  access: ReviewQueueAccessContext
 ): Promise<ReviewQueueStatusUpdateSubmission> {
   const parsed = parseReviewItemStatusFormData(formData);
 
@@ -323,6 +346,23 @@ export async function processReviewItemStatusUpdateSubmission(
       ok: false,
       error: "status_required",
       message: "Status is required.",
+    };
+    return {
+      result,
+      redirectPath: buildReviewItemsUpdateRedirectPath({
+        returnQuery: parsed.returnQuery,
+        result,
+        itemId: parsed.id,
+      }),
+    };
+  }
+
+  const existing = await getReviewItemById(parsed.id);
+  if (existing.item && !canAccessReviewItemWorkspace(access, existing.item.workspace_id)) {
+    const result: ReviewQueueStatusUpdateResult = {
+      ok: false,
+      error: "forbidden",
+      message: "Review item is outside your workspace scope.",
     };
     return {
       result,

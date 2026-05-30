@@ -1,19 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockUpdateReviewItemStatus = vi.fn();
+const mockGetReviewItemById = vi.fn();
 
 vi.mock("@/lib/watch/evidence-review-item-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/watch/evidence-review-item-store")>();
   return {
     ...actual,
     updateReviewItemStatus: (...args: unknown[]) => mockUpdateReviewItemStatus(...args),
+    getReviewItemById: (...args: unknown[]) => mockGetReviewItemById(...args),
   };
 });
 
 import { processReviewItemStatusUpdateSubmission } from "@/lib/review/review-queue-ui";
 
+const breakGlassAccess = {
+  authorized: true,
+  mode: "break_glass" as const,
+  workspaceIds: null,
+};
+
+const operatorAccess = {
+  authorized: true,
+  mode: "operator" as const,
+  userId: "user-123",
+  workspaceIds: ["demo-workspace-spa-menu"],
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetReviewItemById.mockResolvedValue({
+    item: {
+      id: "bb192f23-b028-4b17-bbd7-749ae5748932",
+      workspace_id: "demo-workspace-spa-menu",
+      status: "open",
+    },
+  });
 });
 
 describe("processReviewItemStatusUpdateSubmission", () => {
@@ -40,7 +62,7 @@ describe("processReviewItemStatusUpdateSubmission", () => {
     formData.set("status", "resolved");
     formData.set("return_query", "selected_id=bb192f23-b028-4b17-bbd7-749ae5748932");
 
-    const submission = await processReviewItemStatusUpdateSubmission(formData);
+    const submission = await processReviewItemStatusUpdateSubmission(formData, breakGlassAccess);
 
     expect(mockUpdateReviewItemStatus).toHaveBeenCalledWith(
       "bb192f23-b028-4b17-bbd7-749ae5748932",
@@ -53,5 +75,27 @@ describe("processReviewItemStatusUpdateSubmission", () => {
       expect(submission.result.item).not.toHaveProperty("claim_text");
     }
     expect(submission.redirectPath).toContain("update_ok=resolved");
+  });
+
+  it("blocks cross-workspace status updates for scoped operators", async () => {
+    mockGetReviewItemById.mockResolvedValue({
+      item: {
+        id: "bb192f23-b028-4b17-bbd7-749ae5748932",
+        workspace_id: "other-workspace",
+        status: "open",
+      },
+    });
+
+    const formData = new FormData();
+    formData.set("review_item_id", "bb192f23-b028-4b17-bbd7-749ae5748932");
+    formData.set("status", "resolved");
+
+    const submission = await processReviewItemStatusUpdateSubmission(formData, operatorAccess);
+
+    expect(mockUpdateReviewItemStatus).not.toHaveBeenCalled();
+    expect(submission.result.ok).toBe(false);
+    if (!submission.result.ok) {
+      expect(submission.result.error).toBe("forbidden");
+    }
   });
 });

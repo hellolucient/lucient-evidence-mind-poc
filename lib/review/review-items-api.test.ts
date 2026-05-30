@@ -55,6 +55,12 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+const breakGlassAccess = {
+  authorized: true,
+  mode: "break_glass" as const,
+  workspaceIds: null,
+};
+
 describe("review-items-api", () => {
   it("parseReviewItemListFilters reads query params", () => {
     const filters = parseReviewItemListFilters(
@@ -73,7 +79,7 @@ describe("review-items-api", () => {
   });
 
   it("buildReviewItemsListApiResponse returns privacy-safe fields", async () => {
-    const response = await buildReviewItemsListApiResponse({ status: "open" });
+    const response = await buildReviewItemsListApiResponse({ status: "open" }, breakGlassAccess);
 
     expect(response.ok).toBe(true);
     expect(response.phase).toBe(CURRENT_WATCH_PHASE);
@@ -89,7 +95,7 @@ describe("review-items-api", () => {
   });
 
   it("buildReviewItemGetApiResponse returns one item", async () => {
-    const response = await buildReviewItemGetApiResponse(demoItem.id);
+    const response = await buildReviewItemGetApiResponse(demoItem.id, breakGlassAccess);
 
     expect(response.ok).toBe(true);
     if (response.ok) {
@@ -99,9 +105,13 @@ describe("review-items-api", () => {
   });
 
   it("buildReviewItemStatusUpdateApiResponse updates status correctly", async () => {
-    const response = await buildReviewItemStatusUpdateApiResponse(demoItem.id, {
+    const response = await buildReviewItemStatusUpdateApiResponse(
+      demoItem.id,
+      {
       status: "acknowledged",
-    });
+      },
+      breakGlassAccess
+    );
 
     expect(response.ok).toBe(true);
     if (response.ok) {
@@ -121,14 +131,40 @@ describe("review-items-api", () => {
       error: "unsupported_review_item_status",
     });
 
-    const response = await buildReviewItemStatusUpdateApiResponse(demoItem.id, {
+    const response = await buildReviewItemStatusUpdateApiResponse(
+      demoItem.id,
+      {
       status: "invalid",
-    });
+      },
+      breakGlassAccess
+    );
 
     expect(response.ok).toBe(false);
     if (!response.ok) {
       expect(response.error).toBe("unsupported_review_item_status");
       expect(response.status).toBe(400);
+    }
+  });
+
+  it("buildReviewItemGetApiResponse returns forbidden for cross-workspace operator access", async () => {
+    mockGetReviewItemById.mockResolvedValueOnce({
+      item: {
+        ...demoItem,
+        workspace_id: "other-workspace",
+      },
+    });
+
+    const response = await buildReviewItemGetApiResponse(demoItem.id, {
+      authorized: true,
+      mode: "operator",
+      userId: "user-123",
+      workspaceIds: ["demo-workspace-spa-menu"],
+    });
+
+    expect(response.ok).toBe(false);
+    if (!response.ok) {
+      expect(response.error).toBe("forbidden");
+      expect(response.status).toBe(403);
     }
   });
 });

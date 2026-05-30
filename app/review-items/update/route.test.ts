@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockProcessReviewItemStatusUpdateSubmission = vi.fn();
-const mockIsInternalReviewUpdateAuthorized = vi.fn();
+const mockResolveReviewQueueAccess = vi.fn();
 
-vi.mock("@/lib/internal-review-access", () => ({
-  isInternalReviewUpdateAuthorized: () => mockIsInternalReviewUpdateAuthorized(),
+vi.mock("@/lib/operator-auth", () => ({
+  resolveReviewQueueAccess: (...args: unknown[]) => mockResolveReviewQueueAccess(...args),
+  isReviewQueueAccessContext: (access: { authorized: boolean }) => access.authorized,
 }));
 
 vi.mock("@/lib/review/review-queue-ui", () => ({
@@ -16,11 +17,19 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { POST } from "@/app/review-items/update/route";
+
+const breakGlassAccess = {
+  authorized: true,
+  mode: "break_glass",
+  workspaceIds: null,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockIsInternalReviewUpdateAuthorized.mockResolvedValue(true);
+  mockResolveReviewQueueAccess.mockResolvedValue(breakGlassAccess);
 });
 
 describe("POST /review-items/update", () => {
@@ -53,7 +62,10 @@ describe("POST /review-items/update", () => {
     expect(response.headers.get("location")).toBe(
       "https://example.com/review-items?selected_id=bb192f23-b028-4b17-bbd7-749ae5748932&update_ok=resolved"
     );
-    expect(mockProcessReviewItemStatusUpdateSubmission).toHaveBeenCalledWith(formData);
+    expect(mockProcessReviewItemStatusUpdateSubmission).toHaveBeenCalledWith(
+      formData,
+      breakGlassAccess
+    );
   });
 
   it("redirects with error flash when status is missing", async () => {
@@ -83,7 +95,11 @@ describe("POST /review-items/update", () => {
   });
 
   it("redirects to /review-items when update access is not authorized", async () => {
-    mockIsInternalReviewUpdateAuthorized.mockResolvedValue(false);
+    mockResolveReviewQueueAccess.mockResolvedValue({
+      authorized: false,
+      status: 401,
+      reason: "Unauthorized",
+    });
 
     const formData = new FormData();
     formData.set("review_item_id", "bb192f23-b028-4b17-bbd7-749ae5748932");

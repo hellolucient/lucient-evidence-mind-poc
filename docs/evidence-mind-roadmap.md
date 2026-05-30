@@ -2,7 +2,7 @@
 
 High-level phase plan, status tracking, and decision log for the Evidence Mind POC. For detailed deliverables and validation notes per phase, see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md).
 
-**Current phase marker (production):** `21`
+**Current phase marker (production):** `21` (code: `23` — pending deploy)
 
 ---
 
@@ -24,8 +24,9 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | 20 | Internal access control / route protection for `/review-items` | PASS / Done |
 | 20.5 | Correct-token access and review UI regression check | PASS / Done |
 | **21** | **Review queue API hardening** | **PASS / Done** |
-| **22** | **Workspace operator auth planning** | **Planning complete** |
-| 23 | Workspace operator auth implementation | Planned |
+| **22** | **Workspace operator auth planning** | **PASS / Done** |
+| **23A** | **Supabase Auth + demo workspace membership** | **Implemented — pending production validation** |
+| 23B+ | Full operator onboarding, audit, RLS | Planned |
 
 ---
 
@@ -49,14 +50,137 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | Review queue API internal auth hardening | 21 | **PASS / Done** | Internal review auth on `/api/review-items*` |
 | Production validation: review API blocked without session | 21 | **PASS / Done** | Production `401` confirmed |
 | Production validation: review UI regression after API hardening | 21 | **PASS / Done** | Queue, selection, detail, status update persist |
-| Workspace operator auth planning | 22 | **Planning complete** | Proposal documented; no code changes |
-| Workspace operator auth implementation | 23 | Planned | |
+| Workspace operator auth planning | 22 | **PASS / Done** | Proposal documented; no code changes |
+| Supabase Auth operator login + workspace membership | 23A | **Implemented** | Pending migration deploy + production validation |
+| Production validation: operator magic-link login | 23A | Pending | |
+| Production validation: workspace-scoped review access | 23A | Pending | |
+| Production validation: break-glass token fallback | 23A | Pending | |
+
+---
+
+## Phase 23A — Supabase Auth + Demo Workspace Membership
+
+**Status:** Implemented (pending production validation)
+
+**Purpose:** Add the smallest real operator authentication layer using Supabase Auth magic link / email OTP, scoped to workspace memberships, while preserving the existing `INTERNAL_REVIEW_ACCESS_TOKEN` break-glass fallback.
+
+### Implementation summary
+
+- **Database:** `workspaces` and `workspace_operator_memberships` tables; seeds `demo-workspace-spa-menu`
+- **Auth helper:** `lib/operator-auth.ts` — `resolveReviewQueueAccess()`, `authorizeReviewQueueApiRequest()`, `resolveReviewQueuePageAccess()`
+- **Resolution order:** Supabase Auth operator session (with membership) → break-glass cookie → break-glass Bearer token
+- **Operator mode:** Lists/gets/updates scoped to `workspaceIds` from membership rows
+- **Break-glass mode:** Unscoped (same as Phase 21) — all workspaces visible
+- **Login:** `/review-login` sends magic link (`shouldCreateUser: false` — no public signup); `/auth/callback` exchanges code and redirects to `/review-items`
+- **Review API routes:** Use `authorizeReviewQueueApiRequest()`; cross-workspace access returns `403 forbidden`
+- **Review UI:** Uses `resolveReviewQueuePageAccess()`; blocked page shows link to `/review-login` when Supabase Auth is configured
+- **Unchanged:** `/api/watch/cron`, `CRON_SECRET`, internal review cookie bootstrap via `/review-items/access`, privacy field boundaries
+
+### Auth flow
+
+```
+Operator email → /review-login → Supabase magic link → /auth/callback → /review-items
+                                                                    ↓
+                              workspace_operator_memberships lookup → scoped queue
+
+Break-glass (unchanged):
+/review-items?access_token=<INTERNAL_REVIEW_ACCESS_TOKEN> → /review-items/access → cookie → full queue
+```
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `supabase/migrations/20260530150000_create_workspaces_and_operator_memberships.sql` | **New** — schema + demo workspace seed |
+| `supabase/seed/demo_workspace_operator_membership.sql` | **New** — manual operator membership seed template |
+| `lib/operator-auth.ts` | **New** — operator + break-glass auth resolution |
+| `lib/operator-auth.test.ts` | **New** — workspace scope helper tests |
+| `lib/operator-auth.api-auth.test.ts` | **New** — API auth: operator, token, CRON rejection |
+| `lib/supabase/auth-server.ts` | **New** — `@supabase/ssr` server client |
+| `lib/workspace-operator-membership-store.ts` | **New** — `listWorkspaceIdsForOperator()` |
+| `app/review-login/page.tsx`, `review-login-form.tsx`, `actions.ts` | **New** — magic link login |
+| `app/auth/callback/route.ts` | **New** — auth code exchange |
+| `lib/review/review-items-api.ts` | Workspace membership checks on get/update |
+| `lib/review/review-queue-ui.ts` | Pass access context to list/update builders |
+| `lib/watch/evidence-review-item-store.ts` | `workspace_ids` filter on list |
+| `app/review-items/page.tsx` | `resolveReviewQueuePageAccess()` |
+| `app/review-items/update/route.ts` | `resolveReviewQueueAccess()` |
+| `app/review-items/review-items-access-blocked.tsx` | Optional login link |
+| `app/api/review-items/*` | `authorizeReviewQueueApiRequest()` |
+| `lib/watch/watch-phase.ts` | Phase marker `23` |
+| `.env.local.example` | `NEXT_PUBLIC_SUPABASE_ANON_KEY`, optional `NEXT_PUBLIC_SITE_URL` |
+| `package.json` | `@supabase/ssr` dependency |
+| Tests updated | review-items-api, review-items-routes, update route, review-queue-status-update |
+
+### Environment variables
+
+| Variable | Scope | Purpose |
+|----------|-------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase Auth client |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public | Supabase Auth client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server only | Membership lookup, existing stores |
+| `INTERNAL_REVIEW_ACCESS_TOKEN` | Server only | Break-glass fallback (unchanged) |
+| `NEXT_PUBLIC_SITE_URL` | Public (optional) | Magic link redirect base; defaults to request host |
+
+### Demo operator membership setup
+
+1. Apply migration `20260530150000_create_workspaces_and_operator_memberships.sql` in Supabase
+2. Disable public signup in Supabase Auth settings (Dashboard → Authentication → Providers → Email)
+3. Create operator user in Supabase Auth (Dashboard → Authentication → Users → Add user) with approved email
+4. Run in SQL Editor (replace UUID):
+
+```sql
+INSERT INTO public.workspace_operator_memberships (workspace_id, user_id, role)
+VALUES ('demo-workspace-spa-menu', 'OPERATOR_USER_UUID', 'operator')
+ON CONFLICT (workspace_id, user_id) DO NOTHING;
+```
+
+Or use `supabase/seed/demo_workspace_operator_membership.sql` as template.
+
+### Local validation plan
+
+1. Set env vars in `.env.local` (Supabase URL, anon key, service role, internal token)
+2. Apply migration; seed operator membership for a test Auth user
+3. `npm test` — 111 tests including operator auth, token fallback, CRON rejection, cross-workspace forbidden
+4. `npm run dev` → visit `/review-items` without auth → blocked with login link
+5. Visit `/review-login` → enter operator email → click magic link → `/review-items` loads scoped items
+6. Operator without membership → blocked (401) or empty queue
+7. `/review-items?access_token=<INTERNAL_REVIEW_ACCESS_TOKEN>` → still works (break-glass)
+8. `curl /api/review-items` without auth → `401`; with Bearer token → `200`
+9. `curl /api/review-items` with `CRON_SECRET` → `401`
+10. `/api/watch/cron` unchanged
+
+### Production validation plan
+
+1. Deploy with migration applied and operator membership seeded
+2. Confirm `/review-items` blocked without session
+3. Confirm magic-link login → scoped review queue
+4. Confirm status update persists for in-workspace item
+5. Confirm cross-workspace API item returns `403`
+6. Confirm break-glass token path still works
+7. Confirm cron still requires `CRON_SECRET` only
+8. Confirm no secrets or privacy fields exposed
+
+### Tests
+
+- 111/111 tests passing
+- Covers: unauthenticated blocked, token fallback, operator membership list/read/update, no-membership blocked, cross-workspace forbidden, CRON_SECRET rejected on review API, privacy fields hidden
+
+### Remaining limitations
+
+- Manual membership seeding — no self-service signup or invite flow
+- Logged-in user without membership treated as unauthorized (same as anonymous)
+- Break-glass token still sees all workspaces (intentional emergency fallback)
+- Client claims still in-memory demo data
+- No operator action audit trail
+- RLS enabled on new tables but app uses service role (membership enforced in app code)
+- No fine-grained roles beyond `operator` default
 
 ---
 
 ## Phase 22 — Workspace Operator Auth Planning
 
-**Status:** Planning complete (no implementation in this phase)
+**Status:** PASS / Done (planning only; implementation in Phase 23A)
 
 **Purpose:** Define the smallest safe path from the current internal-token POC gate toward real workspace-scoped operator authentication, without breaking Phase 21 behavior or building full SaaS auth yet.
 
@@ -314,12 +438,15 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | Phase 21 | Record production API + UI regression as phase gate | Confirms review API is hardened and operator UI still works |
 | Phase 22 | Plan Supabase Auth magic link + workspace membership before coding | Smallest incremental path; avoids breaking Phase 21 token gate |
 | Phase 22 | Keep `INTERNAL_REVIEW_ACCESS_TOKEN` as break-glass fallback in Phase 23 | Safe migration; remove only after operator auth is production-validated |
+| Phase 23A | Implement operator auth alongside break-glass token | Operator session first, then cookie/bearer fallback |
+| Phase 23A | Enforce workspace scope in app code via membership store | Service-role path unchanged; no RLS policies on review items yet |
+| Phase 23A | Magic link with `shouldCreateUser: false` | No public self-service signup |
 
 ---
 
 ## Next Recommended Step
 
-**Phase 23 — Workspace Operator Auth Implementation** (Supabase Auth magic link, `workspace_operator_memberships`, workspace-scoped review queue access).
+**Phase 23A production validation** — deploy migration, seed demo operator, validate magic-link login and workspace scoping in production. Then mark Phase 23A PASS.
 
 ---
 
@@ -332,3 +459,4 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | 2026-05-30 | Phase 21 recorded as PASS; review queue API hardening implemented |
 | 2026-05-30 | Phase 21 marked PASS / Done; production API and UI regression validation completed |
 | 2026-05-30 | Phase 22 planning complete; workspace operator auth proposal documented for Phase 23 |
+| 2026-05-30 | Phase 23A implemented; Supabase Auth operator login + workspace membership scoping |

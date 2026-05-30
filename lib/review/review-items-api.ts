@@ -1,5 +1,10 @@
 import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 import {
+  applyWorkspaceScopeToListFilters,
+  canAccessReviewItemWorkspace,
+  type ReviewQueueAccessContext,
+} from "@/lib/operator-auth";
+import {
   getReviewItemById,
   listReviewItems,
   updateReviewItemStatus,
@@ -23,8 +28,12 @@ export function parseReviewItemListFilters(
   };
 }
 
-export async function buildReviewItemsListApiResponse(filters: ReviewItemListFilters) {
-  const result = await listReviewItems(filters);
+export async function buildReviewItemsListApiResponse(
+  filters: ReviewItemListFilters,
+  access: ReviewQueueAccessContext
+) {
+  const scopedFilters = applyWorkspaceScopeToListFilters(filters, access);
+  const result = await listReviewItems(scopedFilters);
 
   return {
     ok: true as const,
@@ -37,8 +46,21 @@ export async function buildReviewItemsListApiResponse(filters: ReviewItemListFil
   };
 }
 
-export async function buildReviewItemGetApiResponse(id: string) {
+export async function buildReviewItemGetApiResponse(
+  id: string,
+  access: ReviewQueueAccessContext
+) {
   const result = await getReviewItemById(id);
+
+  if (result.item && !canAccessReviewItemWorkspace(access, result.item.workspace_id)) {
+    return {
+      ok: false as const,
+      phase: CURRENT_WATCH_PHASE,
+      route: "/api/review-items/[id]",
+      error: "forbidden",
+      status: 403,
+    };
+  }
 
   if (result.not_found) {
     return {
@@ -72,7 +94,8 @@ export type ReviewItemStatusUpdateBody = {
 
 export async function buildReviewItemStatusUpdateApiResponse(
   id: string,
-  body: ReviewItemStatusUpdateBody
+  body: ReviewItemStatusUpdateBody,
+  access: ReviewQueueAccessContext
 ) {
   if (typeof body.status !== "string" || body.status.trim().length === 0) {
     return {
@@ -81,6 +104,17 @@ export async function buildReviewItemStatusUpdateApiResponse(
       route: "/api/review-items/[id]/status",
       error: "status_required",
       status: 400,
+    };
+  }
+
+  const existing = await getReviewItemById(id);
+  if (existing.item && !canAccessReviewItemWorkspace(access, existing.item.workspace_id)) {
+    return {
+      ok: false as const,
+      phase: CURRENT_WATCH_PHASE,
+      route: "/api/review-items/[id]/status",
+      error: "forbidden",
+      status: 403,
     };
   }
 
