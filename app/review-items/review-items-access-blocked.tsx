@@ -1,3 +1,5 @@
+import { getReviewQueueAccessBlockedMessage } from "@/lib/review/review-queue-access-blocked-copy";
+
 type ReviewItemsAccessBlockedProps = {
   showLoginLink?: boolean;
 };
@@ -5,20 +7,20 @@ type ReviewItemsAccessBlockedProps = {
 export function ReviewItemsAccessBlocked({
   showLoginLink = false,
 }: ReviewItemsAccessBlockedProps) {
+  const message = getReviewQueueAccessBlockedMessage(showLoginLink);
+
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", padding: "2rem", maxWidth: "640px" }}>
-      <h1 style={{ marginTop: 0 }}>Review queue access restricted</h1>
-      <p>This internal review queue requires operator authentication.</p>
-      {showLoginLink ? (
+      <h1 style={{ marginTop: 0 }}>{message.title}</h1>
+      <p style={{ color: "#444" }}>{message.intro}</p>
+      {message.loginPath ? (
         <p style={{ color: "#444" }}>
-          Approved operators can sign in at <a href="/review-login">/review-login</a>.
+          {message.loginPrompt}{" "}
+          <a href={message.loginPath}>{message.loginPath}</a>.
         </p>
-      ) : null}
-      <p style={{ color: "#444" }}>
-        Break-glass access remains available via{" "}
-        <code>/review-items?access_token=&lt;token&gt;</code> when{" "}
-        <code>INTERNAL_REVIEW_ACCESS_TOKEN</code> is configured.
-      </p>
+      ) : (
+        <p style={{ color: "#444" }}>{message.fallbackPrompt}</p>
+      )}
     </main>
   );
 }

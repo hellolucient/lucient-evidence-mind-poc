@@ -226,7 +226,7 @@ export function parseReviewQueuePageFiltersWithSelection(
 export async function buildReviewQueuePageData(
   params: Record<string, string | string[] | undefined>,
   access: ReviewQueueAccessContext
-): Promise<ReviewQueuePageData> {
+): Promise<Omit<ReviewQueuePageData, "authStatus">> {
   const filtersWithSelection = parseReviewQueuePageFiltersWithSelection(params);
   const { selected_id: selectedId, ...filters } = filtersWithSelection;
   const scopedFilters = applyWorkspaceScopeToListFilters(filters, access);

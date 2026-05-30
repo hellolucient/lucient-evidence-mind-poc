@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import {
   resolveReviewQueuePageAccess,
 } from "@/lib/operator-auth";
+import { buildReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import { buildReviewQueuePageData } from "@/lib/review/review-queue-ui";
+import { getSupabaseAuthUser } from "@/lib/supabase/auth-server";
 
 import { ReviewItemsAccessBlocked } from "./review-items-access-blocked";
 import { ReviewQueueConsole } from "./review-queue-console";
@@ -27,6 +29,9 @@ export default async function ReviewItemsPage({ searchParams }: ReviewItemsPageP
   }
 
   const pageData = await buildReviewQueuePageData(params, access.access);
+  const operatorEmail =
+    access.access.mode === "operator" ? (await getSupabaseAuthUser())?.email : null;
+  const authStatus = buildReviewQueueAuthPanelData(access.access, operatorEmail);
 
-  return <ReviewQueueConsole initialData={pageData} />;
+  return <ReviewQueueConsole initialData={{ ...pageData, authStatus }} />;
 }

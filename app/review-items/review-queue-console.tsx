@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
+import { ReviewQueueAuthPanel } from "@/app/review-items/review-queue-auth-panel";
 import { REVIEW_QUEUE_STATUS_OPTIONS } from "@/lib/review/review-queue-constants";
 import type {
   ReviewQueuePageData,
@@ -381,6 +382,8 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
           Evidence changes mapped to affected client/workspace claims.
         </p>
       </header>
+
+      <ReviewQueueAuthPanel authStatus={initialData.authStatus} />
 
       {!initialData.configured && (
         <div style={styles.error}>

@@ -1,6 +1,8 @@
 import type { ReviewItemListFilters, PrivacySafeReviewItem } from "@/lib/watch/evidence-review-item-store";
 import type { ReviewItemStatus } from "@/lib/watch/evidence-review-handoff";
 
+import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
+
 export type ReviewQueuePageFilters = ReviewItemListFilters;
 
 export type ReviewQueueListRow = Pick<
@@ -55,4 +57,5 @@ export type ReviewQueuePageData = {
   selectedError: string | null;
   selectedErrorMessage: string | null;
   updateFlash: ReviewQueueUpdateFlash | null;
+  authStatus: ReviewQueueAuthPanelData;
 };
