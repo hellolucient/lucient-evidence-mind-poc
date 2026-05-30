@@ -1,0 +1,256 @@
+# lucient Evidence Mind — Development Phases
+
+lucient Evidence Mind is evolving from a one-off evidence query and brief system into a persistent evidence-monitoring and claim-intelligence platform for wellness claims. The phases below track what has been built, what has been validated in production, and what comes next so future work stays aligned with the platform direction.
+
+---
+
+## Phase 1 — Basic Evidence Query Endpoint
+
+**Status:** Completed
+
+**Purpose:** Built the first working query endpoint so the app could accept a wellness/evidence question and return a structured response.
+
+---
+
+## Phase 2 — Basic Claim/Evidence Response Shape
+
+**Status:** Completed
+
+**Purpose:** Began structuring responses around claims, evidence, risk, and safer wording rather than generic chatbot answers.
+
+---
+
+## Phase 3 — Claim Extraction / Evidence Mapping Foundation
+
+**Status:** Completed
+
+**Purpose:** Introduced the idea that wellness copy or product claims should be broken into checkable claims and mapped to evidence.
+
+---
+
+## Phase 4 — Guardrail / Safer Wording Logic
+
+**Status:** Completed
+
+**Purpose:** Added safer wording and claim-risk handling so risky wellness claims can be rewritten more carefully.
+
+---
+
+## Phase 5 — Persistence Preparation / Supabase Direction
+
+**Status:** Completed
+
+**Purpose:** Prepared the system for durable storage rather than runtime-only or JSON-only state.
+
+---
+
+## Phase 6 — Engine Refactor / Service Separation
+
+**Status:** Completed
+
+**Purpose:** Separated logic into clearer engine/service layers to support more complex evidence workflows.
+
+---
+
+## Phase 7 — Intervention Matching and Appraisal Tightening
+
+**Status:** Completed / Validated
+
+**Purpose:** Fixed intervention matching and tightened appraisal rules to reduce weak or irrelevant evidence matches.
+
+---
+
+## Phase 8 — Reframe Toward Evidence Watchlists
+
+**Status:** Completed conceptually
+
+**Purpose:** Shifted the strategic direction from one-off evidence brief generation toward persistent evidence monitoring over time.
+
+---
+
+## Phase 9 — Watchlist Runner Foundation
+
+**Status:** Completed
+
+**Purpose:** Built the first version of the watchlist runner to check a watched claim family and compare current PMIDs against a baseline.
+
+---
+
+## Phase 9.5 — Baseline / Known PMID Handling
+
+**Status:** Completed
+
+**Purpose:** Improved known PMID comparison and baseline state handling so the system can distinguish old evidence from new evidence.
+
+---
+
+## Phase 9.6 — Alert Logic / Evidence Delta Simulation
+
+**Status:** Completed
+
+**Purpose:** Added evidence delta summaries, alert-required logic, monitor-only classification, and non-contributing source handling.
+
+---
+
+## Phase 10 — Scheduled Watch Simulation
+
+**Status:** Completed
+
+**Purpose:** Built scheduled watch simulation mode so the system could behave like a daily evidence watchtower run before real cron scheduling.
+
+---
+
+## Phase 10.5 — Duplicate Suppression / Repeat Run Validation
+
+**Status:** Completed / Validated
+
+**Purpose:** Validated that repeated runs do not create duplicate alerts for already-known PMIDs.
+
+---
+
+## Phase 11 — Durable Supabase Watchlist Persistence
+
+**Status:** PASS
+
+**Purpose:** Moved watchlist state into Supabase using SupabaseWatchlistStore.
+
+**Validated:**
+
+- `durable = true`
+- `store = supabase`
+- `adapter = SupabaseWatchlistStore`
+- state survives cold starts
+- known PMIDs are remembered
+- `next_check_utc` is respected
+
+---
+
+## Phase 12 — Vercel Cron Scheduled Trigger
+
+**Status:** PASS
+
+**Purpose:** Added `/api/watch/cron` and Vercel scheduled execution so Evidence Mind can wake itself automatically.
+
+**Validated:**
+
+- `/api/watch/cron` deployed
+- `CRON_SECRET` protection works
+- unauthorized calls return `401`
+- authorized manual calls return `200`
+- actual Vercel scheduled calls return `200`
+- production schedule runs at 21:00 UTC, equivalent to 4:00 AM Bangkok time and 5:00 AM Malaysia time
+
+---
+
+## Phase 13 — Durable Watch Run Logging
+
+**Status:** PASS
+
+**Purpose:** Added `public.watch_runs` so each watchtower run has durable operational history.
+
+**Validated:**
+
+- manual runs create `watch_runs` rows
+- scheduled cron runs create `watch_runs` rows
+- unauthorized calls do not create rows
+- trigger/source diagnostics fixed
+- `response_summary` stored
+
+---
+
+## Phase 14 — Durable Evidence Alert Persistence
+
+**Status:** PASS
+
+**Purpose:** Added `public.evidence_alerts` so newly detected evidence is stored as durable alert/event records.
+
+**Validated:**
+
+- `evidence_alerts` table exists
+- no-new-evidence run logs zero alerts
+- simulated new PMID creates durable alert
+- alert links to `watch_run_id`
+- repeat run creates no duplicate alert
+- unique alert count confirmed
+
+**Key test:**
+
+- PMID `32124007` removed from baseline
+- forced run rediscovered it
+- `evidence_alert` created
+- repeat run created no duplicate
+
+---
+
+## Phase 15 — Claim Family Search Profiles
+
+**Status:** Next
+
+**Purpose:** Define exactly what each claim family is watching.
+
+This phase should cover:
+
+- claim family name
+- intervention terms
+- outcome terms
+- synonyms
+- included concepts
+- excluded concepts
+- PubMed query strategy
+- publication type preferences
+- human/animal filters
+- noise filters
+- query versioning
+- source priority
+
+---
+
+## Phase 16 — Evidence Appraisal / Signal Classification
+
+**Status:** Planned
+
+**Purpose:** Improve how the system decides whether new evidence strengthens, weakens, contradicts, or merely touches a claim.
+
+This phase should improve:
+
+- strengthens claim
+- weakens claim
+- contradicts claim
+- irrelevant/noise
+- monitor only
+- requires human review
+- requires client claim re-review
+
+---
+
+## Phase 17 — Mind/App Handoff and Client Claim Mapping
+
+**Status:** Planned
+
+**Purpose:** Connect evidence alerts back to private client claim workflows.
+
+This phase should cover:
+
+- linking claim families to client workspaces
+- private client claim mapping
+- alert routing
+- review queues
+- client-safe notifications
+- audit trails
+- Mind handoff events
+
+---
+
+## Summary
+
+| Phase range | Focus |
+|-------------|-------|
+| **Phases 1–7** | Basic evidence engine |
+| **Phases 8–10.5** | Watchlist and scheduled monitoring simulation |
+| **Phase 11** | Durable watchlist state |
+| **Phase 12** | Scheduled autonomous execution |
+| **Phase 13** | Durable run history |
+| **Phase 14** | Durable evidence alerts |
+| **Phase 15** | Better claim-family search profiles |
+| **Phase 16** | Better appraisal and signal classification |
+| **Phase 17** | Mind/app/client claim workflow integration |
