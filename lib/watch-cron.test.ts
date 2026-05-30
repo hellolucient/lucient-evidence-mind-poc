@@ -58,7 +58,7 @@ describe("watch-cron", () => {
 
     expect(result.body).toMatchObject({
       ok: false,
-      phase: "13",
+      phase: "15",
       route: "/api/watch/cron",
       cron_secret_configured: true,
     });
@@ -165,13 +165,13 @@ describe("watch-cron", () => {
       expect.objectContaining({
         trigger: "manual_authorized",
         source: "manual_authorized",
-        phase: "14",
+        phase: "15",
       })
     );
     expect(mockedLinkEvidenceAlerts).not.toHaveBeenCalled();
     expect(response).toMatchObject({
       ok: true,
-      phase: "14",
+      phase: "15",
       route: "/api/watch/cron",
       trigger: "manual_authorized",
       source: "manual_authorized",

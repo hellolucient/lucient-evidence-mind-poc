@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiKey } from "@/lib/auth";
+import { WATCH_RUNTIME_PHASE } from "@/lib/watch/watch-runtime-phase";
 import {
   buildRunDueWatchRunInput,
   logWatchRun,
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
           route: "/api/watch/run-due",
           trigger: "manual_api",
           source: "run_due",
-          phase: "14",
+          phase: WATCH_RUNTIME_PHASE,
           startedAt,
           finishedAt,
           runDue: response,
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
       finishedAt,
       trigger: "manual_api",
       source: "run_due",
-      phase: "14",
+      phase: WATCH_RUNTIME_PHASE,
       route: "/api/watch/run-due",
       dryRun,
       error,
