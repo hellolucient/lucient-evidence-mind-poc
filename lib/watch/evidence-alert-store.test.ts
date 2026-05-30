@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockInsert = vi.fn();
+const mockReviewInsert = vi.fn();
+const mockReviewSelect = vi.fn();
+const mockReviewSingle = vi.fn();
 const mockUpdate = vi.fn();
 const mockSelect = vi.fn();
 const mockSingle = vi.fn();
@@ -14,6 +17,7 @@ vi.mock("@/engine/watchlist/supabase-client", () => ({
   createSupabaseServerClient: (...args: unknown[]) =>
     mockCreateSupabaseServerClient(...args),
   EVIDENCE_ALERTS_TABLE: "evidence_alerts",
+  EVIDENCE_REVIEW_ITEMS_TABLE: "evidence_review_items",
 }));
 
 import {
@@ -210,12 +214,27 @@ function buildRunDueWithCandidates(
 
 afterEach(() => {
   vi.clearAllMocks();
-  mockFrom.mockReturnValue({
-    insert: mockInsert,
-    update: mockUpdate,
+  vi.unstubAllEnvs();
+  mockFrom.mockImplementation((table: string) => {
+    if (table === "evidence_review_items") {
+      return {
+        insert: mockReviewInsert,
+      };
+    }
+
+    return {
+      insert: mockInsert,
+      update: mockUpdate,
+    };
   });
   mockInsert.mockReturnValue({
     select: mockSelect,
+  });
+  mockReviewInsert.mockReturnValue({
+    select: mockReviewSelect,
+  });
+  mockReviewSelect.mockReturnValue({
+    single: mockReviewSingle,
   });
   mockSelect.mockReturnValue({
     single: mockSingle,
@@ -336,5 +355,51 @@ describe("evidence-alert-store", () => {
 
     expect(result.evidence_alerts_logged).toBe(0);
     expect(mockCreateSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("does not create review handoff items by default", async () => {
+    mockSingle.mockResolvedValue({
+      data: { id: "alert-uuid-1" },
+      error: null,
+    });
+
+    const candidates = buildEvidenceAlertCandidates(buildCheck(["777"]), topic);
+    const result = await persistEvidenceAlertsFromRunDue({
+      runDue: buildRunDueWithCandidates(candidates),
+      watchRunId: null,
+    });
+
+    expect(result.evidence_alerts_logged).toBe(1);
+    expect(result.review_items_logged).toBeUndefined();
+    expect(mockReviewInsert).not.toHaveBeenCalled();
+  });
+
+  it("creates review handoff items when EIE_ENABLE_REVIEW_HANDOFFS is true", async () => {
+    vi.stubEnv("EIE_ENABLE_REVIEW_HANDOFFS", "true");
+
+    mockSingle.mockResolvedValue({
+      data: { id: "alert-uuid-handoff" },
+      error: null,
+    });
+    mockReviewSingle.mockResolvedValue({
+      data: { id: "review-uuid-handoff" },
+      error: null,
+    });
+
+    const candidates = buildEvidenceAlertCandidates(buildCheck(["888"]), topic);
+    const result = await persistEvidenceAlertsFromRunDue({
+      runDue: buildRunDueWithCandidates(candidates),
+      watchRunId: "run-uuid-handoff",
+    });
+
+    expect(result.review_items_logged).toBe(1);
+    expect(result.review_item_ids).toEqual(["review-uuid-handoff"]);
+    expect(mockReviewInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evidence_alert_id: "alert-uuid-handoff",
+        client_claim_id: "demo-claim-magnesium-stress-001",
+        claim_family: "magnesium_cortisol_stress",
+      })
+    );
   });
 });

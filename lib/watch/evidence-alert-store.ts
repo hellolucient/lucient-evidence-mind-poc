@@ -9,6 +9,8 @@ import {
 } from "@/engine/watchlist/supabase-client";
 import { sanitizeWatchRunErrorMessage } from "./watch-run-logger";
 import { classifyEvidenceCandidate } from "./evidence-signal-classifier";
+import { isReviewHandoffEnabled } from "./evidence-review-handoff";
+import { persistReviewHandoffsForAlertCandidates } from "./evidence-review-item-store";
 
 export type EvidenceAlertPersistenceResult = {
   configured: boolean;
@@ -17,6 +19,10 @@ export type EvidenceAlertPersistenceResult = {
   evidence_alerts_duplicate_skipped: number;
   evidence_alert_ids: string[];
   evidence_alerts_error?: string;
+  review_items_logged?: number;
+  review_items_duplicate_skipped?: number;
+  review_item_ids?: string[];
+  review_items_error?: string;
 };
 
 export type EvidenceAlertCandidate = {
@@ -264,6 +270,10 @@ export async function persistEvidenceAlertsFromRunDue(options: {
   let evidenceAlertsLogged = 0;
   let evidenceAlertsDuplicateSkipped = 0;
   const evidenceAlertIds: string[] = [];
+  const insertedCandidates: Array<{
+    candidate: EvidenceAlertCandidate;
+    evidence_alert_id: string;
+  }> = [];
   let lastError: string | undefined;
 
   for (const candidate of candidates) {
@@ -287,19 +297,39 @@ export async function persistEvidenceAlertsFromRunDue(options: {
       if (data?.id) {
         evidenceAlertsLogged += 1;
         evidenceAlertIds.push(data.id);
+        insertedCandidates.push({ candidate, evidence_alert_id: data.id });
       }
     } catch (error) {
       lastError = sanitizeWatchRunErrorMessage(error);
     }
   }
 
-  return {
+  const baseResult = {
     configured: true,
     persisted: true,
     evidence_alerts_logged: evidenceAlertsLogged,
     evidence_alerts_duplicate_skipped: evidenceAlertsDuplicateSkipped,
     evidence_alert_ids: evidenceAlertIds,
     ...(lastError ? { evidence_alerts_error: lastError } : {}),
+  };
+
+  if (!isReviewHandoffEnabled() || insertedCandidates.length === 0) {
+    return baseResult;
+  }
+
+  const reviewResult = await persistReviewHandoffsForAlertCandidates({
+    candidates: insertedCandidates,
+    watchRunId: watchRunId,
+  });
+
+  return {
+    ...baseResult,
+    review_items_logged: reviewResult.review_items_logged,
+    review_items_duplicate_skipped: reviewResult.review_items_duplicate_skipped,
+    review_item_ids: reviewResult.review_item_ids,
+    ...(reviewResult.review_items_error
+      ? { review_items_error: reviewResult.review_items_error }
+      : {}),
   };
 }
 

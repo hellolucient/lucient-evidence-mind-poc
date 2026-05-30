@@ -257,19 +257,24 @@ See [EVIDENCE_SIGNAL_CLASSIFICATION.md](./EVIDENCE_SIGNAL_CLASSIFICATION.md)
 
 ## Phase 17 — Mind/App Handoff and Client Claim Mapping
 
-**Status:** Planned
+**Status:** In Progress
 
-**Purpose:** Connect evidence alerts back to private client claim workflows.
+**Purpose:** Phase 17 creates the bridge from abstract evidence alerts to affected client/workspace claims and review handoff items.
 
-This phase should cover:
+**Phase 17 v1 deliverables:**
 
-- linking claim families to client workspaces
-- private client claim mapping
-- alert routing
-- review queues
-- client-safe notifications
-- audit trails
-- Mind handoff events
+- `lib/watch/client-claim-mapper.ts` — demo claim-family → client claim mapping
+- `lib/watch/evidence-review-handoff.ts` — review handoff item builder
+- `lib/watch/evidence-review-item-store.ts` — optional Supabase persistence (`EIE_ENABLE_REVIEW_HANDOFFS=true`)
+- Migration: `supabase/migrations/20260530140000_create_evidence_review_items.sql`
+- Docs: [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md)
+
+**Intentionally not included in v1:**
+
+- Real client notifications or email
+- Full workspace UI or review queues
+- Client claim ingestion pipeline
+- Changes to cron auth, PubMed queries, alert dedupe, or signal classification rules
 
 ---
 

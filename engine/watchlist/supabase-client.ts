@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const WATCHLIST_TOPICS_TABLE = "watchlist_topics";
 const WATCH_RUNS_TABLE = "watch_runs";
 const EVIDENCE_ALERTS_TABLE = "evidence_alerts";
+const EVIDENCE_REVIEW_ITEMS_TABLE = "evidence_review_items";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -51,4 +52,5 @@ export {
   WATCHLIST_TOPICS_TABLE,
   WATCH_RUNS_TABLE,
   EVIDENCE_ALERTS_TABLE,
+  EVIDENCE_REVIEW_ITEMS_TABLE,
 };
