@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockUpdateReviewItemStatus = vi.fn();
+const mockPerformReviewItemStatusUpdate = vi.fn();
 const mockGetReviewItemById = vi.fn();
+
+vi.mock("@/lib/review/review-item-status-update", () => ({
+  performReviewItemStatusUpdate: (...args: unknown[]) => mockPerformReviewItemStatusUpdate(...args),
+}));
 
 vi.mock("@/lib/watch/evidence-review-item-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/watch/evidence-review-item-store")>();
   return {
     ...actual,
-    updateReviewItemStatus: (...args: unknown[]) => mockUpdateReviewItemStatus(...args),
     getReviewItemById: (...args: unknown[]) => mockGetReviewItemById(...args),
   };
 });
@@ -39,8 +42,9 @@ beforeEach(() => {
 });
 
 describe("processReviewItemStatusUpdateSubmission", () => {
-  it("calls updateReviewItemStatus with submitted id and status", async () => {
-    mockUpdateReviewItemStatus.mockResolvedValue({
+  it("calls performReviewItemStatusUpdate with submitted id, status, and audit context", async () => {
+    mockPerformReviewItemStatusUpdate.mockResolvedValue({
+      ok: true,
       item: {
         id: "bb192f23-b028-4b17-bbd7-749ae5748932",
         evidence_alert_id: null,
@@ -62,12 +66,23 @@ describe("processReviewItemStatusUpdateSubmission", () => {
     formData.set("status", "resolved");
     formData.set("return_query", "selected_id=bb192f23-b028-4b17-bbd7-749ae5748932");
 
-    const submission = await processReviewItemStatusUpdateSubmission(formData, breakGlassAccess);
-
-    expect(mockUpdateReviewItemStatus).toHaveBeenCalledWith(
-      "bb192f23-b028-4b17-bbd7-749ae5748932",
-      "resolved"
+    const submission = await processReviewItemStatusUpdateSubmission(
+      formData,
+      breakGlassAccess,
+      null
     );
+
+    expect(mockPerformReviewItemStatusUpdate).toHaveBeenCalledWith({
+      id: "bb192f23-b028-4b17-bbd7-749ae5748932",
+      status: "resolved",
+      access: breakGlassAccess,
+      operatorEmail: null,
+      existingItem: {
+        id: "bb192f23-b028-4b17-bbd7-749ae5748932",
+        workspace_id: "demo-workspace-spa-menu",
+        status: "open",
+      },
+    });
     expect(submission.result.ok).toBe(true);
     if (submission.result.ok) {
       expect(submission.result.item.status).toBe("resolved");
@@ -92,7 +107,7 @@ describe("processReviewItemStatusUpdateSubmission", () => {
 
     const submission = await processReviewItemStatusUpdateSubmission(formData, operatorAccess);
 
-    expect(mockUpdateReviewItemStatus).not.toHaveBeenCalled();
+    expect(mockPerformReviewItemStatusUpdate).not.toHaveBeenCalled();
     expect(submission.result.ok).toBe(false);
     if (!submission.result.ok) {
       expect(submission.result.error).toBe("forbidden");

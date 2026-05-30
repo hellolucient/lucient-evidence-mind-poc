@@ -6,6 +6,7 @@ import {
   isReviewQueueAccessContext,
 } from "@/lib/operator-auth";
 import { buildReviewItemStatusUpdateApiResponse } from "@/lib/review/review-items-api";
+import { getSupabaseAuthUser } from "@/lib/supabase/auth-server";
 
 export const runtime = "nodejs";
 
@@ -45,7 +46,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const responseBody = await buildReviewItemStatusUpdateApiResponse(id, body, auth);
+  const operatorEmail =
+    auth.mode === "operator" ? (await getSupabaseAuthUser())?.email : null;
+  const responseBody = await buildReviewItemStatusUpdateApiResponse(
+    id,
+    body,
+    auth,
+    operatorEmail
+  );
 
   if (!responseBody.ok && responseBody.error === "forbidden") {
     return NextResponse.json(

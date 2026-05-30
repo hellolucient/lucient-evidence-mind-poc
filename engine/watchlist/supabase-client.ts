@@ -4,6 +4,7 @@ const WATCHLIST_TOPICS_TABLE = "watchlist_topics";
 const WATCH_RUNS_TABLE = "watch_runs";
 const EVIDENCE_ALERTS_TABLE = "evidence_alerts";
 const EVIDENCE_REVIEW_ITEMS_TABLE = "evidence_review_items";
+const EVIDENCE_REVIEW_ITEM_AUDIT_EVENTS_TABLE = "evidence_review_item_audit_events";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -53,4 +54,5 @@ export {
   WATCH_RUNS_TABLE,
   EVIDENCE_ALERTS_TABLE,
   EVIDENCE_REVIEW_ITEMS_TABLE,
+  EVIDENCE_REVIEW_ITEM_AUDIT_EVENTS_TABLE,
 };

@@ -4,10 +4,10 @@ import {
   canAccessReviewItemWorkspace,
   type ReviewQueueAccessContext,
 } from "@/lib/operator-auth";
+import { performReviewItemStatusUpdate } from "@/lib/review/review-item-status-update";
 import {
   getReviewItemById,
   listReviewItems,
-  updateReviewItemStatus,
   type PrivacySafeReviewItem,
   type ReviewItemListFilters,
 } from "@/lib/watch/evidence-review-item-store";
@@ -95,7 +95,8 @@ export type ReviewItemStatusUpdateBody = {
 export async function buildReviewItemStatusUpdateApiResponse(
   id: string,
   body: ReviewItemStatusUpdateBody,
-  access: ReviewQueueAccessContext
+  access: ReviewQueueAccessContext,
+  operatorEmail?: string | null
 ) {
   if (typeof body.status !== "string" || body.status.trim().length === 0) {
     return {
@@ -118,29 +119,35 @@ export async function buildReviewItemStatusUpdateApiResponse(
     };
   }
 
-  const result = await updateReviewItemStatus(id, body.status.trim());
+  const result = await performReviewItemStatusUpdate({
+    id,
+    status: body.status.trim(),
+    access,
+    operatorEmail,
+    existingItem: existing.item ?? null,
+  });
 
-  if (result.invalid_status) {
-    return {
-      ok: false as const,
-      phase: CURRENT_WATCH_PHASE,
-      route: "/api/review-items/[id]/status",
-      error: result.error ?? "unsupported_review_item_status",
-      status: 400,
-    };
-  }
+  if (!result.ok) {
+    if (result.error === "unsupported_review_item_status") {
+      return {
+        ok: false as const,
+        phase: CURRENT_WATCH_PHASE,
+        route: "/api/review-items/[id]/status",
+        error: result.error,
+        status: 400,
+      };
+    }
 
-  if (result.not_found) {
-    return {
-      ok: false as const,
-      phase: CURRENT_WATCH_PHASE,
-      route: "/api/review-items/[id]/status",
-      error: result.error ?? "review_item_not_found",
-      status: 404,
-    };
-  }
+    if (result.error === "review_item_not_found") {
+      return {
+        ok: false as const,
+        phase: CURRENT_WATCH_PHASE,
+        route: "/api/review-items/[id]/status",
+        error: result.error,
+        status: 404,
+      };
+    }
 
-  if (result.error) {
     return {
       ok: false as const,
       phase: CURRENT_WATCH_PHASE,

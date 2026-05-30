@@ -1,5 +1,6 @@
 import type { ReviewItemListFilters, PrivacySafeReviewItem } from "@/lib/watch/evidence-review-item-store";
 import type { ReviewItemStatus } from "@/lib/watch/evidence-review-handoff";
+import type { PrivacySafeReviewItemAuditEvent } from "@/lib/review/evidence-review-item-audit-store";
 
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 
@@ -49,6 +50,7 @@ export type ReviewQueuePageData = {
   filters: ReviewQueuePageFilters;
   items: ReviewQueueListRow[];
   selectedItem: ReviewQueueDetailView | null;
+  auditHistory: PrivacySafeReviewItemAuditEvent[];
   effectiveSelectedId: string | null;
   filteredCount: number;
   statusCounts: ReviewQueueStatusCounts;

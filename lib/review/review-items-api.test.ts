@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockPerformReviewItemStatusUpdate = vi.fn();
 const mockListReviewItems = vi.fn();
 const mockGetReviewItemById = vi.fn();
-const mockUpdateReviewItemStatus = vi.fn();
+
+vi.mock("@/lib/review/review-item-status-update", () => ({
+  performReviewItemStatusUpdate: (...args: unknown[]) => mockPerformReviewItemStatusUpdate(...args),
+}));
 
 vi.mock("@/lib/watch/evidence-review-item-store", () => ({
   listReviewItems: (...args: unknown[]) => mockListReviewItems(...args),
   getReviewItemById: (...args: unknown[]) => mockGetReviewItemById(...args),
-  updateReviewItemStatus: (...args: unknown[]) => mockUpdateReviewItemStatus(...args),
 }));
 
 import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
@@ -42,7 +45,8 @@ beforeEach(() => {
   mockGetReviewItemById.mockResolvedValue({
     item: demoItem,
   });
-  mockUpdateReviewItemStatus.mockResolvedValue({
+  mockPerformReviewItemStatusUpdate.mockResolvedValue({
+    ok: true,
     item: {
       ...demoItem,
       status: "acknowledged",
@@ -118,17 +122,20 @@ describe("review-items-api", () => {
       expect(response.item.status).toBe("acknowledged");
       expect(response.status).toBe(200);
     }
-    expect(mockUpdateReviewItemStatus).toHaveBeenCalledWith(
-      demoItem.id,
-      "acknowledged"
-    );
+    expect(mockPerformReviewItemStatusUpdate).toHaveBeenCalledWith({
+      id: demoItem.id,
+      status: "acknowledged",
+      access: breakGlassAccess,
+      operatorEmail: undefined,
+      existingItem: demoItem,
+    });
   });
 
   it("buildReviewItemStatusUpdateApiResponse rejects invalid status", async () => {
-    mockUpdateReviewItemStatus.mockResolvedValueOnce({
-      item: null,
-      invalid_status: true,
+    mockPerformReviewItemStatusUpdate.mockResolvedValueOnce({
+      ok: false,
       error: "unsupported_review_item_status",
+      message: "Unsupported review item status.",
     });
 
     const response = await buildReviewItemStatusUpdateApiResponse(
@@ -166,5 +173,32 @@ describe("review-items-api", () => {
       expect(response.error).toBe("forbidden");
       expect(response.status).toBe(403);
     }
+  });
+
+  it("buildReviewItemStatusUpdateApiResponse blocks cross-workspace operator updates without audit", async () => {
+    mockGetReviewItemById.mockResolvedValueOnce({
+      item: {
+        ...demoItem,
+        workspace_id: "other-workspace",
+      },
+    });
+
+    const response = await buildReviewItemStatusUpdateApiResponse(
+      demoItem.id,
+      { status: "acknowledged" },
+      {
+        authorized: true,
+        mode: "operator",
+        userId: "user-123",
+        workspaceIds: ["demo-workspace-spa-menu"],
+      }
+    );
+
+    expect(response.ok).toBe(false);
+    if (!response.ok) {
+      expect(response.error).toBe("forbidden");
+      expect(response.status).toBe(403);
+    }
+    expect(mockPerformReviewItemStatusUpdate).not.toHaveBeenCalled();
   });
 });

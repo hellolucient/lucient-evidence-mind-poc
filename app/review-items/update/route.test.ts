@@ -17,8 +17,6 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
 import { POST } from "@/app/review-items/update/route";
 
 const breakGlassAccess = {
@@ -64,7 +62,8 @@ describe("POST /review-items/update", () => {
     );
     expect(mockProcessReviewItemStatusUpdateSubmission).toHaveBeenCalledWith(
       formData,
-      breakGlassAccess
+      breakGlassAccess,
+      null
     );
   });
 

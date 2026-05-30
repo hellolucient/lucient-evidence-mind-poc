@@ -6,6 +6,7 @@ import {
   resolveReviewQueueAccess,
 } from "@/lib/operator-auth";
 import { processReviewItemStatusUpdateSubmission } from "@/lib/review/review-queue-ui";
+import { getSupabaseAuthUser } from "@/lib/supabase/auth-server";
 
 export const runtime = "nodejs";
 
@@ -17,7 +18,13 @@ export async function POST(request: Request) {
   }
 
   const formData = await request.formData();
-  const submission = await processReviewItemStatusUpdateSubmission(formData, auth);
+  const operatorEmail =
+    auth.mode === "operator" ? (await getSupabaseAuthUser())?.email : null;
+  const submission = await processReviewItemStatusUpdateSubmission(
+    formData,
+    auth,
+    operatorEmail
+  );
 
   if (submission.result.ok) {
     revalidatePath("/review-items");

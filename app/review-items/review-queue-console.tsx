@@ -213,6 +213,31 @@ const styles = {
     padding: "0.75rem 1rem",
     marginTop: "0.75rem",
   } as const,
+  auditList: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "0.5rem",
+    marginTop: "0.5rem",
+  } as const,
+  auditEntry: {
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    padding: "0.625rem 0.75rem",
+    background: "#fff",
+    fontSize: "0.8125rem",
+  } as const,
+  auditTimestamp: {
+    color: "#334155",
+    fontWeight: 600,
+    marginBottom: "0.25rem",
+  } as const,
+  auditMeta: {
+    display: "flex",
+    justifyContent: "space-between" as const,
+    gap: "0.75rem",
+    color: "#475569",
+    fontSize: "0.75rem",
+  } as const,
 };
 
 function formatTimestamp(value: string | null): string {
@@ -680,6 +705,36 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
                   Status updated to {updateFlash.status}. List and summary cards refreshed.
                 </div>
               )}
+
+              <div style={{ marginTop: "1.25rem" }}>
+                <div style={styles.detailLabel}>Audit history</div>
+                {initialData.auditHistory.length === 0 ? (
+                  <div style={styles.info}>No status change audit events recorded yet.</div>
+                ) : (
+                  <div style={styles.auditList}>
+                    {initialData.auditHistory.map((event) => (
+                      <div
+                        key={`${event.created_at}:${event.new_status}:${event.old_status ?? "none"}`}
+                        style={styles.auditEntry}
+                      >
+                        <div style={styles.auditTimestamp}>
+                          {formatTimestamp(event.created_at)}
+                        </div>
+                        <div style={styles.auditMeta}>
+                          <span>{event.event_type}</span>
+                          <span>
+                            {event.old_status ?? "—"} → {event.new_status}
+                          </span>
+                        </div>
+                        <div style={styles.auditMeta}>
+                          <span>{event.actor_label}</span>
+                          <span>{event.access_mode}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </aside>

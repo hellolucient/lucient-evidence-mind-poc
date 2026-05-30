@@ -3,6 +3,8 @@ import {
   canAccessReviewItemWorkspace,
   type ReviewQueueAccessContext,
 } from "@/lib/operator-auth";
+import { listReviewItemAuditEvents } from "@/lib/review/evidence-review-item-audit-store";
+import { performReviewItemStatusUpdate } from "@/lib/review/review-item-status-update";
 import {
   getReviewItemById,
   isReviewItemPersistenceConfigured,
@@ -10,7 +12,6 @@ import {
   listReviewItems,
   REVIEW_ITEM_STATUSES,
   toPrivacySafeReviewItem,
-  updateReviewItemStatus,
   type PrivacySafeReviewItem,
   type ReviewItemListFilters,
   type ReviewItemRow,
@@ -245,6 +246,7 @@ export async function buildReviewQueuePageData(
       listErrorMessage: reviewQueueErrorMessage("supabase_not_configured"),
       selectedError: null,
       selectedErrorMessage: null,
+      auditHistory: [],
       updateFlash: parseReviewQueueUpdateFlash(params),
     };
   }
@@ -283,15 +285,24 @@ export async function buildReviewQueuePageData(
     selectedError = "forbidden";
   }
 
+  const selectedItem =
+    selectedResult?.item &&
+    canAccessReviewItemWorkspace(access, selectedResult.item.workspace_id)
+      ? shapeReviewQueueDetailView(selectedResult.item)
+      : null;
+
+  let auditHistory: Awaited<ReturnType<typeof listReviewItemAuditEvents>>["events"] = [];
+  if (selectedItem && effectiveSelectedId) {
+    const auditHistoryResult = await listReviewItemAuditEvents(effectiveSelectedId, access);
+    auditHistory = auditHistoryResult.events;
+  }
+
   return {
     configured: true,
     filters,
     items,
-    selectedItem:
-      selectedResult?.item &&
-      canAccessReviewItemWorkspace(access, selectedResult.item.workspace_id)
-        ? shapeReviewQueueDetailView(selectedResult.item)
-        : null,
+    selectedItem,
+    auditHistory,
     effectiveSelectedId,
     filteredCount: listResult.count,
     statusCounts: computeStatusCounts(countResult.items),
@@ -322,7 +333,8 @@ export type ReviewQueueStatusUpdateSubmission = {
 
 export async function processReviewItemStatusUpdateSubmission(
   formData: FormData,
-  access: ReviewQueueAccessContext
+  access: ReviewQueueAccessContext,
+  operatorEmail?: string | null
 ): Promise<ReviewQueueStatusUpdateSubmission> {
   const parsed = parseReviewItemStatusFormData(formData);
 
@@ -374,7 +386,13 @@ export async function processReviewItemStatusUpdateSubmission(
     };
   }
 
-  const result = await updateReviewQueueItemStatus(parsed.id, parsed.status);
+  const result = await performReviewItemStatusUpdate({
+    id: parsed.id,
+    status: parsed.status,
+    access,
+    operatorEmail,
+    existingItem: existing.item ?? null,
+  });
 
   return {
     result,
@@ -386,51 +404,6 @@ export async function processReviewItemStatusUpdateSubmission(
   };
 }
 
-export async function updateReviewQueueItemStatus(
-  id: string,
-  status: string
-): Promise<ReviewQueueStatusUpdateResult> {
-  if (!isSupportedReviewItemStatus(status)) {
-    return {
-      ok: false,
-      error: "unsupported_review_item_status",
-      message: reviewQueueErrorMessage("unsupported_review_item_status") ?? "Invalid status.",
-    };
-  }
-
-  const result = await updateReviewItemStatus(id, status);
-
-  if (result.invalid_status) {
-    return {
-      ok: false,
-      error: result.error ?? "unsupported_review_item_status",
-      message:
-        reviewQueueErrorMessage(result.error ?? "unsupported_review_item_status") ??
-        "Invalid status.",
-    };
-  }
-
-  if (result.not_found) {
-    return {
-      ok: false,
-      error: result.error ?? "review_item_not_found",
-      message: reviewQueueErrorMessage(result.error ?? "review_item_not_found") ?? "Not found.",
-    };
-  }
-
-  if (result.error || !result.item) {
-    return {
-      ok: false,
-      error: result.error ?? "server_error",
-      message: reviewQueueErrorMessage(result.error ?? "server_error") ?? "Update failed.",
-    };
-  }
-
-  return {
-    ok: true,
-    item: shapeReviewQueueDetailView(result.item),
-  };
-}
 
 /** Test helper: ensure a DB row maps to a privacy-safe display shape. */
 export function reviewQueueDisplayShapeFromRow(row: ReviewItemRow): ReviewQueueDetailView {
