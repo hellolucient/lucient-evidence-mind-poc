@@ -5,6 +5,9 @@ export type AuthCallbackParams = {
   tokenHash: string | null;
   type: string | null;
   next: string | null;
+  error: string | null;
+  errorCode: string | null;
+  errorDescription: string | null;
 };
 
 export function parseAuthCallbackParams(url: URL): AuthCallbackParams {
@@ -13,7 +16,14 @@ export function parseAuthCallbackParams(url: URL): AuthCallbackParams {
     tokenHash: url.searchParams.get("token_hash"),
     type: url.searchParams.get("type"),
     next: url.searchParams.get("next"),
+    error: url.searchParams.get("error"),
+    errorCode: url.searchParams.get("error_code"),
+    errorDescription: url.searchParams.get("error_description"),
   };
+}
+
+export function hasSupabaseCallbackError(params: AuthCallbackParams): boolean {
+  return Boolean(params.error || params.errorCode || params.errorDescription);
 }
 
 export function sanitizeAuthNextPath(next: string | null): string {

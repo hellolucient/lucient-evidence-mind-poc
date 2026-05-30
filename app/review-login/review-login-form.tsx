@@ -1,14 +1,5 @@
 "use client";
 
-import { useActionState } from "react";
-
-import { sendReviewLoginLink, type ReviewLoginState } from "./actions";
-
-const initialState: ReviewLoginState = {
-  ok: false,
-  message: "",
-};
-
 const styles = {
   page: {
     fontFamily: "system-ui, sans-serif",
@@ -52,9 +43,17 @@ const styles = {
   } as const,
 };
 
-export function ReviewLoginForm({ authError = null }: { authError?: string | null }) {
-  const [state, formAction, isPending] = useActionState(sendReviewLoginLink, initialState);
+type ReviewLoginFormProps = {
+  authError?: string | null;
+  sendSuccessMessage?: string | null;
+  sendErrorMessage?: string | null;
+};
 
+export function ReviewLoginForm({
+  authError = null,
+  sendSuccessMessage = null,
+  sendErrorMessage = null,
+}: ReviewLoginFormProps) {
   return (
     <main style={styles.page}>
       <h1 style={{ marginTop: 0 }}>Internal review queue login</h1>
@@ -63,8 +62,10 @@ export function ReviewLoginForm({ authError = null }: { authError?: string | nul
       </p>
 
       {authError ? <div style={styles.messageError}>{authError}</div> : null}
+      {sendErrorMessage ? <div style={styles.messageError}>{sendErrorMessage}</div> : null}
+      {sendSuccessMessage ? <div style={styles.messageOk}>{sendSuccessMessage}</div> : null}
 
-      <form action={formAction}>
+      <form action="/review-login/send" method="POST">
         <label style={{ display: "block", fontSize: "0.875rem" }}>
           Operator email
           <input
@@ -76,14 +77,10 @@ export function ReviewLoginForm({ authError = null }: { authError?: string | nul
             placeholder="operator@example.com"
           />
         </label>
-        <button type="submit" style={styles.button} disabled={isPending}>
-          {isPending ? "Sending…" : "Send magic link"}
+        <button type="submit" style={styles.button}>
+          Send magic link
         </button>
       </form>
-
-      {state.message ? (
-        <div style={state.ok ? styles.messageOk : styles.messageError}>{state.message}</div>
-      ) : null}
 
       <p style={{ marginTop: "1.5rem", fontSize: "0.8125rem", color: "#666" }}>
         Break-glass token access to <code>/review-items</code> remains available for internal

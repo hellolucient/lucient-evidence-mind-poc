@@ -1,5 +1,10 @@
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+
+import { logAuthCallbackDiagnostic } from "@/lib/supabase/auth-callback-diagnostics";
+
+export type SupabaseAuthClient = SupabaseClient;
 
 export function isSupabaseAuthConfigured(): boolean {
   return Boolean(
@@ -37,8 +42,11 @@ export async function createSupabaseAuthServerClient() {
           for (const { name, value, options } of cookiesToSet) {
             cookieStore.set(name, value, options);
           }
-        } catch {
-          // Called from a Server Component where cookies are read-only.
+        } catch (error) {
+          logAuthCallbackDiagnostic("unexpected_exception", {
+            context: "supabase_auth_server_client_set_all",
+            errorMessage: error instanceof Error ? error.message : "unknown_error",
+          });
         }
       },
     },

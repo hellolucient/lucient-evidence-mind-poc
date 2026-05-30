@@ -1,5 +1,9 @@
 import { buildReviewLoginCallbackUrl } from "@/lib/supabase/auth-redirect";
-import { createSupabaseAuthServerClient, isSupabaseAuthConfigured } from "@/lib/supabase/auth-server";
+import {
+  createSupabaseAuthServerClient,
+  isSupabaseAuthConfigured,
+  type SupabaseAuthClient,
+} from "@/lib/supabase/auth-server";
 
 import { normalizeOperatorLoginEmail } from "@/lib/review/operator-login-email";
 import { validateApprovedOperatorEmail } from "@/lib/review/operator-login-eligibility";
@@ -17,6 +21,7 @@ export type OperatorLoginSendState = {
 export async function sendApprovedOperatorLoginLink(options: {
   email: string;
   siteOrigin: string;
+  authClient?: SupabaseAuthClient;
 }): Promise<OperatorLoginSendState> {
   if (!isSupabaseAuthConfigured()) {
     logOperatorLoginDiagnostic("supabase_auth_not_configured");
@@ -59,7 +64,7 @@ export async function sendApprovedOperatorLoginLink(options: {
       };
     }
 
-    const supabase = await createSupabaseAuthServerClient();
+    const supabase = options.authClient ?? (await createSupabaseAuthServerClient());
     const redirectTo = buildReviewLoginCallbackUrl(options.siteOrigin);
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,

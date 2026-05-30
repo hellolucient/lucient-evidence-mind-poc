@@ -21,6 +21,9 @@ describe("auth-callback helpers", () => {
       tokenHash: null,
       type: null,
       next: "/review-items",
+      error: null,
+      errorCode: null,
+      errorDescription: null,
     });
   });
 

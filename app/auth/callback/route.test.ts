@@ -5,6 +5,7 @@ const mockExchangeCodeForSession = vi.fn();
 const mockVerifyOtp = vi.fn();
 const mockCreateSupabaseAuthRouteHandlerClient = vi.fn();
 const mockIsSupabaseAuthConfigured = vi.fn();
+const mockLogAuthCallbackDiagnostic = vi.fn();
 
 vi.mock("@/lib/supabase/auth-route-handler", () => ({
   createSupabaseAuthRouteHandlerClient: (...args: unknown[]) =>
@@ -14,6 +15,15 @@ vi.mock("@/lib/supabase/auth-route-handler", () => ({
 vi.mock("@/lib/supabase/auth-server", () => ({
   isSupabaseAuthConfigured: (...args: unknown[]) => mockIsSupabaseAuthConfigured(...args),
 }));
+
+vi.mock("@/lib/supabase/auth-callback-diagnostics", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/supabase/auth-callback-diagnostics")>();
+  return {
+    ...actual,
+    logAuthCallbackDiagnostic: (...args: unknown[]) => mockLogAuthCallbackDiagnostic(...args),
+  };
+});
 
 import { GET } from "@/app/auth/callback/route";
 
@@ -48,12 +58,13 @@ describe("GET /auth/callback", () => {
     expect(response.status).toBeLessThan(400);
     expect(response.headers.get("location")).toBe("https://example.com/review-items");
     expect(mockCreateSupabaseAuthRouteHandlerClient.mock.calls[0]?.[0]).toBe(response);
+    expect(mockLogAuthCallbackDiagnostic).not.toHaveBeenCalled();
   });
 
-  it("redirects safely to review login when code exchange fails", async () => {
+  it("redirects safely to review login when code exchange fails and logs diagnostic reason", async () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://example.com");
     mockExchangeCodeForSession.mockResolvedValueOnce({
-      error: { message: "invalid code" },
+      error: { message: "invalid grant", status: 400 },
     });
 
     const request = new Request("https://example.com/auth/callback?code=bad-code");
@@ -63,9 +74,16 @@ describe("GET /auth/callback", () => {
       "https://example.com/review-login?error=auth_callback_failed"
     );
     expect(response.headers.get("location")).not.toContain("bad-code");
+    expect(mockLogAuthCallbackDiagnostic).toHaveBeenCalledWith(
+      "otp_expired_or_reused",
+      expect.objectContaining({
+        authMethod: "exchange_code_for_session",
+        supabaseErrorMessage: "invalid grant",
+      })
+    );
   });
 
-  it("redirects safely when callback credentials are missing", async () => {
+  it("redirects safely when callback credentials are missing and logs diagnostic reason", async () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://example.com");
 
     const request = new Request("https://example.com/auth/callback?next=/review-items");
@@ -75,6 +93,32 @@ describe("GET /auth/callback", () => {
       "https://example.com/review-login?error=auth_callback_failed"
     );
     expect(mockCreateSupabaseAuthRouteHandlerClient).not.toHaveBeenCalled();
+    expect(mockLogAuthCallbackDiagnostic).toHaveBeenCalledWith(
+      "missing_callback_credentials",
+      expect.objectContaining({
+        hasCode: false,
+      })
+    );
+  });
+
+  it("redirects safely when Supabase returns callback error params", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://example.com");
+
+    const request = new Request(
+      "https://example.com/auth/callback?error=access_denied&error_code=otp_expired"
+    );
+    const response = await GET(request);
+
+    expect(response.headers.get("location")).toBe(
+      "https://example.com/review-login?error=auth_callback_failed"
+    );
+    expect(mockLogAuthCallbackDiagnostic).toHaveBeenCalledWith(
+      "supabase_callback_error",
+      expect.objectContaining({
+        error: "access_denied",
+        errorCode: "otp_expired",
+      })
+    );
   });
 
   it("supports token_hash verification fallback", async () => {
