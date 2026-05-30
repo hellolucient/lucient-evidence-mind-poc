@@ -6,6 +6,7 @@ import {
   isCronSecretConfigured,
   isVercelCronUserAgent,
 } from "./cron-auth";
+import { CURRENT_WATCH_PHASE } from "./watch/watch-phase";
 
 const ORIGINAL_CRON_SECRET = process.env.CRON_SECRET;
 
@@ -50,7 +51,7 @@ describe("cron-auth", () => {
     expect(buildCronUnauthorizedResponse(auth)).toMatchObject({
       ok: false,
       error: "unauthorized",
-      phase: "15",
+      phase: CURRENT_WATCH_PHASE,
       route: "/api/watch/cron",
       cron_secret_configured: true,
     });

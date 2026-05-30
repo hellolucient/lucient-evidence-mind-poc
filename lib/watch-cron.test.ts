@@ -31,6 +31,7 @@ import {
   authorizeWatchCronRequest,
   buildWatchCronResponse,
 } from "./watch-cron";
+import { CURRENT_WATCH_PHASE } from "./watch/watch-phase";
 
 const mockedBuildRunDueResponse = vi.mocked(buildRunDueResponse);
 const mockedLogWatchRun = vi.mocked(logWatchRun);
@@ -58,7 +59,7 @@ describe("watch-cron", () => {
 
     expect(result.body).toMatchObject({
       ok: false,
-      phase: "15",
+      phase: CURRENT_WATCH_PHASE,
       route: "/api/watch/cron",
       cron_secret_configured: true,
     });
@@ -66,7 +67,7 @@ describe("watch-cron", () => {
     expect(mockedPersistEvidenceAlerts).not.toHaveBeenCalled();
   });
 
-  it("calls run-due service with force=false and dry_run=false", async () => {
+  it("uses CURRENT_WATCH_PHASE in successful cron response and watch run logging", async () => {
     mockedBuildRunDueResponse.mockResolvedValue({
       run_id: "test-run",
       generated_at: "2026-05-27T02:00:00.000Z",
@@ -165,13 +166,13 @@ describe("watch-cron", () => {
       expect.objectContaining({
         trigger: "manual_authorized",
         source: "manual_authorized",
-        phase: "15",
+        phase: CURRENT_WATCH_PHASE,
       })
     );
     expect(mockedLinkEvidenceAlerts).not.toHaveBeenCalled();
     expect(response).toMatchObject({
       ok: true,
-      phase: "15",
+      phase: CURRENT_WATCH_PHASE,
       route: "/api/watch/cron",
       trigger: "manual_authorized",
       source: "manual_authorized",

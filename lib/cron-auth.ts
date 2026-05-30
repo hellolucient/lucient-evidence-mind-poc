@@ -1,4 +1,4 @@
-import { WATCH_RUNTIME_PHASE } from "./watch/watch-runtime-phase";
+import { CURRENT_WATCH_PHASE } from "./watch/watch-phase";
 
 export type CronAuthTrigger = "vercel_cron" | "manual_authorized";
 
@@ -77,7 +77,7 @@ export function buildCronUnauthorizedResponse(
   return {
     ok: false,
     error: "unauthorized",
-    phase: WATCH_RUNTIME_PHASE,
+    phase: CURRENT_WATCH_PHASE,
     route: "/api/watch/cron",
     cron_secret_configured: auth.cron_secret_configured,
     message: auth.reason,

@@ -21,6 +21,7 @@ import {
   logWatchRunFailure,
   sanitizeWatchRunErrorMessage,
 } from "./watch-run-logger";
+import { CURRENT_WATCH_PHASE } from "./watch-phase";
 import type { RunDueResponse } from "@/lib/watch-run-due";
 
 const sampleRunDue = {
@@ -84,6 +85,7 @@ const sampleRunDue = {
     adapter: "SupabaseWatchlistStore",
     state_survives_cold_start: true,
     suitable_for_production_monitoring: true,
+    next_step: "done",
   },
   persistence_warning: {
     durable: true,
@@ -121,7 +123,7 @@ describe("watch-run-logger", () => {
         route: "/api/watch/cron",
         trigger: "manual_authorized",
         source: "vercel_cron",
-        phase: "13",
+        phase: CURRENT_WATCH_PHASE,
         startedAt: "2026-05-27T21:00:00.000Z",
         finishedAt: "2026-05-27T21:00:01.000Z",
         runDue: { ...sampleRunDue, dry_run: true },
@@ -151,7 +153,7 @@ describe("watch-run-logger", () => {
         route: "/api/watch/cron",
         trigger: "vercel_cron",
         source: "vercel_cron",
-        phase: "13",
+        phase: CURRENT_WATCH_PHASE,
         startedAt: "2026-05-27T21:00:00.000Z",
         finishedAt: "2026-05-27T21:00:01.000Z",
         runDue: sampleRunDue,
@@ -167,7 +169,7 @@ describe("watch-run-logger", () => {
       expect.objectContaining({
         trigger: "vercel_cron",
         source: "vercel_cron",
-        phase: "13",
+        phase: CURRENT_WATCH_PHASE,
         status: "success",
         checked_count: 0,
         skipped_count: 1,
@@ -191,7 +193,7 @@ describe("watch-run-logger", () => {
       finishedAt: "2026-05-27T21:00:01.000Z",
       trigger: "vercel_cron",
       source: "vercel_cron",
-      phase: "13",
+      phase: CURRENT_WATCH_PHASE,
       route: "/api/watch/cron",
       error: new Error("PubMed check failed"),
     });

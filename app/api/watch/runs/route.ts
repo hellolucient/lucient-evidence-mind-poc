@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeWatchCronRequest } from "@/lib/watch-cron";
 import { listWatchRuns } from "@/lib/watch/watch-run-logger";
+import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    phase: "13",
+    phase: CURRENT_WATCH_PHASE,
     route: "/api/watch/runs",
     count: runs.length,
     limit: parsedLimit,

@@ -17,11 +17,11 @@ import {
   toEvidenceAlertPersistenceSummary,
   type EvidenceAlertPersistenceResult,
 } from "./watch/evidence-alert-store";
-import { WATCH_RUNTIME_PHASE } from "./watch/watch-runtime-phase";
+import { CURRENT_WATCH_PHASE } from "./watch/watch-phase";
 
 export type WatchCronResponse = {
   ok: true;
-  phase: typeof WATCH_RUNTIME_PHASE;
+  phase: typeof CURRENT_WATCH_PHASE;
   route: "/api/watch/cron";
   trigger: CronAuthTrigger;
   source: CronAuthTrigger;
@@ -119,7 +119,7 @@ export async function buildWatchCronResponse(
         route: "/api/watch/cron",
         trigger,
         source: trigger,
-        phase: WATCH_RUNTIME_PHASE,
+        phase: CURRENT_WATCH_PHASE,
         startedAt,
         finishedAt,
         runDue,
@@ -137,7 +137,7 @@ export async function buildWatchCronResponse(
 
     return {
       ok: true,
-      phase: WATCH_RUNTIME_PHASE,
+      phase: CURRENT_WATCH_PHASE,
       route: "/api/watch/cron",
       trigger,
       source: trigger,
@@ -164,7 +164,7 @@ export async function buildWatchCronResponse(
       finishedAt,
       trigger,
       source: trigger,
-      phase: WATCH_RUNTIME_PHASE,
+      phase: CURRENT_WATCH_PHASE,
       route: "/api/watch/cron",
       force: false,
       dryRun: false,
