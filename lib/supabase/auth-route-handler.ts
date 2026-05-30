@@ -20,6 +20,11 @@ export async function createSupabaseAuthRouteHandlerClient(response: NextRespons
       },
       setAll(cookiesToSet: Parameters<SetAllCookies>[0]) {
         for (const { name, value, options } of cookiesToSet) {
+          try {
+            cookieStore.set(name, value, options);
+          } catch {
+            // Route handlers may reject cookieStore.set; response.cookies still applies.
+          }
           response.cookies.set(name, value, options);
         }
       },

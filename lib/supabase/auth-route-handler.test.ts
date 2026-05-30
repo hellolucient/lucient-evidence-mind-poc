@@ -7,9 +7,12 @@ vi.mock("@supabase/ssr", () => ({
   createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
 }));
 
+const mockCookieSet = vi.fn();
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     getAll: () => [{ name: "existing", value: "cookie" }],
+    set: (...args: unknown[]) => mockCookieSet(...args),
   })),
 }));
 
@@ -23,7 +26,8 @@ vi.mock("@/lib/supabase/auth-server", () => ({
 import { createSupabaseAuthRouteHandlerClient } from "@/lib/supabase/auth-route-handler";
 
 describe("createSupabaseAuthRouteHandlerClient", () => {
-  it("writes auth cookies onto the provided route handler response", async () => {
+  it("writes auth cookies to the request store and route handler response", async () => {
+    mockCookieSet.mockClear();
     let capturedSetAll: ((cookies: { name: string; value: string; options: object }[]) => void) | null =
       null;
 
@@ -46,6 +50,10 @@ describe("createSupabaseAuthRouteHandlerClient", () => {
       },
     ]);
 
+    expect(mockCookieSet).toHaveBeenCalledWith("sb-session", "session-value", {
+      path: "/",
+      httpOnly: true,
+    });
     expect(setCookieSpy).toHaveBeenCalledWith("sb-session", "session-value", {
       path: "/",
       httpOnly: true,

@@ -6,6 +6,7 @@ import {
   REVIEW_LOGIN_SENT_QUERY,
 } from "@/lib/supabase/auth-callback-diagnostics";
 import { resolveSiteOriginFromRequest } from "@/lib/supabase/auth-redirect";
+import { createSupabaseAuthRouteHandlerClient } from "@/lib/supabase/auth-route-handler";
 
 export const runtime = "nodejs";
 
@@ -14,9 +15,15 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const email = String(formData.get("email") ?? "");
 
+  const successResponse = NextResponse.redirect(
+    `${origin}/review-login?${REVIEW_LOGIN_SENT_QUERY}=1`,
+    303
+  );
+  const supabase = await createSupabaseAuthRouteHandlerClient(successResponse);
   const result = await sendApprovedOperatorLoginLink({
     email,
     siteOrigin: origin,
+    authClient: supabase,
   });
 
   if (!result.ok) {
@@ -26,5 +33,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.redirect(`${origin}/review-login?${REVIEW_LOGIN_SENT_QUERY}=1`, 303);
+  return successResponse;
 }
