@@ -292,6 +292,29 @@ See [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT
 
 ---
 
+## Phase 18 — Review Queue API and Operator Actions
+
+**Status:** In Progress
+
+**Purpose:** Phase 18 adds a minimal review queue API and operator status actions so the lucient app or Mind layer can list, inspect, and update Phase 17 review handoff items.
+
+**Phase 18 v1 deliverables:**
+
+- Extended `lib/watch/evidence-review-item-store.ts` — `listReviewItems`, `getReviewItemById`, `updateReviewItemStatus`, `createDemoReviewItem`
+- `lib/review/review-items-api.ts` — privacy-safe API response builders
+- Routes: `GET /api/review-items`, `GET /api/review-items/[id]`, `POST /api/review-items/[id]/status`
+- Docs: [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md)
+- Optional demo seed: `supabase/seed/demo_evidence_review_item.sql`
+
+**Intentionally not included in v1:**
+
+- Full review queue UI
+- Automatic production handoff creation (still behind `EIE_ENABLE_REVIEW_HANDOFFS`, default off)
+- Workspace-scoped authenticated app auth (uses internal cron-secret auth for now)
+- Client notifications or email
+
+---
+
 ## Summary
 
 | Phase range | Focus |
@@ -305,3 +328,4 @@ See [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT
 | **Phase 15** | Better claim-family search profiles |
 | **Phase 16** | Better appraisal and signal classification |
 | **Phase 17** | Mind/app/client claim workflow integration |
+| **Phase 18** | Review queue API and operator status actions |
