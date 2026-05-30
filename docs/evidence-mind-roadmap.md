@@ -24,7 +24,8 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | 20 | Internal access control / route protection for `/review-items` | PASS / Done |
 | 20.5 | Correct-token access and review UI regression check | PASS / Done |
 | **21** | **Review queue API hardening** | **PASS / Done** |
-| 22 | Workspace operator auth | Planned |
+| **22** | **Workspace operator auth planning** | **Planning complete** |
+| 23 | Workspace operator auth implementation | Planned |
 
 ---
 
@@ -48,7 +49,148 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | Review queue API internal auth hardening | 21 | **PASS / Done** | Internal review auth on `/api/review-items*` |
 | Production validation: review API blocked without session | 21 | **PASS / Done** | Production `401` confirmed |
 | Production validation: review UI regression after API hardening | 21 | **PASS / Done** | Queue, selection, detail, status update persist |
-| Workspace operator auth | 22 | Planned | |
+| Workspace operator auth planning | 22 | **Planning complete** | Proposal documented; no code changes |
+| Workspace operator auth implementation | 23 | Planned | |
+
+---
+
+## Phase 22 — Workspace Operator Auth Planning
+
+**Status:** Planning complete (no implementation in this phase)
+
+**Purpose:** Define the smallest safe path from the current internal-token POC gate toward real workspace-scoped operator authentication, without breaking Phase 21 behavior or building full SaaS auth yet.
+
+### Current state (inspected)
+
+| Area | Today |
+|------|--------|
+| Review UI | `/review-items` → `/review-items/access` → httpOnly cookie; `POST /review-items/update` |
+| Review API | `authorizeInternalReviewApiRequest()` on `GET/POST /api/review-items*` |
+| Internal gate | Single shared `INTERNAL_REVIEW_ACCESS_TOKEN` — no operator identity, no workspace scoping on auth |
+| Data model | `evidence_review_items.workspace_id` + `client_claim_id` already persisted; client claims still in-memory demo (`lib/watch/client-claim-mapper.ts`) |
+| Supabase | `evidence_review_items` has RLS enabled but no policies; app uses service role server-side only |
+| Cron / tool APIs | `/api/watch/cron` → `CRON_SECRET`; `/api/query`, `/api/watch/check` → `EIE_TOOL_API_KEY` (unchanged) |
+
+### Recommended auth approach
+
+**Phase 23 should use Supabase Auth (magic link / email OTP) plus a small workspace membership allowlist — not passwords, not a custom user table, not token-in-URL for operators.**
+
+| Option | Verdict |
+|--------|---------|
+| Supabase Auth magic links | **Recommended** — real operator identity, minimal UI, fits existing Supabase stack |
+| Allowlisted operator emails only (no Auth) | Too weak — no durable session, hard to audit, does not scale to multiple workspaces |
+| Full SaaS auth (roles, invites, billing) | **Deferred** — out of scope |
+| Keep token-only | **Interim fallback only** — see below |
+
+Why not implement Supabase Auth in Phase 22: this phase is planning only; Phase 21 production behavior must remain unchanged until Phase 23 is tested.
+
+### Proposed schema additions (Phase 23)
+
+Minimal new tables — no changes to existing migrations yet:
+
+```sql
+-- Workspace registry (promote workspace_id strings from demo to durable IDs)
+public.workspaces (
+  id text PRIMARY KEY,
+  display_name text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+)
+
+-- Maps Supabase Auth users to workspaces they may operate on
+public.workspace_operator_memberships (
+  workspace_id text NOT NULL REFERENCES public.workspaces(id),
+  operator_user_id uuid NOT NULL,  -- auth.users.id
+  role text NOT NULL DEFAULT 'operator',  -- operator | admin
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (workspace_id, operator_user_id)
+)
+```
+
+**Optional Phase 24 fields** on `evidence_review_items` (not required for first operator auth):
+
+- `last_status_updated_by uuid NULL` (operator user id)
+- `last_status_updated_at timestamptz` (if not inferrable from `updated_at`)
+
+**Do not add yet:** client-facing user accounts, client workspace self-service signup, or RLS policies that would break the service-role server path before membership checks exist in app code.
+
+### Operator identity mapping
+
+| Entity | Mapping |
+|--------|---------|
+| **Operator** | Supabase Auth user (`auth.users.id`, email) |
+| **workspace_id** | Operator may only read/update review items where `evidence_review_items.workspace_id` is in their `workspace_operator_memberships` rows |
+| **review_items** | Already carry `workspace_id` — enforce membership filter in store/API after auth |
+| **client_claim_id** | Stays a workspace-local identifier; operator sees privacy-safe fields only (Phase 19 boundary unchanged) |
+| **claim_family** | Global watchtower concept — operators see items for their workspace only, not other tenants |
+| **Future client workspaces** | Mind/app ingests claims into workspace-scoped tables; review handoff continues to write `workspace_id` + `client_claim_id`; operators never see global watchlist internals |
+
+**Lucient internal admins** (optional): membership row in every workspace, or separate `platform_admin` env allowlist of Auth user IDs — smaller than a role system.
+
+### What stays POC-only (for now)
+
+- Global `INTERNAL_REVIEW_ACCESS_TOKEN` break-glass path (see below)
+- In-memory `client-claim-mapper.ts` demo data
+- `EIE_TOOL_API_KEY` server-to-server evidence API
+- `CRON_SECRET` scheduled watchtower execution
+- Claim-family watchlists without per-workspace tenancy
+- No client/end-user login
+- No email notifications
+- No audit log UI
+
+### What happens to `INTERNAL_REVIEW_ACCESS_TOKEN`
+
+| Environment | Recommendation |
+|-------------|----------------|
+| **Production** | Keep temporarily as **break-glass / emergency admin fallback** behind env flag; not the primary operator login |
+| **Local / dev** | Keep for fast testing without Supabase Auth setup |
+| **Long term** | Remove once Supabase Auth + membership is validated in production (target Phase 24 or later) |
+
+Phase 23 should **add** operator auth **alongside** the token gate (token OR valid operator session), then narrow token use after validation — not remove it on day one.
+
+### Routes to protect under real auth (Phase 23)
+
+| Route | Phase 21 today | Phase 23 target |
+|-------|----------------|-----------------|
+| `/review-items` | Internal review cookie / token bootstrap | Supabase Auth session required; token bootstrap optional fallback |
+| `/review-items/access` | Sets internal review cookie from token | Sets operator session after magic link; token path retained briefly |
+| `/review-items/update` | Internal review cookie | Operator session + workspace membership on target item |
+| `/api/review-items` | Internal review cookie or bearer token | Operator session cookie or server bearer; **scope list to member workspaces** |
+| `/api/review-items/[id]` | Same | Same + **403 if item.workspace_id not in membership** |
+| `/api/review-items/[id]/status` | Same | Same + membership check on write |
+| `/api/watch/cron` | `CRON_SECRET` only | **Unchanged** |
+| `/api/query`, `/api/watch/check` | `EIE_TOOL_API_KEY` | **Unchanged** |
+
+Implementation should extend `lib/internal-review-access.ts` (or add `lib/operator-auth.ts`) with a single `authorizeReviewOperatorRequest()` that resolves: operator session → allowed `workspace_id[]` → pass/fail.
+
+### Phase 22 implements now vs Phase 23 defers
+
+| Phase 22 (this phase) | Phase 23 (implementation) |
+|-----------------------|---------------------------|
+| Auth model decision documented | Supabase Auth magic-link login route |
+| Schema proposal for workspaces + memberships | Migration + seed for demo workspace |
+| Route/membership matrix | Enforce workspace filter in `listReviewItems` / get / update |
+| Token fallback policy | Login UI + session cookie integration |
+| Acceptance criteria for Phase 23 | Operator audit fields (optional) |
+| No production behavior changes | Tests + production validation |
+
+### Acceptance criteria for Phase 23 implementation
+
+1. Operator signs in via Supabase Auth magic link (no shared token in URL for normal use).
+2. Signed-in operator sees only review items for workspaces they belong to.
+3. Operator cannot read or update a review item in another workspace (API returns `403`).
+4. Unsigned-in requests to `/review-items` and `/api/review-items*` return `401`.
+5. Phase 21 privacy boundary preserved — no `raw_payload`, private `claim_text`, or secrets in UI/API responses.
+6. `/api/watch/cron` and `CRON_SECRET` behavior unchanged.
+7. `INTERNAL_REVIEW_ACCESS_TOKEN` still works as configured break-glass fallback until explicitly retired.
+8. Existing review queue UI flows work: list, filter, select, detail, status update, persist.
+9. Tests cover unauthorized, cross-workspace, and authorized operator paths.
+
+### Remaining limitations after Phase 23 (expected)
+
+- Not full multi-tenant SaaS — manual membership seeding initially
+- Client claims still demo/in-memory until workspace claim ingestion phase
+- No fine-grained roles beyond `operator` / `admin`
+- No operator action audit trail until a later phase
 
 ---
 
@@ -170,12 +312,14 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | Phase 21 | Set internal review cookie path to `/` | Same browser session must authorize both UI and API routes |
 | Phase 21 | Leave `/api/watch/cron` on `CRON_SECRET` unchanged | Cron and review queue are separate authorization domains |
 | Phase 21 | Record production API + UI regression as phase gate | Confirms review API is hardened and operator UI still works |
+| Phase 22 | Plan Supabase Auth magic link + workspace membership before coding | Smallest incremental path; avoids breaking Phase 21 token gate |
+| Phase 22 | Keep `INTERNAL_REVIEW_ACCESS_TOKEN` as break-glass fallback in Phase 23 | Safe migration; remove only after operator auth is production-validated |
 
 ---
 
 ## Next Recommended Step
 
-**Phase 22 — Workspace Operator Auth** (replace interim internal token + cookie model with real workspace-scoped operator auth when ready).
+**Phase 23 — Workspace Operator Auth Implementation** (Supabase Auth magic link, `workspace_operator_memberships`, workspace-scoped review queue access).
 
 ---
 
@@ -187,3 +331,4 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | 2026-05-30 | Phase 20.5 marked PASS / Done; production operator regression completed |
 | 2026-05-30 | Phase 21 recorded as PASS; review queue API hardening implemented |
 | 2026-05-30 | Phase 21 marked PASS / Done; production API and UI regression validation completed |
+| 2026-05-30 | Phase 22 planning complete; workspace operator auth proposal documented for Phase 23 |
