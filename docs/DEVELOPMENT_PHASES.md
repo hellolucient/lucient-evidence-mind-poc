@@ -221,7 +221,7 @@ See [CLAIM_FAMILY_SEARCH_PROFILES.md](./CLAIM_FAMILY_SEARCH_PROFILES.md)
 
 ## Phase 16 — Evidence Appraisal / Signal Classification
 
-**Status:** In Progress
+**Status:** PASS
 
 **Purpose:** Improve how the system decides whether new evidence strengthens, weakens, contradicts, or merely touches a claim.
 
@@ -236,12 +236,22 @@ See [CLAIM_FAMILY_SEARCH_PROFILES.md](./CLAIM_FAMILY_SEARCH_PROFILES.md)
 - `human_review_required`
 - `client_claim_re_review_required`
 
-**Progress:**
+**Validated:**
 
-- Rule-based classifier added in `lib/watch/evidence-signal-classifier.ts`
-- Watch check, run-due, and evidence alert `raw_payload` enriched with signal classification fields
-- Existing alert thresholds and persistence behavior preserved
-- See [EVIDENCE_SIGNAL_CLASSIFICATION.md](./EVIDENCE_SIGNAL_CLASSIFICATION.md)
+- Evidence signal classifier implemented
+- Targeted classifier tests passed: 7/7
+- Full local test suite passed: 37/37
+- Runtime phase marker centralized and production `/api/watch/cron` reports phase 16
+- Signal classification is integrated into live watch execution, not standalone only
+- Signal classification appears in:
+  - `results[].signal_classifications[]`
+  - `results[].evidence_delta.signal_classification`
+  - `results[].evidence_change_alert.signal_classification`
+  - `results[].new_evidence_candidates[].raw_payload.signal_classification`
+  - `evidence_alerts.raw_payload.signal_classification`
+- Cron summary payload remains intentionally slim and does not expose result-level classifications directly
+
+See [EVIDENCE_SIGNAL_CLASSIFICATION.md](./EVIDENCE_SIGNAL_CLASSIFICATION.md)
 
 ---
 
