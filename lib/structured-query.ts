@@ -1,3 +1,12 @@
+import {
+  MAGNESIUM_CORTISOL_GENERATED_QUERY,
+  MAGNESIUM_CORTISOL_QUERY_VERSION,
+  MAGNESIUM_CORTISOL_STRESS_PROFILE,
+  buildPubMedQueryFromProfile,
+  getProfileQueryIntent,
+  resolveClaimFamilySearchProfile,
+} from "./watch/claim-family-search-profiles";
+
 export type QueryStrategyMode = "raw" | "structured";
 
 export type QueryStrategy = {
@@ -12,30 +21,23 @@ export type QueryStrategy = {
 };
 
 export const WATCH_MAGNESIUM_CORTISOL_TOPIC_ID = "watch-magnesium-cortisol";
-export const MAGNESIUM_CORTISOL_CLAIM_FAMILY = "magnesium_cortisol_stress";
+export const MAGNESIUM_CORTISOL_CLAIM_FAMILY =
+  MAGNESIUM_CORTISOL_STRESS_PROFILE.claim_family_id;
+
+export { MAGNESIUM_CORTISOL_QUERY_VERSION };
 
 export const MAGNESIUM_CORTISOL_EXCLUSION_TERMS = [
-  "animals without humans",
-  "goat*",
-  "cow*",
-  "buffalo*",
-  "bovine",
-  "veterinary",
+  ...MAGNESIUM_CORTISOL_STRESS_PROFILE.noise_exclusion_terms,
 ];
 
-export const MAGNESIUM_CORTISOL_STRUCTURED_QUERY = `(("magnesium"[Title/Abstract] OR "magnesium supplementation"[Title/Abstract]) AND ("cortisol"[Title/Abstract] OR "hypothalamic-pituitary-adrenal"[Title/Abstract] OR "HPA axis"[Title/Abstract] OR "stress physiology"[Title/Abstract]) AND ("humans"[MeSH Terms] OR "adult"[MeSH Terms] OR "clinical trial"[Publication Type] OR "randomized controlled trial"[Publication Type] OR "systematic review"[Publication Type] OR "meta-analysis"[Publication Type]) NOT ("animals"[MeSH Terms] NOT "humans"[MeSH Terms]) NOT (goat*[Title/Abstract] OR cow*[Title/Abstract] OR buffalo*[Title/Abstract] OR bovine[Title/Abstract] OR veterinary[Title/Abstract]))`;
-
-const MAGNESIUM_CORTISOL_QUERY_INTENT =
-  "Human-focused magnesium supplementation and cortisol/stress physiology evidence for wellness claim monitoring.";
+/** Generated from the magnesium_cortisol_stress search profile (v1). */
+export const MAGNESIUM_CORTISOL_STRUCTURED_QUERY = MAGNESIUM_CORTISOL_GENERATED_QUERY;
 
 export function supportsStructuredQuery(
   watchTopicId?: string | null,
   claimFamily?: string | null
 ): boolean {
-  return (
-    watchTopicId === WATCH_MAGNESIUM_CORTISOL_TOPIC_ID ||
-    claimFamily === MAGNESIUM_CORTISOL_CLAIM_FAMILY
-  );
+  return Boolean(resolveClaimFamilySearchProfile({ watchTopicId, claimFamily }));
 }
 
 export function resolveUseStructuredQuery(
@@ -66,17 +68,19 @@ export function buildQueryStrategy(
     exclusion_terms_applied: [],
   };
 
-  if (!useStructuredQuery || !supportsStructuredQuery(watchTopicId, claimFamily)) {
+  const profile = resolveClaimFamilySearchProfile({ watchTopicId, claimFamily });
+
+  if (!useStructuredQuery || !profile) {
     return base;
   }
 
   return {
     mode: "structured",
     raw_query: rawQuery,
-    structured_query: MAGNESIUM_CORTISOL_STRUCTURED_QUERY,
+    structured_query: buildPubMedQueryFromProfile(profile),
     watch_topic_id: watchTopicId,
-    query_intent: MAGNESIUM_CORTISOL_QUERY_INTENT,
-    exclusion_terms_applied: [...MAGNESIUM_CORTISOL_EXCLUSION_TERMS],
+    query_intent: getProfileQueryIntent(profile),
+    exclusion_terms_applied: [...profile.noise_exclusion_terms],
   };
 }
 

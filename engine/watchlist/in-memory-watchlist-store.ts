@@ -3,6 +3,7 @@ import {
   MAGNESIUM_CORTISOL_STRUCTURED_QUERY,
   WATCH_MAGNESIUM_CORTISOL_TOPIC_ID,
 } from "@/lib/structured-query";
+import { MAGNESIUM_CORTISOL_QUERY_VERSION } from "@/lib/watch/claim-family-search-profiles";
 
 import { buildStoredQueryHash } from "./query-hash";
 import type {
@@ -13,7 +14,7 @@ import type {
   WatchlistStoreStatus,
 } from "./watchlist-store";
 
-export const MAGNESIUM_CORTISOL_QUERY_VERSION = "watch-magnesium-cortisol@v1";
+export { MAGNESIUM_CORTISOL_QUERY_VERSION };
 
 const MAGNESIUM_CORTISOL_BASELINE_POLICY =
   "Avoid direct cortisol-regulation claims; use relaxation/general wellbeing wording unless stronger direct human evidence emerges.";

@@ -184,7 +184,7 @@ lucient Evidence Mind is evolving from a one-off evidence query and brief system
 
 ## Phase 15 — Claim Family Search Profiles
 
-**Status:** Next
+**Status:** In Progress
 
 **Purpose:** Define exactly what each claim family is watching.
 
@@ -202,6 +202,12 @@ This phase should cover:
 - noise filters
 - query versioning
 - source priority
+
+**Progress:**
+
+- Structured profile module added for `magnesium_cortisol_stress` (`magnesium_cortisol_stress@v1`)
+- PubMed query generated from profile while preserving existing v1 retrieval behavior
+- See [CLAIM_FAMILY_SEARCH_PROFILES.md](./CLAIM_FAMILY_SEARCH_PROFILES.md)
 
 ---
 
