@@ -330,6 +330,33 @@ See [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md)
 
 ---
 
+## Phase 19 — Minimal Review Queue UI
+
+**Status:** In Progress
+
+**Purpose:** Phase 19 adds a minimal internal operator console for viewing and managing Evidence Mind review items without curl or exposing `CRON_SECRET` in browser JavaScript.
+
+**Phase 19 v1 deliverables:**
+
+- Route: `/review-items` — server-rendered review queue page
+- `lib/review/review-queue-ui.ts` — privacy-safe page data shaping and status helpers
+- Server actions call the review item store directly (no client-side cron auth)
+- Docs: [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md)
+
+**Validated:**
+
+- (Pending deployment validation)
+
+**Intentionally not included in v1:**
+
+- Full client-facing SaaS UI or workspace auth
+- Exposing `CRON_SECRET` or `raw_payload` / private `claim_text` in the browser
+- Changes to review item API behavior, cron auth, or Supabase schemas
+
+See [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md)
+
+---
+
 ## Summary
 
 | Phase range | Focus |
@@ -344,3 +371,4 @@ See [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md)
 | **Phase 16** | Better appraisal and signal classification |
 | **Phase 17** | Mind/app/client claim workflow integration |
 | **Phase 18** | Review queue API and operator status actions |
+| **Phase 19** | Minimal internal review queue UI |
