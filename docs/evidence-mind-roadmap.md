@@ -2,8 +2,8 @@
 
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For detailed deliverables and validation notes per completed phase, see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md).
 
-**Current phase marker (production):** `23B`  
-**Strategic status:** Internal alpha validated — coding paused for roadmap realignment before Phase 24.
+**Current phase marker (production):** `24`  
+**Strategic status:** Internal alpha validated — Phase 24 operator audit trail complete; next near-term step is Phase 25 (operator notes).
 
 ---
 
@@ -11,8 +11,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
-| **Completed** | 1–23B | PASS / Done | Evidence engine, watchtower, review queue, operator auth |
-| **Near-term** | 24–25 | Planned | Operator audit trail and review decision workflow |
+| **Completed** | 1–24 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail |
+| **Near-term** | 25 | Planned | Operator notes and review decision rationale |
 | **Medium-term** | 26–28 | Planned | Durable client claims, claim-to-watchlist mapping, evidence briefs |
 | **Mind integration** | 29–31 | Planned | Mind digest, client dashboard requirements, reporting/export |
 
@@ -41,12 +41,12 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **22** | **Workspace operator auth planning** | **PASS / Done** |
 | **23A** | **Supabase Auth + demo workspace membership** | **PASS / Done** |
 | **23B** | **Operator logout, session visibility, access denied UX, and operator login diagnostics** | **PASS / Done** |
+| **24** | **Operator audit trail for review queue actions** | **PASS / Done** |
 
 ### Forward phases (planned)
 
 | Phase | Name | Horizon | Status |
 |-------|------|---------|--------|
-| **24** | **Operator audit trail for review queue actions** | Near-term | Planned |
 | **25** | **Operator notes and review decision rationale** | Near-term | Planned |
 | **26** | **Durable client claim registry** | Medium-term | Planned |
 | **27** | **Claim-to-watchlist mapping** | Medium-term | Planned |
@@ -86,7 +86,11 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Operator login eligibility and diagnostics | 23B | **PASS / Done** | Pre-check + server-side failure reasons |
 | Production validation: full operator login/logout cycle | 23B | **PASS / Done** | Magic link → queue → logout → blocked |
 | Production validation: callback session persistence | 23B | **PASS / Done** | Route-handler cookies on redirect response |
-| Operator audit trail for review queue actions | 24 | Planned | Near-term |
+| Operator audit trail for review queue actions | 24 | **PASS / Done** | Durable status-change audit rows + detail panel history |
+| Production validation: Supabase audit migration applied | 24 | **PASS / Done** | `evidence_review_item_audit_events` table created |
+| Production validation: operator status change writes audit row | 24 | **PASS / Done** | UI status update persisted audit event in Supabase |
+| Production validation: audit history in review detail panel | 24 | **PASS / Done** | Privacy-safe audit history visible to authorized operators |
+| Production validation: review queue regressions after Phase 24 | 24 | **PASS / Done** | Auth, break-glass, API protection, cron isolation unchanged |
 | Operator notes and review decision rationale | 25 | Planned | Near-term |
 | Durable client claim registry | 26 | Planned | Medium-term |
 | Claim-to-watchlist mapping | 27 | Planned | Medium-term |
@@ -97,7 +101,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 ---
 
-## Current System State After Phase 23B
+## Current System State After Phase 24
 
 The POC is a validated **internal alpha** for evidence monitoring and operator review. Production-validated capabilities include:
 
@@ -119,8 +123,10 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Operator logout | Working |
 | Break-glass internal token access | Working |
 | Operator login eligibility pre-check and server-side diagnostics | Working |
+| Review item status-change audit trail (`evidence_review_item_audit_events`) | Working |
+| Read-only audit history in review item detail panel | Working |
 
-**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`.
+**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass).
 
 ---
 
@@ -131,8 +137,7 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Operator membership is manually seeded | No self-service onboarding |
 | Client claims are demo/in-memory in places | Not yet a durable product registry |
 | Watchlist configuration is developer-driven | Not yet client-operable |
-| Review queue has no audit trail | Status changes are not attributed to operators yet |
-| Review queue has no operator notes | Status switcher only — no decision rationale |
+| Review queue has no operator notes | Status switcher and audit trail only — no decision rationale yet |
 | No Mind digest or operating feed | Watchtower output is not yet Mind-readable at scale |
 | No client-facing dashboard | Internal operator UI only |
 | No reporting or export layer | No claim-risk memos or monthly summaries |
@@ -149,7 +154,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 1. **Evidence appraisal reliability** — appraisal rules and retrieval need deeper consistency before client-facing risk statements.
 2. **Client claim ingestion** — claims must move from demo/in-memory mapping to a durable, workspace-scoped registry.
 3. **Watchlist operability** — claim-family watchlists remain developer-configured; clients cannot yet manage monitored topics.
-4. **Review governance workflow** — audit trail and operator notes are missing; the queue is not yet compliance-grade.
+4. **Review governance workflow** — audit trail is in place; operator notes and decision rationale are still missing for compliance-grade review.
 5. **Claim-to-evidence linkage** — the bridge from “new evidence detected” to “which client wording is affected” is incomplete.
 6. **Structured evidence briefs** — no generator for operator- or client-ready change summaries.
 7. **Mind digest / feed** — no consolidated watchtower summary for Mind consumption.
@@ -161,22 +166,25 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 
 ## Forward Roadmap — From Internal Alpha to Evidence Mind Operating System
 
-This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phases 24–31 are **planned, not started**. Existing validated phase history (Phases 1–23B) is unchanged.
+This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phases 25–31 are **planned, not started**. Phase 24 is complete and production-validated.
 
-### Near-term build plan (Phases 24–25)
+### Near-term build plan (Phase 25)
 
-Operator workflow hardening on top of the validated auth and review queue foundation.
+Operator workflow hardening on top of the validated auth, review queue, and audit trail foundation.
 
 #### Phase 24 — Operator Audit Trail for Review Queue Actions
+
+**Status:** PASS / Done
 
 **Goal:** Record who changed review items, when, old status, new status, access mode, workspace, and optional metadata.
 
 **Why:** Now that operator identity is known, the system needs compliance-style traceability for review decisions.
 
-**Scope notes:**
-- Persist audit rows server-side on status changes
-- Attribute Supabase operator or break-glass access mode
-- Do not expose secrets or private claim text in audit API/UI responses
+**Scope delivered:**
+- Durable audit table and store for review item status changes
+- Audit writes on UI and API status update paths
+- Read-only audit history in the review item detail panel
+- Privacy-safe audit shaping (no secrets, tokens, UUIDs, raw payloads, or private claim text exposed)
 
 #### Phase 25 — Operator Notes and Review Decision Rationale
 
@@ -276,6 +284,71 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 
 ## Completed Phase Records (Historical Detail)
 
+## Phase 24 — Operator Audit Trail for Review Queue Actions
+
+**Status:** PASS / Done
+
+**Purpose:** Add durable audit logging for review queue status changes so the system records who changed a review item, when, how they accessed the system, and what changed — without exposing secrets or private claim text.
+
+### Implementation summary
+
+- Added durable audit table for review item events (`evidence_review_item_audit_events`)
+- Added audit insert/list store
+- Added shared review item status update flow that writes audit events
+- Added audit recording for both UI status updates (`POST /review-items/update`) and API status updates (`POST /api/review-items/[id]/status`)
+- Added read-only audit history to the review item detail panel
+- Added privacy-safe shaping for audit history
+- Added tests for operator audit writes, break-glass audit writes, cross-workspace blocking, workspace-scoped audit history, and privacy-safe audit output
+- Updated phase marker to `24`
+
+### Production validation (completed)
+
+- Supabase migration applied successfully
+- New audit table exists: `public.evidence_review_item_audit_events`
+- Operator login path works
+- Operator changed a review item status from `/review-items`
+- Status change created a durable audit row in Supabase
+- Audit row includes `workspace_id`, `review_item_id`, `event_type`, `old_status`, `new_status`, actor/access fields, and `created_at`
+- Audit history appears in the review item detail panel
+- Existing review queue status update behavior still works
+- Supabase Auth login remains working
+- Break-glass access remains available
+- Review APIs remain protected
+- `/api/watch/cron` remains protected by `CRON_SECRET`
+- No secrets, tokens, auth codes, service-role keys, raw payloads, private claim text, or user UUIDs are exposed
+
+### Files / areas changed
+
+| Area | Change |
+|------|--------|
+| Supabase migration | `20260530160000_create_evidence_review_item_audit_events.sql` |
+| Audit store | `lib/review/evidence-review-item-audit-store.ts` |
+| Audit recording | `lib/review/review-item-status-audit.ts` |
+| Shared status update + audit write | `lib/review/review-item-status-update.ts` |
+| Review queue UI page data | `lib/review/review-queue-ui.ts` — audit history loading |
+| Review item detail panel | `app/review-items/review-queue-console.tsx` — audit history section |
+| Review API status route | `app/api/review-items/[id]/status/route.ts` |
+| UI status update route | `app/review-items/update/route.ts` |
+| Phase marker | `lib/watch/watch-phase.ts` → `24` |
+| Tests | `review-item-status-audit.test.ts`, `review-queue-audit-history.test.ts`, updated API/UI status tests |
+
+### Tests / build
+
+- `npm test` passed: 157/157
+- `npm run build` passed
+
+### Remaining limitations
+
+- Audit writes are best-effort in Phase 24; status updates can still succeed if audit insertion fails
+- Audit history is UI-only in the detail panel; no dedicated audit API yet
+- Audit is status-change only
+- `metadata` column exists but is not used yet
+- Operator notes and decision rationale are not part of Phase 24
+
+---
+
+## Phase 23B — Operator Logout, Session Visibility, Access Denied UX, and Operator Login Diagnostics
+
 **Status:** PASS / Done
 
 **Purpose:** Make the internal review queue auth experience usable and clear, fix production operator login/session regressions, and add server-side diagnostics without changing the underlying auth model.
@@ -342,7 +415,7 @@ Client responses remain generic; diagnostics are server-side only.
 - Operator membership is still manually seeded in Supabase
 - No self-service operator onboarding UI yet
 - No client-facing workspace administration UI yet
-- No operator audit trail yet
+- No operator audit trail yet *(superseded by Phase 24)*
 - Break-glass token still intentionally sees all workspaces
 - Client claims remain demo/in-memory where applicable
 
@@ -443,7 +516,7 @@ Break-glass (unchanged):
 - Membership seeding is manual
 - No self-service client signup
 - No client-facing workspace UI
-- No operator audit trail yet
+- No operator audit trail yet *(superseded by Phase 24)*
 - Break-glass token still sees all workspaces
 - Client claims remain demo/in-memory where applicable
 - Logged-in user without membership treated as unauthorized (same as anonymous)
@@ -722,7 +795,10 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | Phase 23B | Log operator login failure reasons server-side only | Distinguish config, membership, and send failures without exposing secrets |
 | Phase 23B | Record full operator login/logout production validation | Confirms end-to-end operator UX before audit trail phase |
 | Strategic | Pause coding after Phase 23B; publish forward roadmap Phases 24–31 | Align build sequence before Mind integration work |
-| Strategic | Near-term plan: Phases 24–25 (audit trail + operator notes) | Governance workflow before client claim registry |
+| Phase 24 | Durable audit table + privacy-safe audit history in review detail panel | Compliance-style traceability for status changes without exposing secrets |
+| Phase 24 | Best-effort audit writes on status update | Status updates must not fail if audit insert fails; hardening deferred |
+| Phase 24 | Record production validation as phase gate | Confirms audit trail works alongside operator auth and break-glass fallback |
+| Strategic | Near-term plan: Phase 25 (operator notes) | Next governance increment after audit trail |
 | Strategic | Medium-term plan: Phases 26–28 (claims + mapping + briefs) | Evidence-to-claim intelligence layer |
 | Strategic | Mind integration plan: Phases 29–31 (digest + dashboard planning + export) | Animoca Mind operating system outputs |
 
@@ -730,18 +806,17 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 24 — Operator Audit Trail for Review Queue Actions**
+**Phase 25 — Operator Notes and Review Decision Rationale**
 
-Resume implementation with the smallest compliance increment on the validated operator auth foundation:
+Resume implementation with the smallest governance increment after the validated audit trail:
 
-1. Add durable audit storage for review item status changes (migration + store).
-2. Record on each status update: operator identity (when Supabase session), access mode (`operator` vs `break_glass`), workspace_id, review_item_id, old status, new status, timestamp.
-3. Wire audit writes into existing review queue update paths (UI server action and `/api/review-items/[id]/status`).
-4. Expose read-only audit history in the review item detail panel (privacy-safe fields only).
-5. Preserve workspace scoping, break-glass path, API protection, and cron isolation.
-6. Add tests for operator-attributed, break-glass-attributed, and cross-workspace blocked audit access.
+1. Add durable storage for operator notes attached to review items within workspace scope.
+2. Allow operators to record decision rationale, recommended action, and optional escalation flags.
+3. Expose notes in the review item detail panel (privacy-safe fields only).
+4. Preserve workspace scoping, break-glass path, audit trail, API protection, and cron isolation.
+5. Add tests for operator-attributed notes, break-glass notes, cross-workspace blocking, and privacy-safe note output.
 
-Do not start Phase 25 (notes) or Phase 26 (client claim registry) until Phase 24 is validated.
+Do not start Phase 26 (client claim registry) until Phase 25 is validated.
 
 ---
 
@@ -758,3 +833,5 @@ Do not start Phase 25 (notes) or Phase 26 (client claim registry) until Phase 24
 | 2026-05-30 | Phase 23A marked PASS / Done; production operator login and workspace scoping validated |
 | 2026-05-30 | Phase 23B marked PASS / Done; operator UX, login diagnostics, and full login/logout cycle validated |
 | 2026-05-30 | Strategic forward roadmap added (Phases 24–31); current system state and Mind integration gaps documented |
+| 2026-05-30 | Phase 24 implemented; operator audit trail for review queue status changes |
+| 2026-05-30 | Phase 24 marked PASS / Done; production audit migration, status-change audit rows, and detail panel history validated |
