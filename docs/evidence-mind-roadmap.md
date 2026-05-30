@@ -2,7 +2,7 @@
 
 High-level phase plan, status tracking, and decision log for the Evidence Mind POC. For detailed deliverables and validation notes per phase, see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md).
 
-**Current phase marker (production):** `23`
+**Current phase marker (production):** `23B`
 
 ---
 
@@ -26,7 +26,8 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | **21** | **Review queue API hardening** | **PASS / Done** |
 | **22** | **Workspace operator auth planning** | **PASS / Done** |
 | **23A** | **Supabase Auth + demo workspace membership** | **PASS / Done** |
-| **23B** | **Operator logout, session visibility, and access denied UX** | **Planned** |
+| **23B** | **Operator logout, session visibility, access denied UX, and operator login diagnostics** | **PASS / Done** |
+| **24** | **Operator audit trail for review queue actions** | **Planned** |
 
 ---
 
@@ -55,7 +56,85 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | Production validation: operator magic-link login | 23A | **PASS / Done** | Login email redirects to deployed `/auth/callback` |
 | Production validation: workspace-scoped review access | 23A | **PASS / Done** | Demo operator accesses `demo-workspace-spa-menu` queue |
 | Production validation: break-glass token fallback | 23A | **PASS / Done** | `INTERNAL_REVIEW_ACCESS_TOKEN` path still available |
-| Operator logout and session visibility UX | 23B | Planned | |
+| Operator logout and session visibility UX | 23B | **PASS / Done** | Auth panel, logout, access-denied UX |
+| Operator login eligibility and diagnostics | 23B | **PASS / Done** | Pre-check + server-side failure reasons |
+| Production validation: full operator login/logout cycle | 23B | **PASS / Done** | Magic link → queue → logout → blocked |
+| Production validation: callback session persistence | 23B | **PASS / Done** | Route-handler cookies on redirect response |
+| Operator audit trail for review queue actions | 24 | Planned | |
+
+---
+
+## Phase 23B — Operator Logout, Session Visibility, Access Denied UX, and Operator Login Diagnostics
+
+**Status:** PASS / Done
+
+**Purpose:** Make the internal review queue auth experience usable and clear, fix production operator login/session regressions, and add server-side diagnostics without changing the underlying auth model.
+
+### Implementation summary
+
+- Added internal auth status panel on `/review-items`
+- Added Supabase operator logout (`POST /review-items/logout`)
+- Improved blocked/access-denied UX on `/review-items`
+- Added safe distinction between Supabase operator access and break-glass internal access
+- Added operator login email normalization (trim + lowercase)
+- Added service-role pre-check of Supabase Auth user by email before sending magic link
+- Added workspace membership verification against `workspace_operator_memberships.user_id`
+- Added server-side diagnostic logging for operator login failures
+- Fixed Supabase Auth callback/logout route handlers to bind session cookies to redirect responses
+- Improved error handling so Supabase send/config failures are no longer misrepresented as membership failures
+
+### Important fix
+
+The previous login flow called Supabase `signInWithOtp` directly with `shouldCreateUser: false` and returned a broad generic error for all failures. Phase 23B now verifies operator eligibility first and logs precise server-side diagnostic reasons such as:
+
+- `auth_user_not_found`
+- `workspace_membership_not_found`
+- `magic_link_send_failure`
+- `supabase_service_role_not_configured`
+
+Client responses remain generic; diagnostics are server-side only.
+
+### Production validation (completed)
+
+- `/review-login` sends a Supabase magic link to an approved operator email
+- Magic link redirects to the deployed `/auth/callback`
+- Callback successfully creates the Supabase operator session
+- Operator lands directly in `/review-items`
+- Review queue displays the authenticated operator session panel
+- Operator email is shown safely
+- Workspace scope is shown safely as `demo-workspace-spa-menu`
+- Logout works and redirects back to `/review-login`
+- After logout, `/review-items` is blocked unless the operator logs in again or uses break-glass access
+- Break-glass token path still works and shows break-glass access mode without exposing the token
+- Unauthenticated `/api/review-items` remains blocked
+- `/api/watch/cron` remains protected by `CRON_SECRET`
+- No secrets, service-role values, auth codes, tokens, user UUIDs, raw payloads, or private claim text are exposed
+
+### Files / areas changed
+
+| Area | Change |
+|------|--------|
+| Review login flow | Eligibility pre-check, email normalization, diagnostics |
+| Operator auth/session handling | Auth panel metadata, logout route |
+| Supabase Auth callback handling | Response-bound session cookies, safe failure redirect |
+| Operator login eligibility | `lib/review/operator-login-eligibility.ts` |
+| Operator login diagnostics | `lib/review/operator-login-diagnostics.ts` |
+| Review queue auth panel / logout UI | `review-queue-auth-panel.tsx`, blocked-page copy |
+| Tests | Operator login, membership checking, diagnostics, logout, callback, break-glass |
+
+### Tests / build
+
+- `npm test` passed: 146/146
+- `npm run build` passed
+
+### Remaining limitations
+
+- Operator membership is still manually seeded in Supabase
+- No self-service operator onboarding UI yet
+- No client-facing workspace administration UI yet
+- No operator audit trail yet
+- Break-glass token still intentionally sees all workspaces
+- Client claims remain demo/in-memory where applicable
 
 ---
 
@@ -428,16 +507,20 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | Phase 23A | Magic link with `shouldCreateUser: false` | No public self-service signup |
 | Phase 23A | Prefer `NEXT_PUBLIC_SITE_URL` for magic-link redirect | Prevents production login emails redirecting to localhost |
 | Phase 23A | Record production validation as phase gate | Confirms operator auth works alongside break-glass fallback |
+| Phase 23B | Bind Supabase session cookies to route-handler redirect responses | Fixes production callback/logout session persistence |
+| Phase 23B | Verify operator eligibility before magic-link send | Auth user + membership pre-check via service role |
+| Phase 23B | Log operator login failure reasons server-side only | Distinguish config, membership, and send failures without exposing secrets |
+| Phase 23B | Record full operator login/logout production validation | Confirms end-to-end operator UX before audit trail phase |
 
 ---
 
 ## Next Recommended Step
 
-**Phase 23B — Operator Logout, Session Visibility, and Access Denied UX**
+**Phase 24 — Operator Audit Trail for Review Queue Actions**
 
-- Add operator logout action
-- Show signed-in operator context in review queue UI
-- Improve access-denied messaging for unauthenticated and unauthorized operators
+- Record operator identity on review item status changes
+- Persist audit metadata server-side
+- Keep privacy boundary and workspace scoping unchanged
 
 ---
 
@@ -452,3 +535,4 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | 2026-05-30 | Phase 22 planning complete; workspace operator auth proposal documented for Phase 23 |
 | 2026-05-30 | Phase 23A implemented; Supabase Auth operator login + workspace membership scoping |
 | 2026-05-30 | Phase 23A marked PASS / Done; production operator login and workspace scoping validated |
+| 2026-05-30 | Phase 23B marked PASS / Done; operator UX, login diagnostics, and full login/logout cycle validated |
