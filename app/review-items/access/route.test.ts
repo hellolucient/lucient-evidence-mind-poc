@@ -46,6 +46,6 @@ describe("GET /review-items/access", () => {
     const cookie = response.cookies.get(INTERNAL_REVIEW_ACCESS_COOKIE);
     expect(cookie?.value).toBe(internalReviewAccessCookieValue("expected-token"));
     expect(cookie?.httpOnly).toBe(true);
-    expect(cookie?.path).toBe("/review-items");
+    expect(cookie?.path).toBe("/");
   });
 });

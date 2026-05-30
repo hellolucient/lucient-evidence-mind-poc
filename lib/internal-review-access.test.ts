@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  buildInternalReviewUnauthorizedResponse,
   buildReviewItemsAccessPath,
   buildReviewItemsPathWithoutAccessToken,
   internalReviewAccessCookieValue,
@@ -9,6 +10,7 @@ import {
   isValidInternalReviewAccessToken,
   readAccessTokenFromSearchParams,
 } from "./internal-review-access";
+import { CURRENT_WATCH_PHASE } from "./watch/watch-phase";
 
 const ORIGINAL_TOKEN = process.env.INTERNAL_REVIEW_ACCESS_TOKEN;
 
@@ -65,5 +67,24 @@ describe("internal-review-access", () => {
         status: "open",
       })
     ).toBe("/review-items?status=open");
+  });
+
+  it("builds unauthorized API response with phase metadata", () => {
+    const body = buildInternalReviewUnauthorizedResponse(
+      {
+        authorized: false,
+        internal_review_access_configured: true,
+        reason: "Unauthorized review queue API request.",
+      },
+      "/api/review-items"
+    );
+
+    expect(body).toMatchObject({
+      ok: false,
+      error: "unauthorized",
+      phase: CURRENT_WATCH_PHASE,
+      route: "/api/review-items",
+      internal_review_access_configured: true,
+    });
   });
 });

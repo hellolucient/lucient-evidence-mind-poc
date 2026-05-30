@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorizeWatchCronRequest } from "@/lib/watch-cron";
+
+import { authorizeInternalReviewApiRequest } from "@/lib/internal-review-access";
 import {
   buildReviewItemsListApiResponse,
   parseReviewItemListFilters,
@@ -8,18 +9,20 @@ import {
 export const runtime = "nodejs";
 
 /**
- * Phase 18 review queue — list evidence review handoff items.
+ * Phase 18/21 review queue — list evidence review handoff items.
  *
- * Auth: same as /api/watch/cron (CRON_SECRET Bearer or vercel-cron user-agent).
+ * Auth: internal review session cookie or Bearer INTERNAL_REVIEW_ACCESS_TOKEN.
  */
 export async function GET(request: NextRequest) {
-  const auth = authorizeWatchCronRequest({
-    authorization: request.headers.get("authorization"),
-    userAgent: request.headers.get("user-agent"),
-  });
+  const auth = await authorizeInternalReviewApiRequest(
+    {
+      authorization: request.headers.get("authorization"),
+    },
+    "/api/review-items"
+  );
 
   if (!auth.authorized) {
-    return NextResponse.json(auth.body, { status: 401 });
+    return NextResponse.json(auth.body, { status: auth.status });
   }
 
   const filters = parseReviewItemListFilters(request.nextUrl.searchParams);

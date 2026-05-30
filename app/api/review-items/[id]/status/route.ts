@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorizeWatchCronRequest } from "@/lib/watch-cron";
+
+import { authorizeInternalReviewApiRequest } from "@/lib/internal-review-access";
 import { buildReviewItemStatusUpdateApiResponse } from "@/lib/review/review-items-api";
 
 export const runtime = "nodejs";
@@ -9,16 +10,20 @@ type RouteContext = {
 };
 
 /**
- * Phase 18 review queue — update review item status for operator actions.
+ * Phase 18/21 review queue — update review item status for operator actions.
+ *
+ * Auth: internal review session cookie or Bearer INTERNAL_REVIEW_ACCESS_TOKEN.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = authorizeWatchCronRequest({
-    authorization: request.headers.get("authorization"),
-    userAgent: request.headers.get("user-agent"),
-  });
+  const auth = await authorizeInternalReviewApiRequest(
+    {
+      authorization: request.headers.get("authorization"),
+    },
+    "/api/review-items/[id]/status"
+  );
 
   if (!auth.authorized) {
-    return NextResponse.json(auth.body, { status: 401 });
+    return NextResponse.json(auth.body, { status: auth.status });
   }
 
   const { id } = await context.params;

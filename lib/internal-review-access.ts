@@ -3,7 +3,26 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 
+import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
+
 export const INTERNAL_REVIEW_ACCESS_COOKIE = "internal_review_access";
+
+/** Shared cookie path so UI and `/api/review-items*` routes receive the same session. */
+export const INTERNAL_REVIEW_ACCESS_COOKIE_PATH = "/";
+
+export type InternalReviewAuthFailure = {
+  authorized: false;
+  internal_review_access_configured: boolean;
+  reason: string;
+};
+
+export type InternalReviewAuthSuccess = {
+  authorized: true;
+};
+
+export type InternalReviewAuthResult =
+  | InternalReviewAuthSuccess
+  | InternalReviewAuthFailure;
 
 export type InternalReviewPageAccessResult =
   | { status: "authorized" }
@@ -135,8 +154,78 @@ export function appendInternalReviewAccessCookie(response: NextResponse): void {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/review-items",
+    path: INTERNAL_REVIEW_ACCESS_COOKIE_PATH,
   });
+}
+
+export function buildInternalReviewUnauthorizedResponse(
+  auth: InternalReviewAuthFailure,
+  route: string
+): Record<string, unknown> {
+  return {
+    ok: false,
+    error: "unauthorized",
+    phase: CURRENT_WATCH_PHASE,
+    route,
+    internal_review_access_configured: auth.internal_review_access_configured,
+    message: auth.reason,
+  };
+}
+
+function readBearerToken(authorization: string | null): string | null {
+  if (!authorization) {
+    return null;
+  }
+
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+export async function authorizeInternalReviewApiRequest(
+  headers: {
+    authorization: string | null;
+  },
+  route: string
+): Promise<
+  | { authorized: true }
+  | { authorized: false; body: Record<string, unknown>; status: 401 }
+> {
+  if (!isInternalReviewAccessConfigured()) {
+    const auth: InternalReviewAuthFailure = {
+      authorized: false,
+      internal_review_access_configured: false,
+      reason:
+        "INTERNAL_REVIEW_ACCESS_TOKEN is not configured for review queue API access.",
+    };
+    return {
+      authorized: false,
+      body: buildInternalReviewUnauthorizedResponse(auth, route),
+      status: 401,
+    };
+  }
+
+  const cookieStore = await cookies();
+  const cookieValue = cookieStore.get(INTERNAL_REVIEW_ACCESS_COOKIE)?.value;
+  if (isValidInternalReviewAccessCookie(cookieValue)) {
+    return { authorized: true };
+  }
+
+  const bearerToken = readBearerToken(headers.authorization);
+  if (isValidInternalReviewAccessToken(bearerToken)) {
+    return { authorized: true };
+  }
+
+  const auth: InternalReviewAuthFailure = {
+    authorized: false,
+    internal_review_access_configured: true,
+    reason: "Unauthorized review queue API request.",
+  };
+
+  return {
+    authorized: false,
+    body: buildInternalReviewUnauthorizedResponse(auth, route),
+    status: 401,
+  };
 }
 
 export async function resolveInternalReviewPageAccess(
