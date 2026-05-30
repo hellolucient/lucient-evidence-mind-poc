@@ -1,14 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
-import { updateReviewItemStatusFormAction } from "./actions";
 import { REVIEW_QUEUE_STATUS_OPTIONS } from "@/lib/review/review-queue-constants";
 import type {
   ReviewQueuePageData,
   ReviewQueueStatusCounts,
 } from "@/lib/review/review-queue-types";
+
+const REVIEW_ITEMS_UPDATE_PATH = "/review-items/update";
 
 type ReviewQueueConsoleProps = {
   initialData: ReviewQueuePageData;
@@ -249,6 +250,13 @@ function buildQueryString(filters: ReviewQueuePageData["filters"], selectedId?: 
   return query ? `?${query}` : "";
 }
 
+function buildReturnQuery(
+  filters: ReviewQueuePageData["filters"],
+  selectedId?: string
+): string {
+  return buildQueryString(filters, selectedId).replace(/^\?/, "");
+}
+
 function buildFilterKey(filters: ReviewQueuePageData["filters"]): string {
   return [
     filters.status ?? "",
@@ -314,27 +322,16 @@ function StatusCards({
 export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [updateState, submitUpdate, isUpdatePending] = useActionState(
-    updateReviewItemStatusFormAction,
-    null
-  );
   const [selectedId, setSelectedId] = useState<string | null>(
     initialData.effectiveSelectedId
   );
 
   const appliedFilters = initialData.filters;
+  const updateFlash = initialData.updateFlash;
 
   useEffect(() => {
     setSelectedId(initialData.effectiveSelectedId);
   }, [initialData.effectiveSelectedId]);
-
-  useEffect(() => {
-    if (updateState?.ok) {
-      startTransition(() => {
-        router.refresh();
-      });
-    }
-  }, [updateState, router]);
 
   const selectedItem =
     initialData.selectedItem?.id === selectedId ? initialData.selectedItem : null;
@@ -644,15 +641,20 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
                 <div style={styles.detailLabel}>Update status</div>
                 <form
                   key={`${selectedItem.id}:${selectedItem.status}`}
-                  action={submitUpdate}
+                  action={REVIEW_ITEMS_UPDATE_PATH}
+                  method="POST"
                   style={styles.statusUpdateRow}
                 >
                   <input type="hidden" name="review_item_id" value={selectedItem.id} />
+                  <input
+                    type="hidden"
+                    name="return_query"
+                    value={buildReturnQuery(appliedFilters, selectedItem.id)}
+                  />
                   <select
                     name="status"
                     defaultValue={selectedItem.status}
                     style={{ ...styles.input, minWidth: "180px" }}
-                    disabled={isUpdatePending}
                     required
                   >
                     {REVIEW_QUEUE_STATUS_OPTIONS.map((status) => (
@@ -661,25 +663,18 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
                       </option>
                     ))}
                   </select>
-                  <button
-                    type="submit"
-                    disabled={isUpdatePending}
-                    style={{
-                      ...styles.primaryButton,
-                      ...(isUpdatePending ? styles.primaryButtonDisabled : {}),
-                    }}
-                  >
-                    {isUpdatePending ? "Saving status…" : "Save status change"}
+                  <button type="submit" style={styles.primaryButton}>
+                    Save status change
                   </button>
                 </form>
               </div>
 
-              {updateState && !updateState.ok && (
-                <div style={styles.error}>{updateState.message}</div>
+              {updateFlash?.kind === "error" && (
+                <div style={styles.error}>{updateFlash.message}</div>
               )}
-              {updateState?.ok && (
+              {updateFlash?.kind === "success" && (
                 <div style={styles.success}>
-                  Status updated to {updateState.item.status}. List and summary cards refreshed.
+                  Status updated to {updateFlash.status}. List and summary cards refreshed.
                 </div>
               )}
             </>

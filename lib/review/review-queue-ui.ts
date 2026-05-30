@@ -19,6 +19,7 @@ import type {
   ReviewQueuePageFilters,
   ReviewQueueStatusCounts,
   ReviewQueueStatusUpdateResult,
+  ReviewQueueUpdateFlash,
 } from "@/lib/review/review-queue-types";
 
 export {
@@ -34,6 +35,7 @@ export type {
   ReviewQueuePageFilters,
   ReviewQueueStatusCounts,
   ReviewQueueStatusUpdateResult,
+  ReviewQueueUpdateFlash,
 } from "@/lib/review/review-queue-types";
 
 function emptyStatusCounts(): ReviewQueueStatusCounts {
@@ -135,6 +137,55 @@ function readParam(
   return value ?? undefined;
 }
 
+export function parseReviewQueueUpdateFlash(
+  params: Record<string, string | string[] | undefined>
+): ReviewQueueUpdateFlash | null {
+  const successStatus = readParam(params, "update_ok");
+  if (successStatus) {
+    return {
+      kind: "success",
+      status: successStatus,
+    };
+  }
+
+  const error = readParam(params, "update_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message: readParam(params, "update_error_message") ?? error,
+    };
+  }
+
+  return null;
+}
+
+export function buildReviewItemsUpdateRedirectPath(options: {
+  returnQuery: string;
+  result: ReviewQueueStatusUpdateResult;
+  itemId?: string;
+}): string {
+  const params = new URLSearchParams(options.returnQuery);
+  params.delete("update_ok");
+  params.delete("update_error");
+  params.delete("update_error_message");
+
+  if (options.result.ok) {
+    params.set("selected_id", options.result.item.id);
+    params.set("update_ok", options.result.item.status);
+  } else {
+    const itemId = options.itemId;
+    if (itemId) {
+      params.set("selected_id", itemId);
+    }
+    params.set("update_error", options.result.error);
+    params.set("update_error_message", options.result.message);
+  }
+
+  const query = params.toString();
+  return query ? `/review-items?${query}` : "/review-items";
+}
+
 export function parseReviewQueuePageFilters(
   params: Record<string, string | string[] | undefined>
 ): ReviewQueuePageFilters {
@@ -185,6 +236,7 @@ export async function buildReviewQueuePageData(
       listErrorMessage: reviewQueueErrorMessage("supabase_not_configured"),
       selectedError: null,
       selectedErrorMessage: null,
+      updateFlash: parseReviewQueueUpdateFlash(params),
     };
   }
 
@@ -225,16 +277,72 @@ export async function buildReviewQueuePageData(
     listErrorMessage: reviewQueueErrorMessage(listError),
     selectedError,
     selectedErrorMessage: reviewQueueErrorMessage(selectedError),
+    updateFlash: parseReviewQueueUpdateFlash(params),
   };
 }
 
 export function parseReviewItemStatusFormData(formData: FormData): {
   id: string;
   status: string;
+  returnQuery: string;
 } {
   return {
     id: String(formData.get("review_item_id") ?? "").trim(),
     status: String(formData.get("status") ?? "").trim(),
+    returnQuery: String(formData.get("return_query") ?? "").trim(),
+  };
+}
+
+export type ReviewQueueStatusUpdateSubmission = {
+  redirectPath: string;
+  result: ReviewQueueStatusUpdateResult;
+};
+
+export async function processReviewItemStatusUpdateSubmission(
+  formData: FormData
+): Promise<ReviewQueueStatusUpdateSubmission> {
+  const parsed = parseReviewItemStatusFormData(formData);
+
+  if (!parsed.id) {
+    const result: ReviewQueueStatusUpdateResult = {
+      ok: false,
+      error: "review_item_id_required",
+      message: "Review item ID is required.",
+    };
+    return {
+      result,
+      redirectPath: buildReviewItemsUpdateRedirectPath({
+        returnQuery: parsed.returnQuery,
+        result,
+      }),
+    };
+  }
+
+  if (!parsed.status) {
+    const result: ReviewQueueStatusUpdateResult = {
+      ok: false,
+      error: "status_required",
+      message: "Status is required.",
+    };
+    return {
+      result,
+      redirectPath: buildReviewItemsUpdateRedirectPath({
+        returnQuery: parsed.returnQuery,
+        result,
+        itemId: parsed.id,
+      }),
+    };
+  }
+
+  const result = await updateReviewQueueItemStatus(parsed.id, parsed.status);
+
+  return {
+    result,
+    redirectPath: buildReviewItemsUpdateRedirectPath({
+      returnQuery: parsed.returnQuery,
+      result,
+      itemId: parsed.id,
+    }),
   };
 }
 

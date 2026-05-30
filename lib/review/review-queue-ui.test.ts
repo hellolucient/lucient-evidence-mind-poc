@@ -7,11 +7,13 @@ import {
   REVIEW_QUEUE_STATUS_OPTIONS,
 } from "@/lib/review/review-queue-constants";
 import {
+  buildReviewItemsUpdateRedirectPath,
   computeStatusCounts,
   isReviewQueueDisplayItem,
   isReviewQueueSelectedItemView,
   parseReviewItemStatusFormData,
   parseReviewQueuePageFilters,
+  parseReviewQueueUpdateFlash,
   resolveEffectiveSelectedId,
   reviewQueueDisplayShapeFromRow,
   reviewQueueErrorMessage,
@@ -141,10 +143,12 @@ describe("review-queue-ui", () => {
     const formData = new FormData();
     formData.set("review_item_id", "bb192f23-b028-4b17-bbd7-749ae5748932");
     formData.set("status", "resolved");
+    formData.set("return_query", "selected_id=bb192f23-b028-4b17-bbd7-749ae5748932");
 
     expect(parseReviewItemStatusFormData(formData)).toEqual({
       id: "bb192f23-b028-4b17-bbd7-749ae5748932",
       status: "resolved",
+      returnQuery: "selected_id=bb192f23-b028-4b17-bbd7-749ae5748932",
     });
   });
 
@@ -152,10 +156,46 @@ describe("review-queue-ui", () => {
     const formData = new FormData();
     formData.set("review_item_id", "  bb192f23-b028-4b17-bbd7-749ae5748932  ");
     formData.set("status", "  resolved  ");
+    formData.set("return_query", " selected_id=bb192f23-b028-4b17-bbd7-749ae5748932 ");
 
     expect(parseReviewItemStatusFormData(formData)).toEqual({
       id: "bb192f23-b028-4b17-bbd7-749ae5748932",
       status: "resolved",
+      returnQuery: "selected_id=bb192f23-b028-4b17-bbd7-749ae5748932",
+    });
+  });
+
+  it("buildReviewItemsUpdateRedirectPath adds success flash params", () => {
+    expect(
+      buildReviewItemsUpdateRedirectPath({
+        returnQuery: "status=in_review&selected_id=bb192f23-b028-4b17-bbd7-749ae5748932",
+        result: {
+          ok: true,
+          item: {
+            id: "bb192f23-b028-4b17-bbd7-749ae5748932",
+            status: "resolved",
+          } as ReturnType<typeof reviewQueueDisplayShapeFromRow>,
+        },
+      })
+    ).toBe(
+      "/review-items?status=in_review&selected_id=bb192f23-b028-4b17-bbd7-749ae5748932&update_ok=resolved"
+    );
+  });
+
+  it("parseReviewQueueUpdateFlash reads success and error flashes", () => {
+    expect(parseReviewQueueUpdateFlash({ update_ok: "resolved" })).toEqual({
+      kind: "success",
+      status: "resolved",
+    });
+    expect(
+      parseReviewQueueUpdateFlash({
+        update_error: "status_required",
+        update_error_message: "Status is required.",
+      })
+    ).toEqual({
+      kind: "error",
+      error: "status_required",
+      message: "Status is required.",
     });
   });
 });

@@ -20,6 +20,28 @@ export type ReviewQueueDetailView = PrivacySafeReviewItem;
 
 export type ReviewQueueStatusCounts = Record<ReviewItemStatus, number>;
 
+export type ReviewQueueStatusUpdateResult =
+  | {
+      ok: true;
+      item: ReviewQueueDetailView;
+    }
+  | {
+      ok: false;
+      error: string;
+      message: string;
+    };
+
+export type ReviewQueueUpdateFlash =
+  | {
+      kind: "success";
+      status: string;
+    }
+  | {
+      kind: "error";
+      error: string;
+      message: string;
+    };
+
 export type ReviewQueuePageData = {
   configured: boolean;
   filters: ReviewQueuePageFilters;
@@ -32,15 +54,5 @@ export type ReviewQueuePageData = {
   listErrorMessage: string | null;
   selectedError: string | null;
   selectedErrorMessage: string | null;
+  updateFlash: ReviewQueueUpdateFlash | null;
 };
-
-export type ReviewQueueStatusUpdateResult =
-  | {
-      ok: true;
-      item: ReviewQueueDetailView;
-    }
-  | {
-      ok: false;
-      error: string;
-      message: string;
-    };
