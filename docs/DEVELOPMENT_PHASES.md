@@ -257,7 +257,7 @@ See [EVIDENCE_SIGNAL_CLASSIFICATION.md](./EVIDENCE_SIGNAL_CLASSIFICATION.md)
 
 ## Phase 17 — Mind/App Handoff and Client Claim Mapping
 
-**Status:** In Progress
+**Status:** PASS
 
 **Purpose:** Phase 17 creates the bridge from abstract evidence alerts to affected client/workspace claims and review handoff items.
 
@@ -269,12 +269,26 @@ See [EVIDENCE_SIGNAL_CLASSIFICATION.md](./EVIDENCE_SIGNAL_CLASSIFICATION.md)
 - Migration: `supabase/migrations/20260530140000_create_evidence_review_items.sql`
 - Docs: [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md)
 
+**Validated:**
+
+- Client claim mapping foundation implemented
+- Demo mapping exists for `magnesium_cortisol_stress` to `demo-claim-magnesium-stress-001`
+- Review handoff item builder implemented
+- Optional `evidence_review_items` Supabase persistence implemented behind `EIE_ENABLE_REVIEW_HANDOFFS`
+- Migration prepared but not required for default production behavior
+- Privacy boundary preserved: scheduled runner payloads do not expose private claim text
+- Full local test suite passed: 51/51
+- Production `/api/watch/cron` reports phase 17 and logs `watch_runs` successfully
+- Review handoff persistence remains disabled by default in production
+
 **Intentionally not included in v1:**
 
 - Real client notifications or email
 - Full workspace UI or review queues
 - Client claim ingestion pipeline
 - Changes to cron auth, PubMed queries, alert dedupe, or signal classification rules
+
+See [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md)
 
 ---
 
