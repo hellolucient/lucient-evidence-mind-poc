@@ -184,7 +184,7 @@ lucient Evidence Mind is evolving from a one-off evidence query and brief system
 
 ## Phase 15 — Claim Family Search Profiles
 
-**Status:** In Progress
+**Status:** PASS
 
 **Purpose:** Define exactly what each claim family is watching.
 
@@ -203,11 +203,19 @@ This phase should cover:
 - query versioning
 - source priority
 
-**Progress:**
+**Validated:**
 
-- Structured profile module added for `magnesium_cortisol_stress` (`magnesium_cortisol_stress@v1`)
-- PubMed query generated from profile while preserving existing v1 retrieval behavior
-- See [CLAIM_FAMILY_SEARCH_PROFILES.md](./CLAIM_FAMILY_SEARCH_PROFILES.md)
+- Structured profile exists for `magnesium_cortisol_stress`
+- Watch topic `watch-magnesium-cortisol` resolves to that profile
+- Generated PubMed query includes magnesium terms
+- Generated PubMed query includes cortisol/stress/HPA terms
+- Generated PubMed query excludes animal/veterinary noise
+- v1 query is stable and preserves the previous production query string
+- Targeted local tests passed: 6/6
+- Full local test suite passed: 28/28
+- Production `/api/watch/cron` smoke test passed with phase 15
+
+See [CLAIM_FAMILY_SEARCH_PROFILES.md](./CLAIM_FAMILY_SEARCH_PROFILES.md)
 
 ---
 
