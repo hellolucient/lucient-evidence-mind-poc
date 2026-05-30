@@ -2,14 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { DEMO_REVIEW_ITEM_ROW } from "@/lib/watch/evidence-review-item-store";
 import {
-  computeStatusCounts,
-  isReviewQueueDisplayItem,
-  isReviewQueueSelectedItemView,
-  parseReviewQueuePageFilters,
-  resolveEffectiveSelectedId,
   REVIEW_QUEUE_DETAIL_FIELDS,
   REVIEW_QUEUE_PRIVATE_FIELDS,
   REVIEW_QUEUE_STATUS_OPTIONS,
+} from "@/lib/review/review-queue-constants";
+import {
+  computeStatusCounts,
+  isReviewQueueDisplayItem,
+  isReviewQueueSelectedItemView,
+  parseReviewItemStatusFormData,
+  parseReviewQueuePageFilters,
+  resolveEffectiveSelectedId,
   reviewQueueDisplayShapeFromRow,
   reviewQueueErrorMessage,
   shapeReviewQueueDetailView,
@@ -132,5 +135,27 @@ describe("review-queue-ui", () => {
       "evidence_review_items"
     );
     expect(reviewQueueErrorMessage(null)).toBeNull();
+  });
+
+  it("parseReviewItemStatusFormData reads submitted id and status", () => {
+    const formData = new FormData();
+    formData.set("review_item_id", "bb192f23-b028-4b17-bbd7-749ae5748932");
+    formData.set("status", "resolved");
+
+    expect(parseReviewItemStatusFormData(formData)).toEqual({
+      id: "bb192f23-b028-4b17-bbd7-749ae5748932",
+      status: "resolved",
+    });
+  });
+
+  it("parseReviewItemStatusFormData trims whitespace", () => {
+    const formData = new FormData();
+    formData.set("review_item_id", "  bb192f23-b028-4b17-bbd7-749ae5748932  ");
+    formData.set("status", "  resolved  ");
+
+    expect(parseReviewItemStatusFormData(formData)).toEqual({
+      id: "bb192f23-b028-4b17-bbd7-749ae5748932",
+      status: "resolved",
+    });
   });
 });

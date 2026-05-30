@@ -10,76 +10,31 @@ import {
   type ReviewItemListFilters,
   type ReviewItemRow,
 } from "@/lib/watch/evidence-review-item-store";
-import type { ReviewItemStatus } from "@/lib/watch/evidence-review-handoff";
 import { PRIVACY_SAFE_REVIEW_ITEM_FIELDS } from "@/lib/review/review-items-api";
+import { REVIEW_QUEUE_DETAIL_FIELDS, REVIEW_QUEUE_PRIVATE_FIELDS } from "@/lib/review/review-queue-constants";
+import type {
+  ReviewQueueDetailView,
+  ReviewQueueListRow,
+  ReviewQueuePageData,
+  ReviewQueuePageFilters,
+  ReviewQueueStatusCounts,
+  ReviewQueueStatusUpdateResult,
+} from "@/lib/review/review-queue-types";
 
-export const REVIEW_QUEUE_PRIVATE_FIELDS = [
-  "raw_payload",
-  "claim_text",
-  "human_review_required",
-  "client_claim_re_review_required",
-] as const;
+export {
+  REVIEW_QUEUE_DETAIL_FIELDS,
+  REVIEW_QUEUE_PRIVATE_FIELDS,
+  REVIEW_QUEUE_STATUS_OPTIONS,
+} from "@/lib/review/review-queue-constants";
 
-export const REVIEW_QUEUE_STATUS_OPTIONS = [...REVIEW_ITEM_STATUSES] as ReviewItemStatus[];
-
-export type ReviewQueuePageFilters = ReviewItemListFilters;
-
-export type ReviewQueueListRow = Pick<
-  PrivacySafeReviewItem,
-  | "id"
-  | "status"
-  | "signal"
-  | "severity"
-  | "claim_family"
-  | "workspace_id"
-  | "client_claim_id"
-  | "summary"
-  | "updated_at"
->;
-
-export type ReviewQueueDetailView = PrivacySafeReviewItem;
-
-export type ReviewQueueStatusCounts = Record<ReviewItemStatus, number>;
-
-export const REVIEW_QUEUE_DETAIL_FIELDS = [
-  "id",
-  "status",
-  "signal",
-  "severity",
-  "workspace_id",
-  "client_claim_id",
-  "claim_family",
-  "evidence_alert_id",
-  "watch_run_id",
-  "summary",
-  "created_at",
-  "updated_at",
-] as const;
-
-export type ReviewQueuePageData = {
-  configured: boolean;
-  filters: ReviewQueuePageFilters;
-  items: ReviewQueueListRow[];
-  selectedItem: ReviewQueueDetailView | null;
-  effectiveSelectedId: string | null;
-  filteredCount: number;
-  statusCounts: ReviewQueueStatusCounts;
-  listError: string | null;
-  listErrorMessage: string | null;
-  selectedError: string | null;
-  selectedErrorMessage: string | null;
-};
-
-export type ReviewQueueStatusUpdateResult =
-  | {
-      ok: true;
-      item: ReviewQueueDetailView;
-    }
-  | {
-      ok: false;
-      error: string;
-      message: string;
-    };
+export type {
+  ReviewQueueDetailView,
+  ReviewQueueListRow,
+  ReviewQueuePageData,
+  ReviewQueuePageFilters,
+  ReviewQueueStatusCounts,
+  ReviewQueueStatusUpdateResult,
+} from "@/lib/review/review-queue-types";
 
 function emptyStatusCounts(): ReviewQueueStatusCounts {
   return REVIEW_ITEM_STATUSES.reduce((counts, status) => {
@@ -270,6 +225,16 @@ export async function buildReviewQueuePageData(
     listErrorMessage: reviewQueueErrorMessage(listError),
     selectedError,
     selectedErrorMessage: reviewQueueErrorMessage(selectedError),
+  };
+}
+
+export function parseReviewItemStatusFormData(formData: FormData): {
+  id: string;
+  status: string;
+} {
+  return {
+    id: String(formData.get("review_item_id") ?? "").trim(),
+    status: String(formData.get("status") ?? "").trim(),
   };
 }
 

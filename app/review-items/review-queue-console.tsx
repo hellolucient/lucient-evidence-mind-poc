@@ -1,14 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 
-import { updateReviewItemStatusAction } from "./actions";
-import {
-  REVIEW_QUEUE_STATUS_OPTIONS,
-  type ReviewQueuePageData,
-  type ReviewQueueStatusCounts,
-} from "@/lib/review/review-queue-ui";
+import { updateReviewItemStatusFormAction } from "./actions";
+import { REVIEW_QUEUE_STATUS_OPTIONS } from "@/lib/review/review-queue-constants";
+import type {
+  ReviewQueuePageData,
+  ReviewQueueStatusCounts,
+} from "@/lib/review/review-queue-types";
 
 type ReviewQueueConsoleProps = {
   initialData: ReviewQueuePageData;
@@ -173,6 +173,20 @@ const styles = {
     cursor: "pointer",
     fontSize: "0.8125rem",
   } as const,
+  primaryButton: {
+    padding: "0.55rem 1rem",
+    borderRadius: "6px",
+    border: "1px solid #1d4ed8",
+    background: "#2563eb",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: "0.875rem",
+    fontWeight: 600,
+  } as const,
+  primaryButtonDisabled: {
+    opacity: 0.6,
+    cursor: "not-allowed",
+  } as const,
   error: {
     color: "#b91c1c",
     background: "#fef2f2",
@@ -300,13 +314,12 @@ function StatusCards({
 export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [updateState, submitUpdate, isUpdatePending] = useActionState(
+    updateReviewItemStatusFormAction,
+    null
+  );
   const [selectedId, setSelectedId] = useState<string | null>(
     initialData.effectiveSelectedId
-  );
-  const [pendingStatus, setPendingStatus] = useState<string>(
-    initialData.selectedItem?.status ?? REVIEW_QUEUE_STATUS_OPTIONS[0]
   );
 
   const appliedFilters = initialData.filters;
@@ -316,10 +329,12 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
   }, [initialData.effectiveSelectedId]);
 
   useEffect(() => {
-    if (initialData.selectedItem?.status) {
-      setPendingStatus(initialData.selectedItem.status);
+    if (updateState?.ok) {
+      startTransition(() => {
+        router.refresh();
+      });
     }
-  }, [initialData.selectedItem?.id, initialData.selectedItem?.status]);
+  }, [updateState, router]);
 
   const selectedItem =
     initialData.selectedItem?.id === selectedId ? initialData.selectedItem : null;
@@ -357,31 +372,8 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
   }
 
   function handleSelectItem(id: string) {
-    setActionError(null);
-    setActionMessage(null);
     setSelectedId(id);
     navigateWithFilters(appliedFilters, id);
-  }
-
-  async function handleStatusUpdate() {
-    if (!selectedId || !pendingStatus) {
-      return;
-    }
-
-    setActionError(null);
-    setActionMessage(null);
-
-    const result = await updateReviewItemStatusAction(selectedId, pendingStatus);
-
-    if (!result.ok) {
-      setActionError(result.message);
-      return;
-    }
-
-    setActionMessage(`Status updated to ${result.item.status}.`);
-    startTransition(() => {
-      router.refresh();
-    });
   }
 
   return (
@@ -650,12 +642,18 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
 
               <div>
                 <div style={styles.detailLabel}>Update status</div>
-                <div style={styles.statusUpdateRow}>
+                <form
+                  key={`${selectedItem.id}:${selectedItem.status}`}
+                  action={submitUpdate}
+                  style={styles.statusUpdateRow}
+                >
+                  <input type="hidden" name="review_item_id" value={selectedItem.id} />
                   <select
-                    value={pendingStatus}
-                    onChange={(event) => setPendingStatus(event.target.value)}
-                    style={{ ...styles.input, minWidth: "160px" }}
-                    disabled={isPending}
+                    name="status"
+                    defaultValue={selectedItem.status}
+                    style={{ ...styles.input, minWidth: "180px" }}
+                    disabled={isUpdatePending}
+                    required
                   >
                     {REVIEW_QUEUE_STATUS_OPTIONS.map((status) => (
                       <option key={status} value={status}>
@@ -664,18 +662,26 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
                     ))}
                   </select>
                   <button
-                    type="button"
-                    disabled={isPending || pendingStatus === selectedItem.status}
-                    onClick={handleStatusUpdate}
-                    style={styles.actionButton}
+                    type="submit"
+                    disabled={isUpdatePending}
+                    style={{
+                      ...styles.primaryButton,
+                      ...(isUpdatePending ? styles.primaryButtonDisabled : {}),
+                    }}
                   >
-                    Update status
+                    {isUpdatePending ? "Saving status…" : "Save status change"}
                   </button>
-                </div>
+                </form>
               </div>
 
-              {actionError && <div style={styles.error}>{actionError}</div>}
-              {actionMessage && <div style={styles.success}>{actionMessage}</div>}
+              {updateState && !updateState.ok && (
+                <div style={styles.error}>{updateState.message}</div>
+              )}
+              {updateState?.ok && (
+                <div style={styles.success}>
+                  Status updated to {updateState.item.status}. List and summary cards refreshed.
+                </div>
+              )}
             </>
           )}
         </aside>
