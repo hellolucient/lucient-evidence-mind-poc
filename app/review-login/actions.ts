@@ -2,16 +2,13 @@
 
 import { headers } from "next/headers";
 
+import { resolveSiteOrigin } from "@/lib/supabase/auth-redirect";
 import {
-  buildReviewLoginCallbackUrl,
-  resolveSiteOrigin,
-} from "@/lib/supabase/auth-redirect";
-import { createSupabaseAuthServerClient, isSupabaseAuthConfigured } from "@/lib/supabase/auth-server";
+  sendApprovedOperatorLoginLink,
+  type OperatorLoginSendState,
+} from "@/lib/review/send-operator-login-link";
 
-export type ReviewLoginState = {
-  ok: boolean;
-  message: string;
-};
+export type ReviewLoginState = OperatorLoginSendState;
 
 async function getSiteOrigin(): Promise<string> {
   const headerStore = await headers();
@@ -28,40 +25,8 @@ export async function sendReviewLoginLink(
   _prevState: ReviewLoginState,
   formData: FormData
 ): Promise<ReviewLoginState> {
-  if (!isSupabaseAuthConfigured()) {
-    return {
-      ok: false,
-      message: "Supabase Auth is not configured for operator login.",
-    };
-  }
-
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  if (!email) {
-    return {
-      ok: false,
-      message: "Email is required.",
-    };
-  }
-
-  const supabase = await createSupabaseAuthServerClient();
-  const redirectTo = buildReviewLoginCallbackUrl(await getSiteOrigin());
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: redirectTo,
-      shouldCreateUser: false,
-    },
+  return sendApprovedOperatorLoginLink({
+    email: String(formData.get("email") ?? ""),
+    siteOrigin: await getSiteOrigin(),
   });
-
-  if (error) {
-    return {
-      ok: false,
-      message: "Unable to send login link. Confirm the email is approved for operator access.",
-    };
-  }
-
-  return {
-    ok: true,
-    message: "Check your email for the internal review queue login link.",
-  };
 }
