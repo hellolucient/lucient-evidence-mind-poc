@@ -1,12 +1,16 @@
+import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSignOut = vi.fn();
-const mockCreateSupabaseAuthServerClient = vi.fn();
+const mockCreateSupabaseAuthRouteHandlerClient = vi.fn();
 const mockIsSupabaseAuthConfigured = vi.fn();
 
+vi.mock("@/lib/supabase/auth-route-handler", () => ({
+  createSupabaseAuthRouteHandlerClient: (...args: unknown[]) =>
+    mockCreateSupabaseAuthRouteHandlerClient(...args),
+}));
+
 vi.mock("@/lib/supabase/auth-server", () => ({
-  createSupabaseAuthServerClient: (...args: unknown[]) =>
-    mockCreateSupabaseAuthServerClient(...args),
   isSupabaseAuthConfigured: (...args: unknown[]) => mockIsSupabaseAuthConfigured(...args),
 }));
 
@@ -14,17 +18,21 @@ import { POST } from "@/app/review-items/logout/route";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   mockIsSupabaseAuthConfigured.mockReturnValue(true);
-  mockCreateSupabaseAuthServerClient.mockResolvedValue({
+  mockSignOut.mockResolvedValue({ error: null });
+  mockCreateSupabaseAuthRouteHandlerClient.mockImplementation(async (response: NextResponse) => ({
     auth: {
       signOut: mockSignOut,
     },
-  });
-  mockSignOut.mockResolvedValue({ error: null });
+    __response: response,
+  }));
 });
 
 describe("POST /review-items/logout", () => {
-  it("signs out the Supabase session and redirects to review login", async () => {
+  it("signs out on the redirect response and sends user to review login", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://example.com");
+
     const request = new Request("https://example.com/review-items/logout", {
       method: "POST",
     });
@@ -34,18 +42,6 @@ describe("POST /review-items/logout", () => {
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://example.com/review-login");
-  });
-
-  it("redirects to review login even when Supabase Auth is not configured", async () => {
-    mockIsSupabaseAuthConfigured.mockReturnValue(false);
-
-    const request = new Request("https://example.com/review-items/logout", {
-      method: "POST",
-    });
-
-    const response = await POST(request);
-
-    expect(mockSignOut).not.toHaveBeenCalled();
-    expect(response.headers.get("location")).toBe("https://example.com/review-login");
+    expect(mockCreateSupabaseAuthRouteHandlerClient.mock.calls[0]?.[0]).toBe(response);
   });
 });

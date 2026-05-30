@@ -52,7 +52,7 @@ const styles = {
   } as const,
 };
 
-export function ReviewLoginForm() {
+export function ReviewLoginForm({ authError = null }: { authError?: string | null }) {
   const [state, formAction, isPending] = useActionState(sendReviewLoginLink, initialState);
 
   return (
@@ -61,6 +61,8 @@ export function ReviewLoginForm() {
       <p style={{ color: "#444" }}>
         Approved operators only. Enter your email to receive a magic link.
       </p>
+
+      {authError ? <div style={styles.messageError}>{authError}</div> : null}
 
       <form action={formAction}>
         <label style={{ display: "block", fontSize: "0.875rem" }}>
