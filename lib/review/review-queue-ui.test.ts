@@ -4,7 +4,10 @@ import { DEMO_REVIEW_ITEM_ROW } from "@/lib/watch/evidence-review-item-store";
 import {
   computeStatusCounts,
   isReviewQueueDisplayItem,
+  isReviewQueueSelectedItemView,
   parseReviewQueuePageFilters,
+  resolveEffectiveSelectedId,
+  REVIEW_QUEUE_DETAIL_FIELDS,
   REVIEW_QUEUE_PRIVATE_FIELDS,
   REVIEW_QUEUE_STATUS_OPTIONS,
   reviewQueueDisplayShapeFromRow,
@@ -24,6 +27,7 @@ describe("review-queue-ui", () => {
       "resolved",
       "dismissed",
     ]);
+    expect(REVIEW_QUEUE_STATUS_OPTIONS.every((status) => typeof status === "string")).toBe(true);
   });
 
   it("shapeReviewQueueListRow keeps table columns only", () => {
@@ -48,6 +52,7 @@ describe("review-queue-ui", () => {
     const detail = shapeReviewQueueDetailView(demoItem);
 
     expect(isReviewQueueDisplayItem(detail as Record<string, unknown>)).toBe(true);
+    expect(isReviewQueueSelectedItemView(detail as Record<string, unknown>)).toBe(true);
     for (const field of REVIEW_QUEUE_PRIVATE_FIELDS) {
       expect(detail).not.toHaveProperty(field);
     }
@@ -55,12 +60,37 @@ describe("review-queue-ui", () => {
     expect(detail.evidence_alert_id).toBe(demoItem.evidence_alert_id);
   });
 
+  it("isReviewQueueSelectedItemView requires the detail panel field set", () => {
+    const detail = shapeReviewQueueDetailView(demoItem);
+
+    expect(REVIEW_QUEUE_DETAIL_FIELDS.every((field) => field in detail)).toBe(true);
+    expect(isReviewQueueSelectedItemView(detail as Record<string, unknown>)).toBe(true);
+    expect(
+      isReviewQueueSelectedItemView({
+        ...detail,
+        raw_payload: { secret: true },
+      } as Record<string, unknown>)
+    ).toBe(false);
+  });
+
   it("reviewQueueDisplayShapeFromRow excludes raw_payload from DB rows", () => {
     const display = reviewQueueDisplayShapeFromRow(DEMO_REVIEW_ITEM_ROW);
 
     expect(display).not.toHaveProperty("raw_payload");
     expect(display).not.toHaveProperty("claim_text");
+    expect(isReviewQueueSelectedItemView(display as Record<string, unknown>)).toBe(true);
     expect(JSON.stringify(display).toLowerCase()).not.toContain("claim_context");
+  });
+
+  it("resolveEffectiveSelectedId prefers explicit selection then first list row", () => {
+    const rows = [
+      shapeReviewQueueListRow(demoItem),
+      shapeReviewQueueListRow({ ...demoItem, id: "item-2" }),
+    ];
+
+    expect(resolveEffectiveSelectedId(undefined, rows)).toBe(demoItem.id);
+    expect(resolveEffectiveSelectedId("item-2", rows)).toBe("item-2");
+    expect(resolveEffectiveSelectedId(undefined, [])).toBeNull();
   });
 
   it("computeStatusCounts aggregates by status", () => {

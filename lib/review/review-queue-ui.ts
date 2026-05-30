@@ -41,11 +41,27 @@ export type ReviewQueueDetailView = PrivacySafeReviewItem;
 
 export type ReviewQueueStatusCounts = Record<ReviewItemStatus, number>;
 
+export const REVIEW_QUEUE_DETAIL_FIELDS = [
+  "id",
+  "status",
+  "signal",
+  "severity",
+  "workspace_id",
+  "client_claim_id",
+  "claim_family",
+  "evidence_alert_id",
+  "watch_run_id",
+  "summary",
+  "created_at",
+  "updated_at",
+] as const;
+
 export type ReviewQueuePageData = {
   configured: boolean;
   filters: ReviewQueuePageFilters;
   items: ReviewQueueListRow[];
   selectedItem: ReviewQueueDetailView | null;
+  effectiveSelectedId: string | null;
   filteredCount: number;
   statusCounts: ReviewQueueStatusCounts;
   listError: string | null;
@@ -100,6 +116,27 @@ export function shapeReviewQueueListRow(item: PrivacySafeReviewItem): ReviewQueu
 
 export function shapeReviewQueueDetailView(item: PrivacySafeReviewItem): ReviewQueueDetailView {
   return { ...item };
+}
+
+export function resolveEffectiveSelectedId(
+  selectedId: string | undefined,
+  items: ReviewQueueListRow[]
+): string | null {
+  if (selectedId) {
+    return selectedId;
+  }
+
+  return items[0]?.id ?? null;
+}
+
+export function isReviewQueueSelectedItemView(
+  item: Record<string, unknown>
+): item is ReviewQueueDetailView {
+  if (!isReviewQueueDisplayItem(item)) {
+    return false;
+  }
+
+  return REVIEW_QUEUE_DETAIL_FIELDS.every((field) => field in item);
 }
 
 export function isReviewQueueDisplayItem(item: Record<string, unknown>): boolean {
@@ -186,6 +223,7 @@ export async function buildReviewQueuePageData(
       filters,
       items: [],
       selectedItem: null,
+      effectiveSelectedId: null,
       filteredCount: 0,
       statusCounts: emptyStatusCounts(),
       listError: "supabase_not_configured",
@@ -202,10 +240,15 @@ export async function buildReviewQueuePageData(
     limit: 50,
   };
 
-  const [listResult, countResult, selectedResult] = await Promise.all([
-    listReviewItems(filters),
+  const listResult = await listReviewItems(filters);
+  const items = listResult.items.map(shapeReviewQueueListRow);
+  const effectiveSelectedId = resolveEffectiveSelectedId(selectedId, items);
+
+  const [countResult, selectedResult] = await Promise.all([
     listReviewItems(countFilters),
-    selectedId ? getReviewItemById(selectedId) : Promise.resolve(null),
+    effectiveSelectedId
+      ? getReviewItemById(effectiveSelectedId)
+      : Promise.resolve(null),
   ]);
 
   const listError = listResult.error ?? null;
@@ -215,11 +258,12 @@ export async function buildReviewQueuePageData(
   return {
     configured: true,
     filters,
-    items: listResult.items.map(shapeReviewQueueListRow),
+    items,
     selectedItem:
       selectedResult && selectedResult.item
         ? shapeReviewQueueDetailView(selectedResult.item)
         : null,
+    effectiveSelectedId,
     filteredCount: listResult.count,
     statusCounts: computeStatusCounts(countResult.items),
     listError,

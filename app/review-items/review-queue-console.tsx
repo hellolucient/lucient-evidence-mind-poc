@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { updateReviewItemStatusAction } from "./actions";
 import {
@@ -17,8 +17,8 @@ type ReviewQueueConsoleProps = {
 const styles = {
   page: {
     fontFamily: "system-ui, sans-serif",
-    padding: "2rem",
-    maxWidth: "1200px",
+    padding: "1.5rem 2rem",
+    maxWidth: "1280px",
     margin: "0 auto",
   } as const,
   subtitle: {
@@ -27,14 +27,14 @@ const styles = {
   } as const,
   cards: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-    gap: "0.75rem",
-    margin: "1.5rem 0",
+    gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+    gap: "0.625rem",
+    margin: "1.25rem 0",
   } as const,
   card: {
     border: "1px solid #ddd",
     borderRadius: "8px",
-    padding: "0.75rem 1rem",
+    padding: "0.625rem 0.875rem",
     background: "#fafafa",
   } as const,
   cardActive: {
@@ -44,23 +44,29 @@ const styles = {
   filters: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: "0.75rem",
-    marginBottom: "1.5rem",
+    gap: "0.625rem",
+    marginBottom: "0.75rem",
   } as const,
   label: {
     display: "flex",
     flexDirection: "column" as const,
     gap: "0.25rem",
-    fontSize: "0.875rem",
+    fontSize: "0.8125rem",
   } as const,
   input: {
-    padding: "0.5rem",
+    padding: "0.45rem 0.5rem",
     border: "1px solid #ccc",
     borderRadius: "4px",
+    fontSize: "0.8125rem",
+  } as const,
+  activeFilters: {
+    fontSize: "0.8125rem",
+    color: "#555",
+    marginBottom: "1rem",
   } as const,
   layout: {
     display: "grid",
-    gridTemplateColumns: "minmax(0, 2fr) minmax(280px, 1fr)",
+    gridTemplateColumns: "minmax(0, 2fr) minmax(300px, 1fr)",
     gap: "1rem",
     alignItems: "start",
   } as const,
@@ -68,69 +74,104 @@ const styles = {
     overflowX: "auto" as const,
     border: "1px solid #ddd",
     borderRadius: "8px",
+    WebkitOverflowScrolling: "touch" as const,
   } as const,
   table: {
     width: "100%",
+    minWidth: "980px",
     borderCollapse: "collapse" as const,
-    fontSize: "0.875rem",
+    fontSize: "0.8125rem",
+    tableLayout: "fixed" as const,
   } as const,
   th: {
     textAlign: "left" as const,
-    padding: "0.625rem",
+    padding: "0.5rem 0.625rem",
     borderBottom: "1px solid #ddd",
     background: "#f5f5f5",
+    fontWeight: 600,
+    whiteSpace: "nowrap" as const,
   } as const,
   td: {
-    padding: "0.625rem",
+    padding: "0.5rem 0.625rem",
     borderBottom: "1px solid #eee",
-    verticalAlign: "top" as const,
+    verticalAlign: "middle" as const,
+  } as const,
+  cellCompact: {
+    minWidth: "72px",
+    maxWidth: "110px",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden" as const,
+    textOverflow: "ellipsis" as const,
+  } as const,
+  cellMedium: {
+    minWidth: "120px",
+    maxWidth: "160px",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden" as const,
+    textOverflow: "ellipsis" as const,
+  } as const,
+  cellWide: {
+    minWidth: "140px",
+    maxWidth: "180px",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden" as const,
+    textOverflow: "ellipsis" as const,
+  } as const,
+  cellSummary: {
+    minWidth: "240px",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden" as const,
+    textOverflow: "ellipsis" as const,
+  } as const,
+  cellUpdated: {
+    minWidth: "130px",
+    maxWidth: "150px",
+    whiteSpace: "nowrap" as const,
+    overflow: "hidden" as const,
+    textOverflow: "ellipsis" as const,
+  } as const,
+  row: {
+    cursor: "pointer",
   } as const,
   rowSelected: {
     background: "#eff6ff",
-  } as const,
-  rowButton: {
-    width: "100%",
-    textAlign: "left" as const,
-    background: "transparent",
-    border: "none",
-    padding: 0,
-    cursor: "pointer",
-    font: "inherit",
+    boxShadow: "inset 3px 0 0 #2563eb",
   } as const,
   panel: {
     border: "1px solid #ddd",
     borderRadius: "8px",
-    padding: "1rem",
+    padding: "1rem 1.125rem",
     background: "#fafafa",
   } as const,
   detailRow: {
-    marginBottom: "0.75rem",
-    fontSize: "0.875rem",
+    marginBottom: "0.625rem",
+    fontSize: "0.8125rem",
+    lineHeight: 1.45,
+  } as const,
+  detailValue: {
+    wordBreak: "break-word" as const,
   } as const,
   detailLabel: {
     color: "#666",
-    fontSize: "0.75rem",
+    fontSize: "0.6875rem",
     textTransform: "uppercase" as const,
     letterSpacing: "0.04em",
+    marginBottom: "0.125rem",
   } as const,
-  actions: {
+  statusUpdateRow: {
     display: "flex",
     gap: "0.5rem",
+    alignItems: "center" as const,
+    marginTop: "0.75rem",
     flexWrap: "wrap" as const,
-    marginTop: "1rem",
   } as const,
   actionButton: {
-    padding: "0.4rem 0.75rem",
+    padding: "0.45rem 0.75rem",
     borderRadius: "4px",
     border: "1px solid #ccc",
     background: "#fff",
     cursor: "pointer",
     fontSize: "0.8125rem",
-  } as const,
-  actionButtonActive: {
-    borderColor: "#2563eb",
-    background: "#2563eb",
-    color: "#fff",
   } as const,
   error: {
     color: "#b91c1c",
@@ -171,18 +212,6 @@ function formatTimestamp(value: string | null): string {
   return date.toLocaleString();
 }
 
-function truncate(value: string | null, maxLength = 80): string {
-  if (!value) {
-    return "—";
-  }
-
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, maxLength)}…`;
-}
-
 function buildQueryString(filters: ReviewQueuePageData["filters"], selectedId?: string): string {
   const params = new URLSearchParams();
 
@@ -204,6 +233,34 @@ function buildQueryString(filters: ReviewQueuePageData["filters"], selectedId?: 
 
   const query = params.toString();
   return query ? `?${query}` : "";
+}
+
+function buildFilterKey(filters: ReviewQueuePageData["filters"]): string {
+  return [
+    filters.status ?? "",
+    filters.workspace_id ?? "",
+    filters.claim_family ?? "",
+    filters.signal ?? "",
+  ].join("|");
+}
+
+function describeActiveFilters(filters: ReviewQueuePageData["filters"]): string {
+  const parts: string[] = [];
+
+  if (filters.status) {
+    parts.push(`status=${filters.status}`);
+  }
+  if (filters.workspace_id) {
+    parts.push(`workspace_id=${filters.workspace_id}`);
+  }
+  if (filters.claim_family) {
+    parts.push(`claim_family=${filters.claim_family}`);
+  }
+  if (filters.signal) {
+    parts.push(`signal=${filters.signal}`);
+  }
+
+  return parts.length > 0 ? parts.join(" · ") : "No filters applied";
 }
 
 function StatusCards({
@@ -231,8 +288,8 @@ function StatusCards({
               textAlign: "left" as const,
             }}
           >
-            <div style={{ fontSize: "0.75rem", color: "#666" }}>{status}</div>
-            <div style={{ fontSize: "1.25rem", fontWeight: 600 }}>{counts[status]}</div>
+            <div style={{ fontSize: "0.6875rem", color: "#666" }}>{status}</div>
+            <div style={{ fontSize: "1.125rem", fontWeight: 600 }}>{counts[status]}</div>
           </button>
         );
       })}
@@ -245,24 +302,38 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
   const [isPending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-
-  const selectedId = initialData.selectedItem?.id;
-  const filterInputs = useMemo(
-    () => ({
-      status: initialData.filters.status ?? "",
-      workspace_id: initialData.filters.workspace_id ?? "",
-      claim_family: initialData.filters.claim_family ?? "",
-      signal: initialData.filters.signal ?? "",
-    }),
-    [initialData.filters]
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialData.effectiveSelectedId
   );
+  const [pendingStatus, setPendingStatus] = useState<string>(
+    initialData.selectedItem?.status ?? REVIEW_QUEUE_STATUS_OPTIONS[0]
+  );
+
+  const appliedFilters = initialData.filters;
+
+  useEffect(() => {
+    setSelectedId(initialData.effectiveSelectedId);
+  }, [initialData.effectiveSelectedId]);
+
+  useEffect(() => {
+    if (initialData.selectedItem?.status) {
+      setPendingStatus(initialData.selectedItem.status);
+    }
+  }, [initialData.selectedItem?.id, initialData.selectedItem?.status]);
+
+  const selectedItem =
+    initialData.selectedItem?.id === selectedId ? initialData.selectedItem : null;
+  const isSelectionPending = Boolean(selectedId && selectedId !== initialData.effectiveSelectedId);
 
   function navigateWithFilters(
     nextFilters: ReviewQueuePageData["filters"],
-    nextSelectedId?: string
+    nextSelectedId?: string | null
   ) {
+    const resolvedSelectedId =
+      nextSelectedId === null ? undefined : (nextSelectedId ?? selectedId ?? undefined);
+
     startTransition(() => {
-      router.push(`/review-items${buildQueryString(nextFilters, nextSelectedId)}`);
+      router.push(`/review-items${buildQueryString(nextFilters, resolvedSelectedId)}`);
     });
   }
 
@@ -270,29 +341,37 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
-    navigateWithFilters({
-      status: String(formData.get("status") || "") || undefined,
-      workspace_id: String(formData.get("workspace_id") || "") || undefined,
-      claim_family: String(formData.get("claim_family") || "") || undefined,
-      signal: String(formData.get("signal") || "") || undefined,
-    });
+    navigateWithFilters(
+      {
+        status: String(formData.get("status") || "") || undefined,
+        workspace_id: String(formData.get("workspace_id") || "") || undefined,
+        claim_family: String(formData.get("claim_family") || "") || undefined,
+        signal: String(formData.get("signal") || "") || undefined,
+      },
+      null
+    );
+  }
+
+  function handleClearFilters() {
+    navigateWithFilters({}, null);
   }
 
   function handleSelectItem(id: string) {
     setActionError(null);
     setActionMessage(null);
-    navigateWithFilters(initialData.filters, id);
+    setSelectedId(id);
+    navigateWithFilters(appliedFilters, id);
   }
 
-  async function handleStatusUpdate(status: string) {
-    if (!selectedId) {
+  async function handleStatusUpdate() {
+    if (!selectedId || !pendingStatus) {
       return;
     }
 
     setActionError(null);
     setActionMessage(null);
 
-    const result = await updateReviewItemStatusAction(selectedId, status);
+    const result = await updateReviewItemStatusAction(selectedId, pendingStatus);
 
     if (!result.ok) {
       setActionError(result.message);
@@ -329,16 +408,24 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
         <>
           <StatusCards
             counts={initialData.statusCounts}
-            activeStatus={initialData.filters.status}
+            activeStatus={appliedFilters.status}
             onSelectStatus={(status) =>
-              navigateWithFilters({ ...initialData.filters, status })
+              navigateWithFilters({ ...appliedFilters, status }, selectedId)
             }
           />
 
-          <form style={styles.filters} onSubmit={handleFilterSubmit}>
+          <form
+            key={buildFilterKey(appliedFilters)}
+            style={styles.filters}
+            onSubmit={handleFilterSubmit}
+          >
             <label style={styles.label}>
               Status
-              <select name="status" defaultValue={filterInputs.status} style={styles.input}>
+              <select
+                name="status"
+                defaultValue={appliedFilters.status ?? ""}
+                style={styles.input}
+              >
                 <option value="">All statuses</option>
                 {REVIEW_QUEUE_STATUS_OPTIONS.map((status) => (
                   <option key={status} value={status}>
@@ -351,7 +438,7 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
               Workspace ID
               <input
                 name="workspace_id"
-                defaultValue={filterInputs.workspace_id}
+                defaultValue={appliedFilters.workspace_id ?? ""}
                 style={styles.input}
                 placeholder="demo-workspace-spa-menu"
               />
@@ -360,7 +447,7 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
               Claim family
               <input
                 name="claim_family"
-                defaultValue={filterInputs.claim_family}
+                defaultValue={appliedFilters.claim_family ?? ""}
                 style={styles.input}
                 placeholder="magnesium_cortisol_stress"
               />
@@ -369,20 +456,34 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
               Signal
               <input
                 name="signal"
-                defaultValue={filterInputs.signal}
+                defaultValue={appliedFilters.signal ?? ""}
                 style={styles.input}
                 placeholder="human_review_required"
               />
             </label>
             <label style={styles.label}>
               <span>&nbsp;</span>
-              <button type="submit" style={styles.actionButton} disabled={isPending}>
-                Apply filters
-              </button>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button type="submit" style={styles.actionButton} disabled={isPending}>
+                  Apply filters
+                </button>
+                <button
+                  type="button"
+                  style={styles.actionButton}
+                  disabled={isPending}
+                  onClick={handleClearFilters}
+                >
+                  Clear
+                </button>
+              </div>
             </label>
           </form>
 
-          <p style={{ fontSize: "0.875rem", color: "#666", marginBottom: "1rem" }}>
+          <p style={styles.activeFilters}>
+            Active query: {describeActiveFilters(appliedFilters)}
+          </p>
+
+          <p style={{ fontSize: "0.8125rem", color: "#666", marginBottom: "1rem" }}>
             Showing {initialData.filteredCount} item{initialData.filteredCount === 1 ? "" : "s"}
             {isPending ? " (refreshing…)" : ""}
           </p>
@@ -395,6 +496,16 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
             <div style={{ padding: "1rem" }}>No review items found for the current filters.</div>
           ) : (
             <table style={styles.table}>
+              <colgroup>
+                <col style={{ width: "88px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "72px" }} />
+                <col style={{ width: "150px" }} />
+                <col style={{ width: "150px" }} />
+                <col style={{ width: "150px" }} />
+                <col style={{ width: "280px" }} />
+                <col style={{ width: "140px" }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th style={styles.th}>Status</th>
@@ -411,23 +522,54 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
                 {initialData.items.map((item) => {
                   const isSelected = item.id === selectedId;
                   return (
-                    <tr key={item.id} style={isSelected ? styles.rowSelected : undefined}>
-                      <td style={styles.td}>
-                        <button
-                          type="button"
-                          style={styles.rowButton}
-                          onClick={() => handleSelectItem(item.id)}
-                        >
-                          {item.status}
-                        </button>
+                    <tr
+                      key={item.id}
+                      style={{
+                        ...styles.row,
+                        ...(isSelected ? styles.rowSelected : {}),
+                      }}
+                      onClick={() => handleSelectItem(item.id)}
+                      aria-selected={isSelected}
+                    >
+                      <td style={{ ...styles.td, ...styles.cellCompact }} title={item.status}>
+                        {item.status}
                       </td>
-                      <td style={styles.td}>{item.signal ?? "—"}</td>
-                      <td style={styles.td}>{item.severity ?? "—"}</td>
-                      <td style={styles.td}>{item.claim_family}</td>
-                      <td style={styles.td}>{item.workspace_id}</td>
-                      <td style={styles.td}>{item.client_claim_id}</td>
-                      <td style={styles.td}>{truncate(item.summary)}</td>
-                      <td style={styles.td}>{formatTimestamp(item.updated_at)}</td>
+                      <td style={{ ...styles.td, ...styles.cellMedium }} title={item.signal ?? ""}>
+                        {item.signal ?? "—"}
+                      </td>
+                      <td
+                        style={{ ...styles.td, ...styles.cellCompact }}
+                        title={item.severity ?? ""}
+                      >
+                        {item.severity ?? "—"}
+                      </td>
+                      <td
+                        style={{ ...styles.td, ...styles.cellWide }}
+                        title={item.claim_family}
+                      >
+                        {item.claim_family}
+                      </td>
+                      <td
+                        style={{ ...styles.td, ...styles.cellWide }}
+                        title={item.workspace_id}
+                      >
+                        {item.workspace_id}
+                      </td>
+                      <td
+                        style={{ ...styles.td, ...styles.cellWide }}
+                        title={item.client_claim_id}
+                      >
+                        {item.client_claim_id}
+                      </td>
+                      <td style={{ ...styles.td, ...styles.cellSummary }} title={item.summary ?? ""}>
+                        {item.summary ?? "—"}
+                      </td>
+                      <td
+                        style={{ ...styles.td, ...styles.cellUpdated }}
+                        title={formatTimestamp(item.updated_at)}
+                      >
+                        {formatTimestamp(item.updated_at)}
+                      </td>
                     </tr>
                   );
                 })}
@@ -437,87 +579,98 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
         </section>
 
         <aside style={styles.panel}>
-          <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Review item detail</h2>
+          <h2 style={{ marginTop: 0, fontSize: "0.9375rem" }}>Review item detail</h2>
 
-          {!selectedId && (
+          {!selectedItem && initialData.items.length === 0 && (
+            <div style={styles.info}>No review items available to inspect.</div>
+          )}
+
+          {!selectedItem && !isSelectionPending && initialData.items.length > 0 && (
             <div style={styles.info}>Select a review item from the table to inspect it.</div>
           )}
 
-          {initialData.selectedErrorMessage && (
+          {isSelectionPending && (
+            <div style={styles.info}>Loading item details…</div>
+          )}
+
+          {initialData.selectedErrorMessage && selectedId && (
             <div style={styles.error}>{initialData.selectedErrorMessage}</div>
           )}
 
-          {initialData.selectedItem && (
+          {selectedItem && (
             <>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>ID</div>
-                <div>{initialData.selectedItem.id}</div>
+                <div style={styles.detailValue}>{selectedItem.id}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Status</div>
-                <div>{initialData.selectedItem.status}</div>
+                <div style={styles.detailValue}>{selectedItem.status}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Signal</div>
-                <div>{initialData.selectedItem.signal ?? "—"}</div>
+                <div style={styles.detailValue}>{selectedItem.signal ?? "—"}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Severity</div>
-                <div>{initialData.selectedItem.severity ?? "—"}</div>
+                <div style={styles.detailValue}>{selectedItem.severity ?? "—"}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Workspace ID</div>
-                <div>{initialData.selectedItem.workspace_id}</div>
+                <div style={styles.detailValue}>{selectedItem.workspace_id}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Client claim ID</div>
-                <div>{initialData.selectedItem.client_claim_id}</div>
+                <div style={styles.detailValue}>{selectedItem.client_claim_id}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Claim family</div>
-                <div>{initialData.selectedItem.claim_family}</div>
+                <div style={styles.detailValue}>{selectedItem.claim_family}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Evidence alert ID</div>
-                <div>{initialData.selectedItem.evidence_alert_id ?? "—"}</div>
+                <div style={styles.detailValue}>{selectedItem.evidence_alert_id ?? "—"}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Watch run ID</div>
-                <div>{initialData.selectedItem.watch_run_id ?? "—"}</div>
+                <div style={styles.detailValue}>{selectedItem.watch_run_id ?? "—"}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Summary</div>
-                <div>{initialData.selectedItem.summary ?? "—"}</div>
+                <div style={styles.detailValue}>{selectedItem.summary ?? "—"}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Created</div>
-                <div>{formatTimestamp(initialData.selectedItem.created_at)}</div>
+                <div style={styles.detailValue}>{formatTimestamp(selectedItem.created_at)}</div>
               </div>
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Updated</div>
-                <div>{formatTimestamp(initialData.selectedItem.updated_at)}</div>
+                <div style={styles.detailValue}>{formatTimestamp(selectedItem.updated_at)}</div>
               </div>
 
               <div>
                 <div style={styles.detailLabel}>Update status</div>
-                <div style={styles.actions}>
-                  {REVIEW_QUEUE_STATUS_OPTIONS.map((status) => {
-                    const isActive = initialData.selectedItem?.status === status;
-                    return (
-                      <button
-                        key={status}
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => handleStatusUpdate(status)}
-                        style={{
-                          ...styles.actionButton,
-                          ...(isActive ? styles.actionButtonActive : {}),
-                        }}
-                      >
+                <div style={styles.statusUpdateRow}>
+                  <select
+                    value={pendingStatus}
+                    onChange={(event) => setPendingStatus(event.target.value)}
+                    style={{ ...styles.input, minWidth: "160px" }}
+                    disabled={isPending}
+                  >
+                    {REVIEW_QUEUE_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
                         {status}
-                      </button>
-                    );
-                  })}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={isPending || pendingStatus === selectedItem.status}
+                    onClick={handleStatusUpdate}
+                    style={styles.actionButton}
+                  >
+                    Update status
+                  </button>
                 </div>
               </div>
 
