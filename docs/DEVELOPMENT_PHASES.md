@@ -221,19 +221,27 @@ See [CLAIM_FAMILY_SEARCH_PROFILES.md](./CLAIM_FAMILY_SEARCH_PROFILES.md)
 
 ## Phase 16 — Evidence Appraisal / Signal Classification
 
-**Status:** Planned
+**Status:** In Progress
 
 **Purpose:** Improve how the system decides whether new evidence strengthens, weakens, contradicts, or merely touches a claim.
 
-This phase should improve:
+**Signal categories (Phase 16 v1):**
 
-- strengthens claim
-- weakens claim
-- contradicts claim
-- irrelevant/noise
-- monitor only
-- requires human review
-- requires client claim re-review
+- `strengthens_claim`
+- `weakens_claim`
+- `contradicts_claim`
+- `no_material_change`
+- `irrelevant_noise`
+- `monitor_only`
+- `human_review_required`
+- `client_claim_re_review_required`
+
+**Progress:**
+
+- Rule-based classifier added in `lib/watch/evidence-signal-classifier.ts`
+- Watch check, run-due, and evidence alert `raw_payload` enriched with signal classification fields
+- Existing alert thresholds and persistence behavior preserved
+- See [EVIDENCE_SIGNAL_CLASSIFICATION.md](./EVIDENCE_SIGNAL_CLASSIFICATION.md)
 
 ---
 

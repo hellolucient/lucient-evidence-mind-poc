@@ -20,6 +20,8 @@ import {
   type PubMedFetchFilters,
 } from "./pubmed-retrieval";
 import { resolveMaxSources } from "./evidence-stubs";
+import { buildSignalClassificationFields } from "./watch/watch-signal-enrichment";
+import type { EvidenceSignalClassification } from "./watch/evidence-signal-classifier";
 
 export type WatchCheckBaseline = {
   last_checked_date: string;
@@ -39,6 +41,15 @@ export type WatchCheckRequestBody = {
 };
 
 export type PubMedCheckStatus = "success" | "error" | "skipped";
+
+export type SignalClassificationEnrichment = {
+  signal_classification: EvidenceSignalClassification | Record<string, unknown>;
+  signal: EvidenceSignalClassification["signal"];
+  evidence_direction: EvidenceDeltaDirection;
+  reason_codes: string[];
+  human_review_required: boolean;
+  client_claim_re_review_required: boolean;
+};
 
 export type WatchCheckResponse = {
   watch_check_id: string;
@@ -67,7 +78,7 @@ export type WatchCheckResponse = {
     non_contributing_sources: NonContributingSource[];
     alert_reason_codes: string[];
     alert_threshold_explanation: string;
-  };
+  } & Partial<SignalClassificationEnrichment>;
   policy_impact: {
     policy_change_recommended: boolean;
     previous_policy: string;
@@ -81,7 +92,8 @@ export type WatchCheckResponse = {
     affected_workspace_ids_visible_to_mind: false;
     app_should_map_to_private_workspaces: true;
     alert_summary: string;
-  };
+  } & Partial<SignalClassificationEnrichment>;
+  signal_classifications?: EvidenceSignalClassification[];
   privacy_boundary: {
     mind_receives: string[];
     mind_does_not_receive: string[];
@@ -98,6 +110,7 @@ const WATCH_CHECK_LIMITATIONS = [
   "Automated appraisal is conservative and not final evidence grading",
   "Phase 9.5 structured queries and context gates reduce but do not eliminate retrieval noise",
   "Phase 9.6 delta attribution is computed per request and not persisted",
+  "Phase 16 signal classification is rule-based and conservative; it enriches responses without changing alert thresholds",
 ];
 
 const WATCH_CHECK_PRIVACY_BOUNDARY: WatchCheckResponse["privacy_boundary"] = {
@@ -277,6 +290,39 @@ function assessWatchCheckOutcome(
   };
 }
 
+function enrichAssessmentWithSignalClassification(
+  claimFamily: string,
+  newSources: EvidenceSource[],
+  assessment: Pick<
+    WatchCheckResponse,
+    "evidence_delta" | "policy_impact" | "evidence_change_alert"
+  >
+): Pick<WatchCheckResponse, "evidence_delta" | "policy_impact" | "evidence_change_alert"> & {
+  signal_classifications: EvidenceSignalClassification[];
+} {
+  const { signal_classifications, fields } = buildSignalClassificationFields(
+    claimFamily,
+    newSources
+  );
+
+  if (!fields) {
+    return { ...assessment, signal_classifications };
+  }
+
+  return {
+    evidence_delta: {
+      ...assessment.evidence_delta,
+      ...fields,
+    },
+    policy_impact: assessment.policy_impact,
+    evidence_change_alert: {
+      ...assessment.evidence_change_alert,
+      ...fields,
+    },
+    signal_classifications,
+  };
+}
+
 export async function buildWatchCheckResponse(
   workspaceId: string,
   watchTopicId: string,
@@ -404,12 +450,19 @@ export async function buildWatchCheckResponse(
               alert_summary: "No live PubMed check performed.",
             },
           }
-        : assessWatchCheckOutcome(
-            claimFamily,
-            baseline.baseline_policy,
-            newPmids,
-            newSources
-          );
+        : (() => {
+            const assessment = assessWatchCheckOutcome(
+              claimFamily,
+              baseline.baseline_policy,
+              newPmids,
+              newSources
+            );
+            return enrichAssessmentWithSignalClassification(
+              claimFamily,
+              newSources,
+              assessment
+            );
+          })();
 
   return {
     watch_check_id: watchCheckId,
@@ -432,7 +485,13 @@ export async function buildWatchCheckResponse(
       found_pmids: foundPmids,
     },
     new_sources: newSources,
-    ...assessment,
+    evidence_delta: assessment.evidence_delta,
+    policy_impact: assessment.policy_impact,
+    evidence_change_alert: assessment.evidence_change_alert,
+    signal_classifications:
+      "signal_classifications" in assessment
+        ? assessment.signal_classifications
+        : undefined,
     privacy_boundary: WATCH_CHECK_PRIVACY_BOUNDARY,
     limitations: WATCH_CHECK_LIMITATIONS,
   };

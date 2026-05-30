@@ -14,6 +14,7 @@ import {
 } from "./watchlist-state";
 import { buildWatchCheckResponse, type WatchCheckResponse } from "./watch-check";
 import { buildEvidenceAlertCandidates } from "./watch/evidence-alert-store";
+import type { EvidenceSignalClassification } from "./watch/evidence-signal-classifier";
 import type { PubMedFetchFilters } from "./pubmed-retrieval";
 
 export type RunDueRequestBody = {
@@ -55,6 +56,7 @@ export type WatchRunTopicResult = {
   };
   error_message?: string;
   new_evidence_candidates?: ReturnType<typeof buildEvidenceAlertCandidates>;
+  signal_classifications?: EvidenceSignalClassification[];
 };
 
 export type PersistenceWarning = {
@@ -326,6 +328,7 @@ export async function runWatchTopicCheck(
 
     if (checkSucceeded && check.pubmed_check.new_pmids.length > 0) {
       result.new_evidence_candidates = buildEvidenceAlertCandidates(check, topic);
+      result.signal_classifications = check.signal_classifications;
     }
 
     if (!checkSucceeded) {

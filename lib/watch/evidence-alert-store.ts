@@ -8,6 +8,7 @@ import {
   getSupabaseEnvConfig,
 } from "@/engine/watchlist/supabase-client";
 import { sanitizeWatchRunErrorMessage } from "./watch-run-logger";
+import { classifyEvidenceCandidate } from "./evidence-signal-classifier";
 
 export type EvidenceAlertPersistenceResult = {
   configured: boolean;
@@ -127,6 +128,15 @@ export function buildEvidenceAlertCandidates(
   return newPmids.map((pmid) => {
     const source = sourceByPmid.get(pmid);
     const { intervention, outcome } = extractInterventionOutcome(source);
+    const signalClassification = classifyEvidenceCandidate({
+      claim_family_id: topic.claim_family,
+      external_id: pmid,
+      title: source?.title ?? null,
+      abstract: source?.abstract?.text ?? source?.summary ?? null,
+      publication_type: source?.methodology?.study_design ?? null,
+      journal: source?.meta?.journal ?? null,
+      source,
+    });
 
     return {
       watchlist_item_id: topic.watch_topic_id,
@@ -154,6 +164,13 @@ export function buildEvidenceAlertCandidates(
         alert_summary: check.evidence_change_alert.alert_summary,
         delta_summary: check.evidence_delta.delta_summary,
         source_id: source?.source_id ?? null,
+        signal_classification: signalClassification,
+        signal: signalClassification.signal,
+        evidence_direction: signalClassification.evidence_direction,
+        reason_codes: signalClassification.reason_codes,
+        human_review_required: signalClassification.human_review_required,
+        client_claim_re_review_required:
+          signalClassification.client_claim_re_review_required,
       },
     };
   });
