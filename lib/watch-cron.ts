@@ -11,10 +11,16 @@ import {
   logWatchRun,
   logWatchRunFailure,
 } from "./watch/watch-run-logger";
+import {
+  linkEvidenceAlertsToWatchRun,
+  persistEvidenceAlertsFromRunDue,
+  toEvidenceAlertPersistenceSummary,
+  type EvidenceAlertPersistenceResult,
+} from "./watch/evidence-alert-store";
 
 export type WatchCronResponse = {
   ok: true;
-  phase: "13";
+  phase: "14";
   route: "/api/watch/cron";
   trigger: CronAuthTrigger;
   source: CronAuthTrigger;
@@ -32,6 +38,10 @@ export type WatchCronResponse = {
   cron_secret_configured: boolean;
   watch_run_logged: boolean;
   watch_run_id: string | null;
+  evidence_alerts_logged: number;
+  evidence_alerts_duplicate_skipped: number;
+  evidence_alert_ids: string[];
+  evidence_alerts_error?: string;
 };
 
 export type WatchCronUnauthorizedResponse = ReturnType<
@@ -60,6 +70,25 @@ export function authorizeWatchCronRequest(
   return { authorized: true, trigger: auth.trigger };
 }
 
+function buildWatchCronAlertFields(
+  alertResult: EvidenceAlertPersistenceResult
+): Pick<
+  WatchCronResponse,
+  | "evidence_alerts_logged"
+  | "evidence_alerts_duplicate_skipped"
+  | "evidence_alert_ids"
+  | "evidence_alerts_error"
+> {
+  return {
+    evidence_alerts_logged: alertResult.evidence_alerts_logged,
+    evidence_alerts_duplicate_skipped: alertResult.evidence_alerts_duplicate_skipped,
+    evidence_alert_ids: alertResult.evidence_alert_ids,
+    ...(alertResult.evidence_alerts_error
+      ? { evidence_alerts_error: alertResult.evidence_alerts_error }
+      : {}),
+  };
+}
+
 export async function buildWatchCronResponse(
   trigger: CronAuthTrigger
 ): Promise<WatchCronResponse> {
@@ -78,22 +107,36 @@ export async function buildWatchCronResponse(
       (result) => result.status === "error"
     ).length;
 
+    const alertResult = await persistEvidenceAlertsFromRunDue({
+      runDue,
+      watchRunId: null,
+      dryRun: false,
+    });
+
     const logResult = await logWatchRun(
       buildRunDueWatchRunInput({
         route: "/api/watch/cron",
         trigger,
         source: trigger,
-        phase: "13",
+        phase: "14",
         startedAt,
         finishedAt,
         runDue,
         status: "success",
+        alertPersistence: toEvidenceAlertPersistenceSummary(alertResult),
       })
     );
 
+    if (logResult.watch_run_id && alertResult.evidence_alert_ids.length > 0) {
+      await linkEvidenceAlertsToWatchRun(
+        alertResult.evidence_alert_ids,
+        logResult.watch_run_id
+      );
+    }
+
     return {
       ok: true,
-      phase: "13",
+      phase: "14",
       route: "/api/watch/cron",
       trigger,
       source: trigger,
@@ -111,6 +154,7 @@ export async function buildWatchCronResponse(
       cron_secret_configured: isCronSecretConfigured(),
       watch_run_logged: logResult.logged,
       watch_run_id: logResult.watch_run_id,
+      ...buildWatchCronAlertFields(alertResult),
     };
   } catch (error) {
     const finishedAt = new Date().toISOString();
@@ -119,7 +163,7 @@ export async function buildWatchCronResponse(
       finishedAt,
       trigger,
       source: trigger,
-      phase: "13",
+      phase: "14",
       route: "/api/watch/cron",
       force: false,
       dryRun: false,

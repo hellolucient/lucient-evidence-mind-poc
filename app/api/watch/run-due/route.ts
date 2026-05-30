@@ -88,23 +88,49 @@ export async function POST(request: NextRequest) {
     dryRun = body.dry_run === true;
 
     if (!dryRun) {
+      const { persistEvidenceAlertsFromRunDue, toEvidenceAlertPersistenceSummary } =
+        await import("@/lib/watch/evidence-alert-store");
+
+      const alertResult = await persistEvidenceAlertsFromRunDue({
+        runDue: response,
+        watchRunId: null,
+        dryRun: false,
+      });
+
       const logResult = await logWatchRun(
         buildRunDueWatchRunInput({
           route: "/api/watch/run-due",
           trigger: "manual_api",
           source: "run_due",
-          phase: "13",
+          phase: "14",
           startedAt,
           finishedAt,
           runDue: response,
           status: "success",
+          alertPersistence: toEvidenceAlertPersistenceSummary(alertResult),
         })
       );
+
+      if (logResult.watch_run_id && alertResult.evidence_alert_ids.length > 0) {
+        const { linkEvidenceAlertsToWatchRun } = await import(
+          "@/lib/watch/evidence-alert-store"
+        );
+        await linkEvidenceAlertsToWatchRun(
+          alertResult.evidence_alert_ids,
+          logResult.watch_run_id
+        );
+      }
 
       return NextResponse.json({
         ...response,
         watch_run_logged: logResult.logged,
         watch_run_id: logResult.watch_run_id,
+        evidence_alerts_logged: alertResult.evidence_alerts_logged,
+        evidence_alerts_duplicate_skipped: alertResult.evidence_alerts_duplicate_skipped,
+        evidence_alert_ids: alertResult.evidence_alert_ids,
+        ...(alertResult.evidence_alerts_error
+          ? { evidence_alerts_error: alertResult.evidence_alerts_error }
+          : {}),
       });
     }
 
@@ -121,7 +147,7 @@ export async function POST(request: NextRequest) {
       finishedAt,
       trigger: "manual_api",
       source: "run_due",
-      phase: "13",
+      phase: "14",
       route: "/api/watch/run-due",
       dryRun,
       error,

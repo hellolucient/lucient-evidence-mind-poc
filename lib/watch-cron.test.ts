@@ -12,8 +12,21 @@ vi.mock("./watch/watch-run-logger", () => ({
   logWatchRunFailure: vi.fn(),
 }));
 
+vi.mock("./watch/evidence-alert-store", () => ({
+  persistEvidenceAlertsFromRunDue: vi.fn(),
+  linkEvidenceAlertsToWatchRun: vi.fn(),
+  toEvidenceAlertPersistenceSummary: vi.fn((result) => ({
+    evidence_alerts_logged: result.evidence_alerts_logged,
+    evidence_alerts_duplicate_skipped: result.evidence_alerts_duplicate_skipped,
+  })),
+}));
+
 import { buildRunDueResponse } from "./watch-run-due";
 import { logWatchRun } from "./watch/watch-run-logger";
+import {
+  linkEvidenceAlertsToWatchRun,
+  persistEvidenceAlertsFromRunDue,
+} from "./watch/evidence-alert-store";
 import {
   authorizeWatchCronRequest,
   buildWatchCronResponse,
@@ -21,6 +34,8 @@ import {
 
 const mockedBuildRunDueResponse = vi.mocked(buildRunDueResponse);
 const mockedLogWatchRun = vi.mocked(logWatchRun);
+const mockedPersistEvidenceAlerts = vi.mocked(persistEvidenceAlertsFromRunDue);
+const mockedLinkEvidenceAlerts = vi.mocked(linkEvidenceAlertsToWatchRun);
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -48,6 +63,7 @@ describe("watch-cron", () => {
       cron_secret_configured: true,
     });
     expect(mockedLogWatchRun).not.toHaveBeenCalled();
+    expect(mockedPersistEvidenceAlerts).not.toHaveBeenCalled();
   });
 
   it("calls run-due service with force=false and dry_run=false", async () => {
@@ -112,6 +128,7 @@ describe("watch-cron", () => {
         adapter: "SupabaseWatchlistStore",
         state_survives_cold_start: true,
         suitable_for_production_monitoring: true,
+        next_step: "done",
       },
       persistence_warning: {
         durable: true,
@@ -124,6 +141,13 @@ describe("watch-cron", () => {
       logged: true,
       watch_run_id: "run-uuid-123",
     });
+    mockedPersistEvidenceAlerts.mockResolvedValue({
+      configured: true,
+      persisted: true,
+      evidence_alerts_logged: 0,
+      evidence_alerts_duplicate_skipped: 0,
+      evidence_alert_ids: [],
+    });
 
     process.env.CRON_SECRET = "secret";
     const response = await buildWatchCronResponse("manual_authorized");
@@ -132,15 +156,22 @@ describe("watch-cron", () => {
       force: false,
       dry_run: false,
     });
+    expect(mockedPersistEvidenceAlerts).toHaveBeenCalledWith({
+      runDue: expect.objectContaining({ run_id: "test-run" }),
+      watchRunId: null,
+      dryRun: false,
+    });
     expect(mockedLogWatchRun).toHaveBeenCalledWith(
       expect.objectContaining({
         trigger: "manual_authorized",
         source: "manual_authorized",
+        phase: "14",
       })
     );
+    expect(mockedLinkEvidenceAlerts).not.toHaveBeenCalled();
     expect(response).toMatchObject({
       ok: true,
-      phase: "13",
+      phase: "14",
       route: "/api/watch/cron",
       trigger: "manual_authorized",
       source: "manual_authorized",
@@ -156,9 +187,63 @@ describe("watch-cron", () => {
       cron_secret_configured: true,
       watch_run_logged: true,
       watch_run_id: "run-uuid-123",
+      evidence_alerts_logged: 0,
+      evidence_alerts_duplicate_skipped: 0,
+      evidence_alert_ids: [],
     });
     expect(response.started_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(response.finished_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("links persisted alerts to watch_run_id when alerts were inserted", async () => {
+    mockedBuildRunDueResponse.mockResolvedValue({
+      run_id: "test-run",
+      generated_at: "2026-05-27T02:00:00.000Z",
+      mode: "scheduled_watch_simulation",
+      force: false,
+      dry_run: false,
+      watches_found: 1,
+      watches_run: 1,
+      watches_skipped: 0,
+      results: [],
+      privacy_boundary: {
+        scheduled_runner_receives: [],
+        scheduled_runner_does_not_receive: [],
+        app_maps_back_to_clients: true,
+      },
+      persistence_status: {
+        durable: true,
+        store: "supabase",
+        adapter: "SupabaseWatchlistStore",
+        state_survives_cold_start: true,
+        suitable_for_production_monitoring: true,
+        next_step: "done",
+      },
+      persistence_warning: {
+        durable: true,
+        reason: "persisted",
+        next_step: "done",
+      },
+      limitations: [],
+    });
+    mockedPersistEvidenceAlerts.mockResolvedValue({
+      configured: true,
+      persisted: true,
+      evidence_alerts_logged: 1,
+      evidence_alerts_duplicate_skipped: 0,
+      evidence_alert_ids: ["alert-uuid-1"],
+    });
+    mockedLogWatchRun.mockResolvedValue({
+      logged: true,
+      watch_run_id: "run-uuid-456",
+    });
+
+    await buildWatchCronResponse("vercel_cron");
+
+    expect(mockedLinkEvidenceAlerts).toHaveBeenCalledWith(
+      ["alert-uuid-1"],
+      "run-uuid-456"
+    );
   });
 
   it("respects next_check_utc when force=false via shared due-run logic", () => {
@@ -179,7 +264,7 @@ describe("watch-cron", () => {
       query_strategy: {
         mode: "structured",
         raw_query: "query",
-        structured_query: {},
+        structured_query: "structured query",
         query_hash: "hash",
         query_version: "v1",
       },

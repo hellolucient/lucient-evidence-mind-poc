@@ -4,6 +4,7 @@ import {
   WATCH_RUNS_TABLE,
 } from "@/engine/watchlist/supabase-client";
 import type { RunDueResponse } from "@/lib/watch-run-due";
+import type { EvidenceAlertPersistenceSummary } from "./evidence-alert-store";
 
 export type WatchRunStatus = "success" | "error";
 
@@ -120,7 +121,8 @@ function buildWatchRunInsertRow(input: WatchRunRecordInput): WatchRunsInsertRow 
 
 export function buildRunDueResponseSummary(
   route: string,
-  runDue: RunDueResponse
+  runDue: RunDueResponse,
+  alertPersistence?: EvidenceAlertPersistenceSummary
 ): Record<string, unknown> {
   return {
     route,
@@ -134,6 +136,13 @@ export function buildRunDueResponseSummary(
       status: result.status,
       alert_required: result.evidence_change_alert.alert_required,
     })),
+    ...(alertPersistence
+      ? {
+          evidence_alerts_logged: alertPersistence.evidence_alerts_logged,
+          evidence_alerts_duplicate_skipped:
+            alertPersistence.evidence_alerts_duplicate_skipped,
+        }
+      : {}),
   };
 }
 
@@ -147,6 +156,7 @@ export function buildRunDueWatchRunInput(options: {
   runDue: RunDueResponse;
   status?: WatchRunStatus;
   errorMessage?: string | null;
+  alertPersistence?: EvidenceAlertPersistenceSummary;
 }): WatchRunRecordInput {
   const alertsCount = options.runDue.results.filter(
     (result) => result.evidence_change_alert.alert_required
@@ -175,7 +185,11 @@ export function buildRunDueWatchRunInput(options: {
     errors_count: errorsCount,
     status,
     error_message: options.errorMessage ?? null,
-    response_summary: buildRunDueResponseSummary(options.route, options.runDue),
+    response_summary: buildRunDueResponseSummary(
+      options.route,
+      options.runDue,
+      options.alertPersistence
+    ),
   };
 }
 

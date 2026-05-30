@@ -13,6 +13,7 @@ import {
   type WatchTopicState,
 } from "./watchlist-state";
 import { buildWatchCheckResponse, type WatchCheckResponse } from "./watch-check";
+import { buildEvidenceAlertCandidates } from "./watch/evidence-alert-store";
 import type { PubMedFetchFilters } from "./pubmed-retrieval";
 
 export type RunDueRequestBody = {
@@ -53,6 +54,7 @@ export type WatchRunTopicResult = {
     baseline_pmids_added: string[];
   };
   error_message?: string;
+  new_evidence_candidates?: ReturnType<typeof buildEvidenceAlertCandidates>;
 };
 
 export type PersistenceWarning = {
@@ -320,6 +322,10 @@ export async function runWatchTopicCheck(
       result.current_query_hash = currentHash;
       result.query_strategy_change_recommendation =
         "Reset or re-baseline this watch before interpreting deltas.";
+    }
+
+    if (checkSucceeded && check.pubmed_check.new_pmids.length > 0) {
+      result.new_evidence_candidates = buildEvidenceAlertCandidates(check, topic);
     }
 
     if (!checkSucceeded) {
