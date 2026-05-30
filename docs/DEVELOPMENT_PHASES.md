@@ -332,20 +332,34 @@ See [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md)
 
 ## Phase 19 — Minimal Review Queue UI
 
-**Status:** In Progress
+**Status:** PASS
 
 **Purpose:** Phase 19 adds a minimal internal operator console for viewing and managing Evidence Mind review items without curl or exposing `CRON_SECRET` in browser JavaScript.
 
 **Phase 19 v1 deliverables:**
 
 - Route: `/review-items` — server-rendered review queue page
+- `POST /review-items/update` — server-side status update route (store access, no client-side cron auth)
 - `lib/review/review-queue-ui.ts` — privacy-safe page data shaping and status helpers
-- Server actions call the review item store directly (no client-side cron auth)
 - Docs: [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md)
 
 **Validated:**
 
-- (Pending deployment validation)
+- Minimal internal review queue UI created at `/review-items`
+- Production `/api/watch/cron` reports phase 19
+- Review queue page loads successfully
+- Summary cards render
+- Status filter works
+- Review item table renders
+- Selecting a review item populates the detail panel
+- Review item detail remains privacy-safe and does not expose `raw_payload` or private `claim_text`
+- UI status update now persists successfully
+- Demo item was updated to `resolved` via the UI
+- `/api/review-items?status=resolved` returns the updated item
+- `CRON_SECRET` is not exposed client-side
+- Full local test suite passed
+
+**Note:** `/review-items` remains an internal POC route and should be restricted at the deployment/network level until workspace auth exists.
 
 **Intentionally not included in v1:**
 
