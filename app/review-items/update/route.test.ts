@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockProcessReviewItemStatusUpdateSubmission = vi.fn();
+const mockIsInternalReviewUpdateAuthorized = vi.fn();
+
+vi.mock("@/lib/internal-review-access", () => ({
+  isInternalReviewUpdateAuthorized: () => mockIsInternalReviewUpdateAuthorized(),
+}));
 
 vi.mock("@/lib/review/review-queue-ui", () => ({
   processReviewItemStatusUpdateSubmission: (...args: unknown[]) =>
@@ -15,6 +20,7 @@ import { POST } from "@/app/review-items/update/route";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockIsInternalReviewUpdateAuthorized.mockResolvedValue(true);
 });
 
 describe("POST /review-items/update", () => {
@@ -74,5 +80,24 @@ describe("POST /review-items/update", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toContain("update_error=status_required");
+  });
+
+  it("redirects to /review-items when update access is not authorized", async () => {
+    mockIsInternalReviewUpdateAuthorized.mockResolvedValue(false);
+
+    const formData = new FormData();
+    formData.set("review_item_id", "bb192f23-b028-4b17-bbd7-749ae5748932");
+    formData.set("status", "resolved");
+
+    const request = new Request("https://example.com/review-items/update", {
+      method: "POST",
+      body: formData,
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://example.com/review-items");
+    expect(mockProcessReviewItemStatusUpdateSubmission).not.toHaveBeenCalled();
   });
 });

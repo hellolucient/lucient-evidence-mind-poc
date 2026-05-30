@@ -26,7 +26,8 @@ export default function Home() {
           <code>GET /api/watch/runs</code> — latest watch run history (requires cron auth)
         </li>
         <li>
-          <a href="/review-items">/review-items</a> — internal review queue console (Phase 19)
+          <a href="/review-items">/review-items</a> — internal review queue console (Phase 20; requires{" "}
+          <code>access_token</code>)
         </li>
       </ul>
     </main>

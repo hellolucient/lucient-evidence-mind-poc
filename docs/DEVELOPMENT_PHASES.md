@@ -371,6 +371,36 @@ See [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md)
 
 ---
 
+## Phase 20 — Simple Internal Route Protection for `/review-items`
+
+**Status:** PASS
+
+**Purpose:** Phase 20 protects the internal review queue UI with a server-side access token until workspace auth exists later.
+
+**Phase 20 v1 deliverables:**
+
+- Env: `INTERNAL_REVIEW_ACCESS_TOKEN` (server-side only)
+- Route guard: `/review-items` requires `?access_token=<token>` on first visit
+- Session cookie: valid token sets an httpOnly cookie so filters, detail selection, and status updates keep working without exposing the token in client code
+- Route guard: `POST /review-items/update` requires the same server-side session cookie
+- `lib/internal-review-access.ts` — token validation and cookie helpers
+
+**Validated:**
+
+- `/review-items` is blocked without a token
+- `/review-items?access_token=wrong-token` is blocked
+- `/review-items?access_token=<correct-token>` shows the existing review queue UI
+- Token is checked server-side only (no `NEXT_PUBLIC_` usage)
+- Phase 19 UI behavior is unchanged after successful access
+
+**Intentionally not included in v1:**
+
+- Full login or workspace auth
+- Changes to Supabase persistence, cron behavior, or `CRON_SECRET`
+- Protecting `/api/review-items*` routes (still cron-auth only)
+
+---
+
 ## Summary
 
 | Phase range | Focus |
@@ -386,3 +416,4 @@ See [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md)
 | **Phase 17** | Mind/app/client claim workflow integration |
 | **Phase 18** | Review queue API and operator status actions |
 | **Phase 19** | Minimal internal review queue UI |
+| **Phase 20** | Simple internal route protection for `/review-items` |
