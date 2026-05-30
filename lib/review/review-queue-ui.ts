@@ -4,6 +4,8 @@ import {
   type ReviewQueueAccessContext,
 } from "@/lib/operator-auth";
 import { listReviewItemAuditEvents } from "@/lib/review/evidence-review-item-audit-store";
+import { listReviewItemNotes } from "@/lib/review/evidence-review-item-notes-store";
+import { performReviewItemNoteCreate } from "@/lib/review/review-item-note-create";
 import { performReviewItemStatusUpdate } from "@/lib/review/review-item-status-update";
 import {
   getReviewItemById,
@@ -21,6 +23,8 @@ import { REVIEW_QUEUE_DETAIL_FIELDS, REVIEW_QUEUE_PRIVATE_FIELDS } from "@/lib/r
 import type {
   ReviewQueueDetailView,
   ReviewQueueListRow,
+  ReviewQueueNoteAddResult,
+  ReviewQueueNoteFlash,
   ReviewQueuePageData,
   ReviewQueuePageFilters,
   ReviewQueueStatusCounts,
@@ -34,9 +38,13 @@ export {
   REVIEW_QUEUE_STATUS_OPTIONS,
 } from "@/lib/review/review-queue-constants";
 
+export { REVIEW_QUEUE_NOTE_DECISION_OPTIONS } from "@/lib/review/review-queue-note-constants";
+
 export type {
   ReviewQueueDetailView,
   ReviewQueueListRow,
+  ReviewQueueNoteAddResult,
+  ReviewQueueNoteFlash,
   ReviewQueuePageData,
   ReviewQueuePageFilters,
   ReviewQueueStatusCounts,
@@ -128,6 +136,12 @@ export function reviewQueueErrorMessage(error: string | null | undefined): strin
       return "Review item is outside your workspace scope.";
     case "unsupported_review_item_status":
       return "Unsupported review item status.";
+    case "note_text_required":
+      return "Note text is required.";
+    case "unsupported_decision_type":
+      return "Unsupported decision type.";
+    case "evidence_review_item_notes_table_missing":
+      return "The evidence_review_item_notes table is missing. Apply the Phase 25 migration in Supabase.";
     default:
       return `Server error: ${error}`;
   }
@@ -168,6 +182,25 @@ export function parseReviewQueueUpdateFlash(
   return null;
 }
 
+export function parseReviewQueueNoteFlash(
+  params: Record<string, string | string[] | undefined>
+): ReviewQueueNoteFlash | null {
+  if (readParam(params, "note_ok")) {
+    return { kind: "success" };
+  }
+
+  const error = readParam(params, "note_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message: readParam(params, "note_error_message") ?? error,
+    };
+  }
+
+  return null;
+}
+
 export function buildReviewItemsUpdateRedirectPath(options: {
   returnQuery: string;
   result: ReviewQueueStatusUpdateResult;
@@ -188,6 +221,34 @@ export function buildReviewItemsUpdateRedirectPath(options: {
     }
     params.set("update_error", options.result.error);
     params.set("update_error_message", options.result.message);
+  }
+
+  const query = params.toString();
+  return query ? `/review-items?${query}` : "/review-items";
+}
+
+export function buildReviewItemsNoteRedirectPath(options: {
+  returnQuery: string;
+  result: ReviewQueueNoteAddResult;
+  itemId?: string;
+}): string {
+  const params = new URLSearchParams(options.returnQuery);
+  params.delete("note_ok");
+  params.delete("note_error");
+  params.delete("note_error_message");
+
+  if (options.result.ok) {
+    if (options.itemId) {
+      params.set("selected_id", options.itemId);
+    }
+    params.set("note_ok", "1");
+  } else {
+    const itemId = options.itemId;
+    if (itemId) {
+      params.set("selected_id", itemId);
+    }
+    params.set("note_error", options.result.error);
+    params.set("note_error_message", options.result.message);
   }
 
   const query = params.toString();
@@ -247,7 +308,9 @@ export async function buildReviewQueuePageData(
       selectedError: null,
       selectedErrorMessage: null,
       auditHistory: [],
+      notesHistory: [],
       updateFlash: parseReviewQueueUpdateFlash(params),
+      noteFlash: parseReviewQueueNoteFlash(params),
     };
   }
 
@@ -292,9 +355,14 @@ export async function buildReviewQueuePageData(
       : null;
 
   let auditHistory: Awaited<ReturnType<typeof listReviewItemAuditEvents>>["events"] = [];
+  let notesHistory: Awaited<ReturnType<typeof listReviewItemNotes>>["notes"] = [];
   if (selectedItem && effectiveSelectedId) {
-    const auditHistoryResult = await listReviewItemAuditEvents(effectiveSelectedId, access);
+    const [auditHistoryResult, notesHistoryResult] = await Promise.all([
+      listReviewItemAuditEvents(effectiveSelectedId, access),
+      listReviewItemNotes(effectiveSelectedId, access),
+    ]);
     auditHistory = auditHistoryResult.events;
+    notesHistory = notesHistoryResult.notes;
   }
 
   return {
@@ -303,6 +371,7 @@ export async function buildReviewQueuePageData(
     items,
     selectedItem,
     auditHistory,
+    notesHistory,
     effectiveSelectedId,
     filteredCount: listResult.count,
     statusCounts: computeStatusCounts(countResult.items),
@@ -311,6 +380,7 @@ export async function buildReviewQueuePageData(
     selectedError,
     selectedErrorMessage: reviewQueueErrorMessage(selectedError),
     updateFlash: parseReviewQueueUpdateFlash(params),
+    noteFlash: parseReviewQueueNoteFlash(params),
   };
 }
 
@@ -323,6 +393,99 @@ export function parseReviewItemStatusFormData(formData: FormData): {
     id: String(formData.get("review_item_id") ?? "").trim(),
     status: String(formData.get("status") ?? "").trim(),
     returnQuery: String(formData.get("return_query") ?? "").trim(),
+  };
+}
+
+export function parseReviewItemNoteFormData(formData: FormData): {
+  id: string;
+  noteText: string;
+  decisionType: string;
+  returnQuery: string;
+} {
+  return {
+    id: String(formData.get("review_item_id") ?? "").trim(),
+    noteText: String(formData.get("note_text") ?? "").trim(),
+    decisionType: String(formData.get("decision_type") ?? "").trim(),
+    returnQuery: String(formData.get("return_query") ?? "").trim(),
+  };
+}
+
+export type ReviewQueueNoteSubmission = {
+  redirectPath: string;
+  result: ReviewQueueNoteAddResult;
+};
+
+export async function processReviewItemNoteSubmission(
+  formData: FormData,
+  access: ReviewQueueAccessContext,
+  operatorEmail?: string | null
+): Promise<ReviewQueueNoteSubmission> {
+  const parsed = parseReviewItemNoteFormData(formData);
+
+  if (!parsed.id) {
+    const result: ReviewQueueNoteAddResult = {
+      ok: false,
+      error: "review_item_id_required",
+      message: "Review item ID is required.",
+    };
+    return {
+      result,
+      redirectPath: buildReviewItemsNoteRedirectPath({
+        returnQuery: parsed.returnQuery,
+        result,
+      }),
+    };
+  }
+
+  if (!parsed.noteText) {
+    const result: ReviewQueueNoteAddResult = {
+      ok: false,
+      error: "note_text_required",
+      message: reviewQueueErrorMessage("note_text_required") ?? "Note text is required.",
+    };
+    return {
+      result,
+      redirectPath: buildReviewItemsNoteRedirectPath({
+        returnQuery: parsed.returnQuery,
+        result,
+        itemId: parsed.id,
+      }),
+    };
+  }
+
+  const existing = await getReviewItemById(parsed.id);
+  if (existing.item && !canAccessReviewItemWorkspace(access, existing.item.workspace_id)) {
+    const result: ReviewQueueNoteAddResult = {
+      ok: false,
+      error: "forbidden",
+      message: "Review item is outside your workspace scope.",
+    };
+    return {
+      result,
+      redirectPath: buildReviewItemsNoteRedirectPath({
+        returnQuery: parsed.returnQuery,
+        result,
+        itemId: parsed.id,
+      }),
+    };
+  }
+
+  const result = await performReviewItemNoteCreate({
+    reviewItemId: parsed.id,
+    noteText: parsed.noteText,
+    decisionType: parsed.decisionType || null,
+    access,
+    operatorEmail,
+    existingItem: existing.item ?? null,
+  });
+
+  return {
+    result,
+    redirectPath: buildReviewItemsNoteRedirectPath({
+      returnQuery: parsed.returnQuery,
+      result,
+      itemId: parsed.id,
+    }),
   };
 }
 

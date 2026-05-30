@@ -1,6 +1,7 @@
 import type { ReviewItemListFilters, PrivacySafeReviewItem } from "@/lib/watch/evidence-review-item-store";
 import type { ReviewItemStatus } from "@/lib/watch/evidence-review-handoff";
 import type { PrivacySafeReviewItemAuditEvent } from "@/lib/review/evidence-review-item-audit-store";
+import type { PrivacySafeReviewItemNote } from "@/lib/review/evidence-review-item-notes-store";
 
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 
@@ -34,6 +35,27 @@ export type ReviewQueueStatusUpdateResult =
       message: string;
     };
 
+export type ReviewQueueNoteAddResult =
+  | {
+      ok: true;
+      note: PrivacySafeReviewItemNote;
+    }
+  | {
+      ok: false;
+      error: string;
+      message: string;
+    };
+
+export type ReviewQueueNoteFlash =
+  | {
+      kind: "success";
+    }
+  | {
+      kind: "error";
+      error: string;
+      message: string;
+    };
+
 export type ReviewQueueUpdateFlash =
   | {
       kind: "success";
@@ -51,6 +73,7 @@ export type ReviewQueuePageData = {
   items: ReviewQueueListRow[];
   selectedItem: ReviewQueueDetailView | null;
   auditHistory: PrivacySafeReviewItemAuditEvent[];
+  notesHistory: PrivacySafeReviewItemNote[];
   effectiveSelectedId: string | null;
   filteredCount: number;
   statusCounts: ReviewQueueStatusCounts;
@@ -59,5 +82,6 @@ export type ReviewQueuePageData = {
   selectedError: string | null;
   selectedErrorMessage: string | null;
   updateFlash: ReviewQueueUpdateFlash | null;
+  noteFlash: ReviewQueueNoteFlash | null;
   authStatus: ReviewQueueAuthPanelData;
 };

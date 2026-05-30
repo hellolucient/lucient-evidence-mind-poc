@@ -5,12 +5,14 @@ import { useEffect, useState, useTransition } from "react";
 
 import { ReviewQueueAuthPanel } from "@/app/review-items/review-queue-auth-panel";
 import { REVIEW_QUEUE_STATUS_OPTIONS } from "@/lib/review/review-queue-constants";
+import { REVIEW_QUEUE_NOTE_DECISION_OPTIONS } from "@/lib/review/review-queue-note-constants";
 import type {
   ReviewQueuePageData,
   ReviewQueueStatusCounts,
 } from "@/lib/review/review-queue-types";
 
 const REVIEW_ITEMS_UPDATE_PATH = "/review-items/update";
+const REVIEW_ITEMS_NOTES_PATH = "/review-items/notes";
 
 type ReviewQueueConsoleProps = {
   initialData: ReviewQueuePageData;
@@ -166,6 +168,27 @@ const styles = {
     alignItems: "center" as const,
     marginTop: "0.75rem",
     flexWrap: "wrap" as const,
+  } as const,
+  noteForm: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "0.5rem",
+    marginTop: "0.5rem",
+  } as const,
+  textarea: {
+    padding: "0.45rem 0.5rem",
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    fontSize: "0.8125rem",
+    minHeight: "72px",
+    resize: "vertical" as const,
+    fontFamily: "inherit",
+  } as const,
+  noteText: {
+    marginTop: "0.375rem",
+    color: "#334155",
+    whiteSpace: "pre-wrap" as const,
+    wordBreak: "break-word" as const,
   } as const,
   actionButton: {
     padding: "0.45rem 0.75rem",
@@ -354,6 +377,7 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
 
   const appliedFilters = initialData.filters;
   const updateFlash = initialData.updateFlash;
+  const noteFlash = initialData.noteFlash;
 
   useEffect(() => {
     setSelectedId(initialData.effectiveSelectedId);
@@ -707,14 +731,87 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
               )}
 
               <div style={{ marginTop: "1.25rem" }}>
+                <div style={styles.detailLabel}>Add review note</div>
+                <form action={REVIEW_ITEMS_NOTES_PATH} method="POST" style={styles.noteForm}>
+                  <input type="hidden" name="review_item_id" value={selectedItem.id} />
+                  <input
+                    type="hidden"
+                    name="return_query"
+                    value={buildReturnQuery(appliedFilters, selectedItem.id)}
+                  />
+                  <label style={styles.label}>
+                    Decision type (optional)
+                    <select name="decision_type" style={styles.input} defaultValue="">
+                      <option value="">—</option>
+                      {REVIEW_QUEUE_NOTE_DECISION_OPTIONS.map((decisionType) => (
+                        <option key={decisionType} value={decisionType}>
+                          {decisionType}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={styles.label}>
+                    Note
+                    <textarea
+                      name="note_text"
+                      style={styles.textarea}
+                      required
+                      placeholder="Decision rationale or recommended action"
+                    />
+                  </label>
+                  <button type="submit" style={styles.primaryButton}>
+                    Save note
+                  </button>
+                </form>
+              </div>
+
+              {noteFlash?.kind === "error" && (
+                <div style={styles.error}>{noteFlash.message}</div>
+              )}
+              {noteFlash?.kind === "success" && (
+                <div style={styles.success}>Review note saved.</div>
+              )}
+
+              <div style={{ marginTop: "1.25rem" }}>
+                <div style={styles.detailLabel}>Notes history</div>
+                {initialData.notesHistory.length === 0 ? (
+                  <div style={styles.info}>No operator notes recorded yet.</div>
+                ) : (
+                  <div style={styles.auditList}>
+                    {initialData.notesHistory.map((note) => (
+                      <div
+                        key={`${note.created_at}:${note.note_text.slice(0, 24)}`}
+                        style={styles.auditEntry}
+                      >
+                        <div style={styles.auditTimestamp}>
+                          {formatTimestamp(note.created_at)}
+                        </div>
+                        <div style={styles.auditMeta}>
+                          <span>{note.actor_label}</span>
+                          <span>{note.access_mode}</span>
+                        </div>
+                        {note.decision_type && (
+                          <div style={{ ...styles.auditMeta, marginTop: "0.25rem" }}>
+                            <span>Decision</span>
+                            <span>{note.decision_type}</span>
+                          </div>
+                        )}
+                        <div style={styles.noteText}>{note.note_text}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: "1.25rem" }}>
                 <div style={styles.detailLabel}>Audit history</div>
                 {initialData.auditHistory.length === 0 ? (
-                  <div style={styles.info}>No status change audit events recorded yet.</div>
+                  <div style={styles.info}>No audit events recorded yet.</div>
                 ) : (
                   <div style={styles.auditList}>
                     {initialData.auditHistory.map((event) => (
                       <div
-                        key={`${event.created_at}:${event.new_status}:${event.old_status ?? "none"}`}
+                        key={`${event.created_at}:${event.event_type}:${event.old_status ?? "none"}`}
                         style={styles.auditEntry}
                       >
                         <div style={styles.auditTimestamp}>
@@ -723,7 +820,9 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
                         <div style={styles.auditMeta}>
                           <span>{event.event_type}</span>
                           <span>
-                            {event.old_status ?? "—"} → {event.new_status}
+                            {event.event_type === "note_added"
+                              ? "Note added"
+                              : `${event.old_status ?? "—"} → ${event.new_status}`}
                           </span>
                         </div>
                         <div style={styles.auditMeta}>

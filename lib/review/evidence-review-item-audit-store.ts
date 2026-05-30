@@ -8,7 +8,7 @@ import { sanitizeWatchRunErrorMessage } from "@/lib/watch/watch-run-logger";
 
 export type ReviewItemAuditAccessMode = "supabase_operator" | "break_glass";
 export type ReviewItemAuditActorType = "supabase_operator" | "break_glass";
-export type ReviewItemAuditEventType = "status_changed";
+export type ReviewItemAuditEventType = "status_changed" | "note_added";
 
 export type ReviewItemAuditEventRow = {
   id: string;

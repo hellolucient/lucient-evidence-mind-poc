@@ -34,7 +34,7 @@ vi.mock("@/lib/watch/evidence-review-item-store", () => ({
 }));
 
 import { buildReviewQueuePageData } from "@/lib/review/review-queue-ui";
-import { isPrivacySafeReviewItemAuditEventPayload } from "@/lib/review/evidence-review-item-audit-store";
+import { isPrivacySafeReviewItemNotePayload } from "@/lib/review/evidence-review-item-notes-store";
 
 const demoItem = {
   id: "bb192f23-b028-4b17-bbd7-749ae5748932",
@@ -62,38 +62,35 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockListReviewItems.mockResolvedValue({ items: [demoItem], count: 1 });
   mockGetReviewItemById.mockResolvedValue({ item: demoItem });
-  mockListReviewItemAuditEvents.mockResolvedValue({
-    events: [
+  mockListReviewItemAuditEvents.mockResolvedValue({ events: [] });
+  mockListReviewItemNotes.mockResolvedValue({
+    notes: [
       {
-        created_at: "2026-05-31T12:00:00.000Z",
-        event_type: "status_changed",
-        old_status: "open",
-        new_status: "resolved",
+        created_at: "2026-05-31T14:00:00.000Z",
+        note_text: "Recommend softer wording.",
+        decision_type: "wording_change_recommended",
         actor_label: "operator@example.com",
         access_mode: "supabase_operator",
       },
     ],
   });
-  mockListReviewItemNotes.mockResolvedValue({ notes: [] });
 });
 
-describe("buildReviewQueuePageData audit history", () => {
-  it("loads workspace-scoped audit history for selected item", async () => {
+describe("buildReviewQueuePageData notes history", () => {
+  it("loads workspace-scoped notes history for selected item", async () => {
     const pageData = await buildReviewQueuePageData(
       { selected_id: demoItem.id },
       operatorAccess
     );
 
-    expect(mockListReviewItemAuditEvents).toHaveBeenCalledWith(demoItem.id, operatorAccess);
-    expect(pageData.auditHistory).toHaveLength(1);
+    expect(mockListReviewItemNotes).toHaveBeenCalledWith(demoItem.id, operatorAccess);
+    expect(pageData.notesHistory).toHaveLength(1);
     expect(
-      isPrivacySafeReviewItemAuditEventPayload(
-        pageData.auditHistory[0] as Record<string, unknown>
-      )
+      isPrivacySafeReviewItemNotePayload(pageData.notesHistory[0] as Record<string, unknown>)
     ).toBe(true);
   });
 
-  it("does not load audit history when selected item is outside workspace scope", async () => {
+  it("does not load notes history when selected item is outside workspace scope", async () => {
     mockGetReviewItemById.mockResolvedValueOnce({
       item: {
         ...demoItem,
@@ -107,7 +104,7 @@ describe("buildReviewQueuePageData audit history", () => {
     );
 
     expect(pageData.selectedItem).toBeNull();
-    expect(pageData.auditHistory).toEqual([]);
-    expect(mockListReviewItemAuditEvents).not.toHaveBeenCalled();
+    expect(pageData.notesHistory).toEqual([]);
+    expect(mockListReviewItemNotes).not.toHaveBeenCalled();
   });
 });
