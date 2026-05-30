@@ -2,7 +2,7 @@
 
 High-level phase plan, status tracking, and decision log for the Evidence Mind POC. For detailed deliverables and validation notes per phase, see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md).
 
-**Current phase marker (production):** `20` (Phase 20.5 fix pending deploy)
+**Current phase marker (production):** `20`
 
 ---
 
@@ -22,7 +22,7 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | 18 | Review queue API and operator status actions | PASS |
 | 19 | Minimal internal review queue UI | PASS |
 | 20 | Internal access control / route protection for `/review-items` | PASS / Done |
-| **20.5** | **Correct-token access and review UI regression check** | **PASS** (fix pending deploy) |
+| **20.5** | **Correct-token access and review UI regression check** | **PASS / Done** |
 | 21 | Review queue API hardening | Planned |
 
 ---
@@ -45,36 +45,37 @@ High-level phase plan, status tracking, and decision log for the Evidence Mind P
 | Route protection for `/review-items` | 20 | PASS | `INTERNAL_REVIEW_ACCESS_TOKEN` |
 | Production validation: public access blocked | 20 / 20.5 | PASS | No token → restricted message |
 | Production validation: cron auth intact | 20 / 20.5 | PASS | Unauthorized without secret; `"phase":"20"` |
-| Correct-token access regression | 20.5 | PASS (local) | Bug found and fixed; redeploy required for production |
+| Correct-token access and review UI regression | 20.5 | **PASS / Done** | Production operator test completed |
 | Review queue API hardening | 21 | Planned | |
 
 ---
 
 ## Phase 20.5 — Correct-Token Access and Review UI Regression Check
 
-**Status:** PASS (with one minimal fix; production re-check after deploy)
+**Status:** PASS / Done
 
 **Purpose:** Confirm Phase 20 route protection still allows operators with the correct internal token to use the review queue UI, without changing the auth model or adding new features.
 
-### Validation steps performed
+### Production validation (completed)
 
-| # | Check | Result |
-|---|-------|--------|
-| 1 | `/review-items` without token remains blocked | **PASS** (production + local) |
-| 2 | `/review-items?access_token=wrong-token` remains blocked | **PASS** (production + local) |
-| 3 | `/review-items?access_token=<correct token>` loads review queue UI | **PASS** (local after fix); production blocked by pre-fix bug — see below |
-| 4 | Authorized session: table, selection, detail, status update auth path | **PASS** (local auth + POST path); full Supabase-backed persist flow relies on Phase 19 production validation |
-| 5 | UI does not expose private fields or secrets | **PASS** — no `raw_payload`, no private `claim_text`, no `CRON_SECRET`, no token values in HTML; env var **names** only in operator error/help copy |
-| 6 | `/api/watch/cron` unauthorized without secret; reports phase metadata | **PASS** (production) — `401`, `"phase":"20"`, `cron_secret_configured: true` |
+- `/review-items` without token remains blocked
+- `/review-items?access_token=wrong-token` remains blocked
+- `/review-items?access_token=<correct INTERNAL_REVIEW_ACCESS_TOKEN>` loads the review queue
+- Correct-token access redirects through the new `/review-items/access` handler
+- Token is stripped from the visible URL after access is granted
+- Cookie-based revisit works
+- Review item table loads
+- Item selection works
+- Detail panel works
+- Status update works
+- Status update persists after refresh/re-fetch
+- `/api/watch/cron` remains protected without `CRON_SECRET`
+- `/api/watch/cron` reports phase `20`
+- No `raw_payload`, private `claim_text`, `CRON_SECRET`, or token values are exposed in the UI
 
-### Issue found and fixed
+### Implementation note
 
-Phase 20 initially set the httpOnly session cookie inside the `/review-items` Server Component. Next.js 15 rejects cookie writes outside Server Actions or Route Handlers, causing a **500** when a correct `access_token` was supplied.
-
-**Minimal fix (auth model unchanged):**
-
-- Added `GET /review-items/access` route handler — validates token, sets httpOnly cookie, redirects to clean `/review-items` URL
-- Page now redirects valid token requests to that handler instead of setting cookies inline
+Phase 20.5 fixed a Next.js 15 issue where Phase 20 attempted to write cookies inside a Server Component. The fix moved token validation and cookie setting into a Route Handler at `/review-items/access`.
 
 ### Files changed
 
@@ -84,14 +85,19 @@ Phase 20 initially set the httpOnly session cookie inside the `/review-items` Se
 | `app/review-items/access/route.test.ts` | **New** — access route tests |
 | `lib/internal-review-access.ts` | Redirect to access handler; cookie helper for Route Handler |
 | `lib/internal-review-access.test.ts` | Path builder tests |
+| `docs/evidence-mind-roadmap.md` | Phase 20.5 validation record |
 
 No changes to Supabase persistence, cron behavior, `/api/review-items*`, or client-side auth.
 
+### Tests
+
+- 89/89 tests passing
+- Production operator test completed successfully
+
 ### Remaining limitations
 
-- **Deploy required:** Production still runs pre-fix Phase 20 code until this fix is deployed; operators should re-verify correct-token access after deploy.
-- **Local Supabase not configured:** Full table data, item selection against live rows, and status persist-after-refresh were not re-run locally; Phase 19 already validated those against production Supabase.
-- **`/api/review-items*` remains cron-auth only** — not part of Phase 20.5 scope.
+- **`/api/review-items*` remains cron-auth only** — not part of Phase 20.5 scope; addressed in Phase 21
+- **Workspace auth not implemented** — internal token + cookie model is interim only
 
 ---
 
@@ -128,14 +134,13 @@ No changes to Supabase persistence, cron behavior, `/api/review-items*`, or clie
 | Phase 20 | Do not change `/api/review-items*` auth or `CRON_SECRET` behavior | Cron/API protection and UI protection are separate concerns |
 | Phase 20 | Fail closed when `INTERNAL_REVIEW_ACCESS_TOKEN` is unset | Unconfigured env blocks all review UI access |
 | Phase 20.5 | Move cookie write to `GET /review-items/access` Route Handler | Next.js 15 forbids `cookies().set()` in Server Components; smallest fix preserving token + cookie model |
+| Phase 20.5 | Record production operator regression as phase gate | Confirms review queue is both protected and usable with correct internal token |
 
 ---
 
 ## Next Recommended Step
 
 **Phase 21 — Review Queue API Hardening** (e.g. tighten operator auth, rate limits, or workspace-scoped access on `/api/review-items*`).
-
-Before or in parallel: **deploy the Phase 20.5 cookie fix** and have an operator confirm correct-token access on production (`/review-items?access_token=<token>` → review queue loads, filters and status update persist).
 
 ---
 
@@ -145,3 +150,4 @@ Before or in parallel: **deploy the Phase 20.5 cookie fix** and have an operator
 |------|--------|
 | 2026-05-30 | Initial roadmap created; Phase 20 recorded as PASS / Done with production validation notes and Phase 20.5 optional follow-up |
 | 2026-05-30 | Phase 20.5 recorded as PASS; cookie-set bug found and fixed via `/review-items/access` route handler |
+| 2026-05-30 | Phase 20.5 marked PASS / Done; production operator regression validation completed |
