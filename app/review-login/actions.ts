@@ -2,6 +2,10 @@
 
 import { headers } from "next/headers";
 
+import {
+  buildReviewLoginCallbackUrl,
+  resolveSiteOrigin,
+} from "@/lib/supabase/auth-redirect";
 import { createSupabaseAuthServerClient, isSupabaseAuthConfigured } from "@/lib/supabase/auth-server";
 
 export type ReviewLoginState = {
@@ -11,14 +15,13 @@ export type ReviewLoginState = {
 
 async function getSiteOrigin(): Promise<string> {
   const headerStore = await headers();
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
-  const protocol = headerStore.get("x-forwarded-proto") ?? "http";
 
-  if (host) {
-    return `${protocol}://${host}`;
-  }
-
-  return process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000";
+  return resolveSiteOrigin({
+    configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    forwardedHost: headerStore.get("x-forwarded-host"),
+    host: headerStore.get("host"),
+    forwardedProto: headerStore.get("x-forwarded-proto"),
+  });
 }
 
 export async function sendReviewLoginLink(
@@ -41,7 +44,7 @@ export async function sendReviewLoginLink(
   }
 
   const supabase = await createSupabaseAuthServerClient();
-  const redirectTo = `${await getSiteOrigin()}/auth/callback?next=/review-items`;
+  const redirectTo = buildReviewLoginCallbackUrl(await getSiteOrigin());
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
