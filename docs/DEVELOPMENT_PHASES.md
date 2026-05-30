@@ -294,7 +294,7 @@ See [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT
 
 ## Phase 18 — Review Queue API and Operator Actions
 
-**Status:** In Progress
+**Status:** PASS
 
 **Purpose:** Phase 18 adds a minimal review queue API and operator status actions so the lucient app or Mind layer can list, inspect, and update Phase 17 review handoff items.
 
@@ -306,12 +306,27 @@ See [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT
 - Docs: [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md)
 - Optional demo seed: `supabase/seed/demo_evidence_review_item.sql`
 
+**Validated:**
+
+- Full local test suite passed
+- Production `/api/watch/cron` reports phase 18
+- `evidence_review_items` migration applied in Supabase
+- Demo `evidence_review_items` seed row inserted
+- `/api/review-items` lists review items successfully
+- `/api/review-items/[id]` returns a single privacy-safe review item
+- `/api/review-items/[id]/status` updates item status successfully
+- Demo item moved from `open` to `acknowledged`
+- `/api/review-items?status=acknowledged` returns the updated item
+- API responses do not expose `raw_payload` or private `claim_text`
+
 **Intentionally not included in v1:**
 
 - Full review queue UI
 - Automatic production handoff creation (still behind `EIE_ENABLE_REVIEW_HANDOFFS`, default off)
 - Workspace-scoped authenticated app auth (uses internal cron-secret auth for now)
 - Client notifications or email
+
+See [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md)
 
 ---
 
