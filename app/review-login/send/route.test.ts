@@ -1,16 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSendApprovedOperatorLoginLink = vi.fn();
-const mockCreateSupabaseAuthRouteHandlerClient = vi.fn();
 
 vi.mock("@/lib/review/send-operator-login-link", () => ({
   sendApprovedOperatorLoginLink: (...args: unknown[]) =>
     mockSendApprovedOperatorLoginLink(...args),
-}));
-
-vi.mock("@/lib/supabase/auth-route-handler", () => ({
-  createSupabaseAuthRouteHandlerClient: (...args: unknown[]) =>
-    mockCreateSupabaseAuthRouteHandlerClient(...args),
 }));
 
 import { POST } from "@/app/review-login/send/route";
@@ -18,9 +12,6 @@ import { POST } from "@/app/review-login/send/route";
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://example.com");
-  mockCreateSupabaseAuthRouteHandlerClient.mockImplementation(async (response: Response) => ({
-    __response: response,
-  }));
   mockSendApprovedOperatorLoginLink.mockResolvedValue({
     ok: true,
     message: "Check your email for the internal review queue login link.",
@@ -28,7 +19,7 @@ beforeEach(() => {
 });
 
 describe("POST /review-login/send", () => {
-  it("binds PKCE cookies to the success redirect response", async () => {
+  it("sends magic link using route handler site origin resolution", async () => {
     const formData = new FormData();
     formData.set("email", "operator@example.com");
 
@@ -39,15 +30,35 @@ describe("POST /review-login/send", () => {
 
     const response = await POST(request);
 
-    expect(mockCreateSupabaseAuthRouteHandlerClient).toHaveBeenCalledTimes(1);
+    expect(mockSendApprovedOperatorLoginLink).toHaveBeenCalledWith({
+      email: "operator@example.com",
+      siteOrigin: "https://example.com",
+    });
+    expect(response.headers.get("location")).toBe("https://example.com/review-login?sent=1");
+  });
+
+  it("uses forwarded host when NEXT_PUBLIC_SITE_URL is unset", async () => {
+    vi.unstubAllEnvs();
+
+    const formData = new FormData();
+    formData.set("email", "operator@example.com");
+
+    const request = new Request("https://internal.example/review-login/send", {
+      method: "POST",
+      headers: {
+        "x-forwarded-host": "lucient-evidence-mind-poc.vercel.app",
+        "x-forwarded-proto": "https",
+      },
+      body: formData,
+    });
+
+    await POST(request);
+
     expect(mockSendApprovedOperatorLoginLink).toHaveBeenCalledWith(
       expect.objectContaining({
-        email: "operator@example.com",
-        siteOrigin: "https://example.com",
+        siteOrigin: "https://lucient-evidence-mind-poc.vercel.app",
       })
     );
-    expect(mockCreateSupabaseAuthRouteHandlerClient.mock.calls[0]?.[0]).toBe(response);
-    expect(response.headers.get("location")).toBe("https://example.com/review-login?sent=1");
   });
 
   it("redirects with safe error when magic link send fails", async () => {

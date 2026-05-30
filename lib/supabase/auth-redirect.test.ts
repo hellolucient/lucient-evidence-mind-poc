@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildReviewLoginCallbackUrl,
   resolveSiteOrigin,
+  resolveSiteOriginFromRequest,
 } from "@/lib/supabase/auth-redirect";
 
 describe("resolveSiteOrigin", () => {
@@ -44,6 +45,21 @@ describe("buildReviewLoginCallbackUrl", () => {
       buildReviewLoginCallbackUrl("https://lucient-evidence-mind-poc.vercel.app")
     ).toBe(
       "https://lucient-evidence-mind-poc.vercel.app/auth/callback?next=/review-items"
+    );
+  });
+});
+
+describe("resolveSiteOriginFromRequest", () => {
+  it("reads forwarded host and configured site URL from the request", () => {
+    const request = new Request("https://internal.example/review-login/send", {
+      headers: {
+        "x-forwarded-host": "lucient-evidence-mind-poc.vercel.app",
+        "x-forwarded-proto": "https",
+      },
+    });
+
+    expect(resolveSiteOriginFromRequest(request)).toBe(
+      "https://lucient-evidence-mind-poc.vercel.app"
     );
   });
 });

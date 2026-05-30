@@ -26,3 +26,12 @@ export function resolveSiteOrigin(options: {
 export function buildReviewLoginCallbackUrl(siteOrigin: string): string {
   return `${normalizeSiteUrl(siteOrigin)}/auth/callback?next=/review-items`;
 }
+
+export function resolveSiteOriginFromRequest(request: Request): string {
+  return resolveSiteOrigin({
+    configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    forwardedHost: request.headers.get("x-forwarded-host"),
+    host: request.headers.get("host"),
+    forwardedProto: request.headers.get("x-forwarded-proto"),
+  });
+}
