@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  buildReviewItemsAccessPath,
+  buildReviewItemsPathWithoutAccessToken,
   internalReviewAccessCookieValue,
   isInternalReviewAccessConfigured,
   isValidInternalReviewAccessCookie,
@@ -47,5 +49,21 @@ describe("internal-review-access", () => {
     expect(readAccessTokenFromSearchParams({ access_token: "abc" })).toBe("abc");
     expect(readAccessTokenFromSearchParams({ access_token: ["first", "second"] })).toBe("first");
     expect(readAccessTokenFromSearchParams({ status: "open" })).toBeUndefined();
+  });
+
+  it("builds access and clean review queue paths", () => {
+    expect(
+      buildReviewItemsAccessPath({
+        access_token: "abc",
+        status: "open",
+      })
+    ).toBe("/review-items/access?access_token=abc&status=open");
+
+    expect(
+      buildReviewItemsPathWithoutAccessToken({
+        access_token: "abc",
+        status: "open",
+      })
+    ).toBe("/review-items?status=open");
   });
 });

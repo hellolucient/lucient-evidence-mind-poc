@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import { cookies } from "next/headers";
+import type { NextResponse } from "next/server";
 
 export const INTERNAL_REVIEW_ACCESS_COOKIE = "internal_review_access";
 
@@ -67,7 +68,7 @@ export function readAccessTokenFromSearchParams(
   return value ?? undefined;
 }
 
-function buildReviewItemsPathWithoutAccessToken(
+export function buildReviewItemsPathWithoutAccessToken(
   params: Record<string, string | string[] | undefined>
 ): string {
   const searchParams = new URLSearchParams();
@@ -91,14 +92,46 @@ function buildReviewItemsPathWithoutAccessToken(
   return query ? `/review-items?${query}` : "/review-items";
 }
 
-async function setInternalReviewAccessCookie(): Promise<void> {
+export function buildReviewItemsAccessPath(
+  params: Record<string, string | string[] | undefined>
+): string {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        searchParams.append(key, entry);
+      }
+      continue;
+    }
+
+    searchParams.set(key, value);
+  }
+
+  const query = searchParams.toString();
+  return query ? `/review-items/access?${query}` : "/review-items/access";
+}
+
+function configuredInternalReviewAccessCookieValue(): string | null {
   const configured = getConfiguredInternalReviewAccessToken();
   if (!configured) {
+    return null;
+  }
+
+  return internalReviewAccessCookieValue(configured);
+}
+
+export function appendInternalReviewAccessCookie(response: NextResponse): void {
+  const cookieValue = configuredInternalReviewAccessCookieValue();
+  if (!cookieValue) {
     return;
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set(INTERNAL_REVIEW_ACCESS_COOKIE, internalReviewAccessCookieValue(configured), {
+  response.cookies.set(INTERNAL_REVIEW_ACCESS_COOKIE, cookieValue, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -119,10 +152,9 @@ export async function resolveInternalReviewPageAccess(
       return { status: "blocked" };
     }
 
-    await setInternalReviewAccessCookie();
     return {
       status: "redirect",
-      path: buildReviewItemsPathWithoutAccessToken(params),
+      path: buildReviewItemsAccessPath(params),
     };
   }
 
