@@ -11,6 +11,9 @@ const mockReviewExternalMindHandoff = vi.fn();
 const mockIsExternalMindHandoffPersistenceConfigured = vi.fn();
 const mockIsExternalMindHandoffSendEventPersistenceConfigured = vi.fn();
 const mockListExternalMindHandoffSendEventsForHandoff = vi.fn();
+const mockIsWatchtowerNarrativePersistenceConfigured = vi.fn();
+const mockGetLatestWatchtowerNarrativeForDigest = vi.fn();
+const mockGenerateWatchtowerNarrativeFromDigest = vi.fn();
 
 vi.mock("@/lib/watch/external-mind-handoff-send-event-store", () => ({
   isExternalMindHandoffSendEventPersistenceConfigured: (...args: unknown[]) =>
@@ -56,6 +59,23 @@ vi.mock("@/lib/watch/evidence-mind-digest-store", () => ({
     mockIsEvidenceMindDigestPersistenceConfigured(...args),
 }));
 
+vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-store", () => ({
+  isWatchtowerNarrativePersistenceConfigured: (...args: unknown[]) =>
+    mockIsWatchtowerNarrativePersistenceConfigured(...args),
+}));
+
+vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-generator", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/watch/evidence-mind-watchtower-narrative-generator")>();
+  return {
+    ...actual,
+    getLatestWatchtowerNarrativeForDigest: (...args: unknown[]) =>
+      mockGetLatestWatchtowerNarrativeForDigest(...args),
+    generateWatchtowerNarrativeFromDigest: (...args: unknown[]) =>
+      mockGenerateWatchtowerNarrativeFromDigest(...args),
+  };
+});
+
 vi.mock("@/lib/watch/evidence-mind-digest-generator", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/watch/evidence-mind-digest-generator")>();
   return {
@@ -71,6 +91,7 @@ import {
   processMindHandoffCreationSubmission,
   processMindHandoffReviewSubmission,
   processMindHandoffSendSubmission,
+  processMindWatchtowerNarrativeSubmission,
 } from "@/lib/review/mind-digests-page";
 
 const operatorAccess = {
@@ -106,6 +127,18 @@ beforeEach(() => {
   mockIsEvidenceMindDigestPersistenceConfigured.mockReturnValue(true);
   mockIsExternalMindHandoffPersistenceConfigured.mockReturnValue(true);
   mockIsExternalMindHandoffSendEventPersistenceConfigured.mockReturnValue(true);
+  mockIsWatchtowerNarrativePersistenceConfigured.mockReturnValue(true);
+  mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValue({
+    id: "narrative-uuid-001",
+    title: "Watchtower Narrative — Evidence Mind Digest",
+    risk_posture: "monitor",
+    summary_text: "Summary",
+    generated_at: "2026-05-31T12:30:00.000Z",
+  });
+  mockGenerateWatchtowerNarrativeFromDigest.mockResolvedValue({
+    ok: true,
+    narrative: { id: "narrative-uuid-001" },
+  });
   mockListExternalMindHandoffSendEventsForHandoff.mockResolvedValue({
     events: [
       {
@@ -170,6 +203,8 @@ describe("mind-digests-page", () => {
     expect(pageData.selectedDigestItems).toHaveLength(1);
     expect(pageData.selectedDigestItems[0].item_type).toBe("evidence_brief");
     expect(pageData.handoffsConfigured).toBe(true);
+    expect(pageData.narrativesConfigured).toBe(true);
+    expect(pageData.selectedDigestNarrative?.title).toContain("Watchtower Narrative");
     expect(pageData.sendEventsConfigured).toBe(true);
     expect(pageData.selectedDigestHandoffSendEvents).toHaveLength(1);
     expect(pageData.selectedDigestHandoffSendEvents[0].event_type).toBe("send_succeeded");
@@ -213,5 +248,15 @@ describe("mind-digests-page", () => {
     expect(submission.result.ok).toBe(true);
     expect(submission.redirectPath).toContain("review_ok=1");
     expect(submission.redirectPath).toContain("review_action=approve");
+  });
+
+  it("redirects after successful watchtower narrative submission", async () => {
+    const submission = await processMindWatchtowerNarrativeSubmission(
+      operatorAccess,
+      "digest-uuid-001"
+    );
+
+    expect(submission.result.ok).toBe(true);
+    expect(submission.redirectPath).toContain("narrative_ok=1");
   });
 });

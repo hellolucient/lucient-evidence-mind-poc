@@ -4,6 +4,7 @@ import type { MindDigestsPageData } from "@/lib/review/mind-digests-page";
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const GENERATE_DEMO_PATH = "/mind-digests/generate-demo";
+const GENERATE_NARRATIVE_PATH = "/mind-digests/generate-narrative";
 const CREATE_HANDOFF_PATH = "/mind-digests/create-handoff";
 const SEND_HANDOFF_PATH = "/mind-handoffs/send";
 const REVIEW_HANDOFF_PATH = "/mind-handoffs/review";
@@ -168,8 +169,9 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
         <h1 style={{ marginTop: 0, marginBottom: "0.35rem" }}>Mind digests</h1>
         <p style={{ margin: 0, color: "#475569", fontSize: "0.9375rem" }}>
           Internal watchtower summaries built from stored evidence alerts, review items, briefs, and
-          mapped claims. Phase 34 requires operator approval before external Mind handoff send; real
-          Animoca Mind delivery remains disabled unless explicitly enabled in server configuration.
+          mapped claims. Phase 35 adds durable watchtower narratives from digests. Phase 34 requires
+          operator approval before external Mind handoff send; real Animoca Mind delivery remains
+          disabled unless explicitly enabled in server configuration.
         </p>
         <nav style={styles.nav}>
           <a href="/review-items">Review queue</a>
@@ -208,6 +210,18 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
 
       {pageData.reviewFlash?.kind === "error" ? (
         <div style={styles.error}>{pageData.reviewFlash.message}</div>
+      ) : null}
+
+      {pageData.narrativeFlash?.kind === "success" ? (
+        <div style={styles.success}>
+          {pageData.narrativeFlash.duplicate_skipped
+            ? "A watchtower narrative already exists for this digest — showing existing narrative."
+            : "Watchtower narrative generated."}
+        </div>
+      ) : null}
+
+      {pageData.narrativeFlash?.kind === "error" ? (
+        <div style={styles.error}>{pageData.narrativeFlash.message}</div>
       ) : null}
 
       {pageData.handoffFlash?.kind === "error" ? (
@@ -362,6 +376,82 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                 ))}
               </tbody>
             </table>
+          )}
+
+          <h3 style={{ fontSize: "0.9375rem", marginTop: "1.5rem" }}>Watchtower narrative</h3>
+          <p style={styles.note}>
+            Generates a durable, evidence-constrained interpretation from this digest using
+            deterministic templates only. The narrative explains what changed, why it matters, and
+            recommended operator focus — without medical advice or unverified citations.
+          </p>
+
+          {pageData.narrativesConfigured ? (
+            <>
+              <form action={GENERATE_NARRATIVE_PATH} method="post">
+                <input type="hidden" name="digest_id" value={pageData.selectedDigest.id} />
+                <button type="submit" style={styles.button}>
+                  Generate watchtower narrative
+                </button>
+              </form>
+
+              {pageData.selectedDigestNarrative ? (
+                <div style={{ marginTop: "1rem" }}>
+                  <div style={styles.detailLabel}>Latest narrative</div>
+                  <div style={styles.detailValue}>
+                    {pageData.selectedDigestNarrative.title} · Risk posture:{" "}
+                    {formatReviewStatus(pageData.selectedDigestNarrative.risk_posture)} · Generated:{" "}
+                    {formatTimestamp(pageData.selectedDigestNarrative.generated_at)}
+                  </div>
+
+                  <div style={styles.detailLabel}>Summary</div>
+                  <div style={styles.detailValue}>{pageData.selectedDigestNarrative.summary_text}</div>
+
+                  {pageData.selectedDigestNarrative.what_changed_text ? (
+                    <>
+                      <div style={styles.detailLabel}>What changed</div>
+                      <div style={styles.detailValue}>
+                        {pageData.selectedDigestNarrative.what_changed_text}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {pageData.selectedDigestNarrative.why_it_matters_text ? (
+                    <>
+                      <div style={styles.detailLabel}>Why it matters</div>
+                      <div style={styles.detailValue}>
+                        {pageData.selectedDigestNarrative.why_it_matters_text}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {pageData.selectedDigestNarrative.operator_focus_text ? (
+                    <>
+                      <div style={styles.detailLabel}>Operator focus</div>
+                      <div style={styles.detailValue}>
+                        {pageData.selectedDigestNarrative.operator_focus_text}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {pageData.selectedDigestNarrative.recommended_next_action_text ? (
+                    <>
+                      <div style={styles.detailLabel}>Recommended next action</div>
+                      <div style={styles.detailValue}>
+                        {pageData.selectedDigestNarrative.recommended_next_action_text}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              ) : (
+                <p style={{ ...styles.note, marginTop: "0.75rem" }}>
+                  No watchtower narrative exists for this digest yet.
+                </p>
+              )}
+            </>
+          ) : (
+            <p style={{ ...styles.note, marginTop: "0.75rem" }}>
+              Watchtower narrative storage is not configured.
+            </p>
           )}
 
           <h3 style={{ fontSize: "0.9375rem", marginTop: "1.5rem" }}>External Mind handoff</h3>

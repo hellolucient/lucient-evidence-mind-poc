@@ -5,7 +5,8 @@
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–29, see the summary there and the detailed validation records below.
 
 **Current phase marker (production):** `34`  
-**Strategic status:** Internal alpha validated — Phases 1–34 production-validated; **Phase 35 (External Mind Delivery Readiness Checklist / Preflight Validation) planned — not started.**
+**Current phase marker (code):** `35`  
+**Strategic status:** Internal alpha validated — Phases 1–34 production-validated; **Phase 35 (Evidence Mind Watchtower Narrative / Persistent Interpretation Layer) implemented — not production validated.**
 
 ### Recent phase status (quick reference)
 
@@ -22,6 +23,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **32** | External Mind send stub / disabled-by-default integration | **PASS / Production validated** |
 | **33** | External Mind send audit trail / operator send log | **PASS / Production validated** |
 | **34** | Operator review of external Mind payloads before send | **PASS / Production validated** |
+| **35** | Evidence Mind watchtower narrative / persistent interpretation layer | **Implemented — not production validated** |
 
 ---
 
@@ -30,7 +32,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
 | **Completed** | 1–34 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry, claim-to-watchlist mapping, evidence change briefs, Mind digests, scheduled digest generation, external Mind handoff payloads, disabled-by-default send stub, send audit trail, operator handoff review/approval |
-| **Mind integration** | 35 | Planned (not started) | External Mind delivery readiness checklist / preflight validation |
+| **Mind integration** | 35 | Implemented (not production validated) | Watchtower narrative / persistent interpretation layer from digests |
 
 ---
 
@@ -73,7 +75,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 | Phase | Name | Horizon | Status |
 |-------|------|---------|--------|
-| **35** | **External Mind delivery readiness checklist / preflight validation** | Mind integration | Planned |
+| **35** | **Evidence Mind watchtower narrative / persistent interpretation layer** | Mind integration | Implemented (not production validated) |
 
 ---
 
@@ -162,10 +164,11 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Production validation: Supabase review fields migration applied | 34 | **PASS / Done** | `external_mind_handoffs` review/approval columns added |
 | Production validation: pending review blocks send; approval enables test-sink send | 34 | **PASS / Done** | Two-step create → approve → send flow with durable send events |
 | Production validation: review queue regressions after Phase 34 | 34 | **PASS / Done** | Handoff/send flow, digests, review queue, client claims, evidence briefs, auth, break-glass, both cron endpoints unchanged |
+| Watchtower narrative from Mind digest | 35 | **Implemented** | Deterministic digest interpretation, durable storage, `/mind-digests` UI, optional handoff payload section |
 
 ---
 
-## Current System State After Phase 34
+## Current System State After Phase 35
 
 The POC is a validated **internal alpha** for evidence monitoring and operator review. Production-validated capabilities include:
 
@@ -228,8 +231,12 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Operator review/approval for external Mind handoffs (`review_status`, approve/reject/request-changes) | Working |
 | Send gating: only approved handoffs can be sent to test sink | Working |
 | Blocked-send audit events for non-approved handoffs (`not_approved`) | Working |
+| Durable watchtower narratives (`evidence_mind_watchtower_narratives`) | Working |
+| Deterministic digest interpretation narrative generator | Working |
+| `/mind-digests` watchtower narrative generation and detail display | Working |
+| Optional `watchtower_narrative` section in external Mind handoff payloads | Working |
 
-**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, view or generate internal Mind digests at `/mind-digests`, create privacy-safe external Mind handoff payloads, review and approve payloads before send, and review durable send audit history for handoff send attempts at `/mind-digests`. Phase 34 adds operator approval gating only; real external Animoca Mind delivery remains disabled unless future server configuration explicitly enables it.
+**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, view or generate internal Mind digests at `/mind-digests`, generate evidence-constrained watchtower narratives from digests, create privacy-safe external Mind handoff payloads (with narrative when available), review and approve payloads before send, and review durable send audit history for handoff send attempts at `/mind-digests`. Phase 35 adds the first persistent interpretation layer only; real external Animoca Mind delivery remains disabled unless future server configuration explicitly enables it.
 
 ---
 
@@ -248,6 +255,7 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | External Mind send is disabled by default (Phase 32) | Test-sink send marks handoffs `sent` locally; real Animoca Mind HTTP send requires explicit env enablement + endpoint/API key |
 | Send audit events are separate from handoff status (Phase 33) | Durable send history per attempt; still no real external Animoca delivery, notifications, or LLM narrative |
 | External Mind handoff send requires operator approval (Phase 34) | New handoffs start `pending_review`; only `approved` handoffs can send to test sink; no real Animoca delivery |
+| Watchtower narratives are template-only (Phase 35) | Deterministic interpretation from digest snapshots; no LLM narrative; no external Mind call |
 | Mind digest generation is template-only | Manual demo action and scheduled cron; LLM enrichment planned for later phases |
 | No client-facing dashboard | Internal operator UI only |
 | No reporting or export layer | No claim-risk memos or monthly summaries |
@@ -268,7 +276,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 4. **Review governance workflow** — operator notes and status audit trail are in place; note editing/deletion and richer decision rationale fields remain future work.
 5. **Claim-to-evidence linkage** — durable claim-to-watchlist mappings validated in Phase 27.
 6. **Structured evidence briefs** — template-based brief generator validated in Phase 28; LLM enrichment and automatic watch-triggered generation remain future work.
-7. **Mind digest / feed** — internal durable Mind Digests, scheduled generation, external Mind handoff payloads, disabled-by-default send stub, send audit trail, and operator payload review before send validated in Phases 29–34; real external Animoca Mind delivery remains opt-in via env configuration (Phase 35+).
+7. **Mind digest / feed** — internal durable Mind Digests, scheduled generation, external Mind handoff payloads, disabled-by-default send stub, send audit trail, operator payload review before send, and watchtower narratives validated in Phases 29–35; real external Animoca Mind delivery remains opt-in via env configuration (later phases).
 8. **Client dashboard definition** — requirements for client-facing UX are undefined.
 9. **Reporting and export** — no exportable evidence reports or monitoring summaries.
 10. **Notifications** — no delivery layer for operator or client alerts.
@@ -277,7 +285,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 
 ## Forward Roadmap — From Internal Alpha to Evidence Mind Operating System
 
-This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phase 35 is **planned, not started**. Phases 26–34 are production-validated.
+This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phase 35 is **implemented, not production validated**. Phases 26–34 are production-validated.
 
 ### Completed near-term foundation (Phases 26–30)
 
@@ -384,7 +392,27 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - No external Animoca Mind call is made in Phase 31
 - External send remains disabled/not implemented
 
-**Next recommended phase:** Phase 35 — External Mind Delivery Readiness Checklist / Preflight Validation (not started).
+**Next recommended phase:** Phase 35 production validation, then Phase 36 — External Mind Delivery Readiness Checklist / Preflight Validation (not started).
+
+#### Phase 35 — Evidence Mind Watchtower Narrative / Persistent Interpretation Layer
+
+**Status:** Implemented — not production validated
+
+**Goal:** Add the first Mind-like interpretation layer: durable, evidence-constrained watchtower narratives from Evidence Mind digests.
+
+**Why:** Operators need a persistent explanation of what changed, why it matters, and what to do next — without calling an external Animoca Mind.
+
+**Architecture note (Phase 35):** Phase 35 introduces the first persistent interpretation layer of Evidence Mind. It turns stored alerts, briefs, and digests into a durable watchtower narrative explaining what changed, why it matters, and what the operator should do next. This is the first Mind-like output layer, but it still runs inside lucient Evidence Mind and does not yet call an external Animoca Mind endpoint.
+
+**Implementation summary (Phase 35):**
+
+- Added durable `evidence_mind_watchtower_narratives` storage
+- Added deterministic/template narrative generator from digest + item snapshots
+- Added `/mind-digests/generate-narrative` operator action and digest detail narrative display
+- Added duplicate prevention per digest/type/version
+- Extended external Mind handoff payloads with optional `watchtower_narrative` section
+- Preserved Phase 34 approval gating, Phase 32 test-sink send, and disabled-by-default external send guard
+- No real Animoca Mind delivery, notifications, or LLM-written narrative
 
 #### Phase 34 — Operator Review of External Mind Payloads Before Send
 
@@ -891,7 +919,58 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - It does not send notifications.
 - It does not use LLM-written narrative.
 - Real external Mind delivery remains a later phase.
-- Phase 35 has not started.
+- Phase 35 watchtower narrative implemented — not production validated yet.
+
+---
+
+## Phase 35 — Evidence Mind Watchtower Narrative / Persistent Interpretation Layer
+
+**Status:** Implemented — not production validated
+
+**Purpose:** Add the first Mind-like interpretation layer — durable, evidence-constrained watchtower narratives from Evidence Mind digests explaining what changed, why it matters, and recommended operator focus — without real Animoca Mind delivery, notifications, or LLM-written narrative.
+
+### Implementation summary
+
+- Added durable watchtower narrative storage (`evidence_mind_watchtower_narratives`)
+- Added deterministic/template narrative generator from digest and digest item snapshots
+- Added duplicate prevention per digest, narrative type, and version
+- Added `/mind-digests/generate-narrative` operator action and digest detail narrative display
+- Extended external Mind handoff payloads with optional privacy-safe `watchtower_narrative` section
+- Preserved Phase 34 approval gating, Phase 32 test-sink send, Phase 33 send audit trail, and disabled-by-default external send guard
+- Updated code phase marker to `35`
+
+**Architecture note:** Phase 35 introduces the first persistent interpretation layer of Evidence Mind. It turns stored alerts, briefs, and digests into a durable watchtower narrative explaining what changed, why it matters, and what the operator should do next. This is the first Mind-like output layer, but it still runs inside lucient Evidence Mind and does not yet call an external Animoca Mind endpoint.
+
+### Files / areas changed
+
+| Area | Change |
+|------|--------|
+| Supabase migration | `20260531250000_create_evidence_mind_watchtower_narratives.sql` |
+| Narrative constants | `lib/review/evidence-mind-watchtower-narrative-constants.ts` |
+| Narrative store | `lib/watch/evidence-mind-watchtower-narrative-store.ts` |
+| Narrative generator | `lib/watch/evidence-mind-watchtower-narrative-generator.ts` |
+| Handoff payload builder | `lib/watch/external-mind-handoff-payload-builder.ts` (+ optional `watchtower_narrative`) |
+| Handoff creator | `lib/watch/external-mind-handoff-creator.ts` |
+| Digests page/helpers | `lib/review/mind-digests-page.ts` |
+| Internal UI | `app/mind-digests/mind-digests-view.tsx` |
+| Generate narrative route | `app/mind-digests/generate-narrative/route.ts` |
+| Supabase client export | `engine/watchlist/supabase-client.ts` |
+| Phase marker | `lib/watch/watch-phase.ts` → `35` |
+| Tests | `evidence-mind-watchtower-narrative-*.test.ts`, updated payload/creator/page/route tests |
+
+### Tests / build
+
+- `npm test` passed: 350/350
+- `npm run build` passed
+
+### Remaining limitations
+
+- Phase 35 adds deterministic interpretation only.
+- It does not perform real Animoca Mind delivery.
+- It does not send notifications.
+- It does not use LLM-written narrative.
+- Production validation has not been completed.
+- Phase 36 has not started.
 
 ---
 
@@ -1728,14 +1807,17 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 35 — External Mind Delivery Readiness Checklist / Preflight Validation**
+**Phase 35 — Evidence Mind Watchtower Narrative (production validation)**
 
-Phase 34 is production-validated. Next build step:
+Phase 35 is implemented in code but not production validated. Next step:
 
-1. Define a preflight checklist for real external Mind delivery readiness (config, payload, approval, audit).
-2. Preserve Phase 34 approval gating and Phase 32 disabled-by-default external send guard.
-3. Keep test-sink send as the default safe path until real external delivery is explicitly enabled and preflight passes.
-4. Plan reporting/export work after delivery readiness validation.
+1. Apply Phase 35 Supabase migration in production.
+2. Generate a watchtower narrative from an existing Mind digest on `/mind-digests`.
+3. Confirm duplicate narrative prevention reuses existing narrative for same digest/type/version.
+4. Create a Mind handoff after narrative exists and confirm optional `watchtower_narrative` section in payload JSON.
+5. Re-run Phase 34 approval/send regression and Phases 1–34 smoke checks.
+
+Future phase (not started): **Phase 36 — External Mind Delivery Readiness Checklist / Preflight Validation**.
 
 ---
 
@@ -1771,12 +1853,13 @@ Phase 34 is production-validated. Next build step:
 | 2026-05-31 | Phase 33 marked PASS / Production validated; two-step handoff/send flow, send events, privacy-safe metadata, and regressions confirmed |
 | 2026-05-31 | Phase 34 implemented; review/approval fields, send gating, `/mind-handoffs/review`, mind-digests review UI (pending production validation) |
 | 2026-05-31 | Phase 34 marked PASS / Production validated; pending review blocks send, approval enables test-sink send, send events, and regressions confirmed |
+| 2026-05-31 | Phase 35 implemented; watchtower narratives table, deterministic generator, `/mind-digests/generate-narrative`, handoff payload narrative section (pending production validation) |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 34 production validation (2026-05-31).
+**Last sync:** after Phase 35 implementation (2026-05-31).
 
 | Doc | Role after sync |
 |-----|-----------------|
@@ -1787,4 +1870,4 @@ Phase 34 is production-validated. Next build step:
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 35 — External Mind Delivery Readiness Checklist / Preflight Validation (not started).
+**Next build step:** Phase 35 production validation — Evidence Mind Watchtower Narrative / Persistent Interpretation Layer.

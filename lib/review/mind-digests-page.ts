@@ -31,6 +31,15 @@ import {
   isExternalMindHandoffPersistenceConfigured,
 } from "@/lib/watch/external-mind-handoff-store";
 import {
+  generateWatchtowerNarrativeFromDigest,
+  getLatestWatchtowerNarrativeForDigest,
+  watchtowerNarrativeGenerationErrorMessage,
+} from "@/lib/watch/evidence-mind-watchtower-narrative-generator";
+import {
+  isWatchtowerNarrativePersistenceConfigured,
+  type PrivacySafeWatchtowerNarrative,
+} from "@/lib/watch/evidence-mind-watchtower-narrative-store";
+import {
   getEvidenceMindDigestById,
   isEvidenceMindDigestPersistenceConfigured,
   listEvidenceMindDigestItemsForDigest,
@@ -58,15 +67,21 @@ export type MindDigestsReviewFlash =
   | { kind: "success"; action: ExternalMindHandoffReviewAction }
   | { kind: "error"; error: string; message: string };
 
+export type MindDigestsNarrativeFlash =
+  | { kind: "success"; duplicate_skipped?: boolean }
+  | { kind: "error"; error: string; message: string };
+
 export type MindDigestsPageData = {
   configured: boolean;
   handoffsConfigured: boolean;
+  narrativesConfigured: boolean;
   filters: MindDigestsPageFilters;
   digests: PrivacySafeEvidenceMindDigest[];
   selectedDigest: PrivacySafeEvidenceMindDigest | null;
   selectedDigestItems: PrivacySafeEvidenceMindDigestItem[];
   selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null;
   selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[];
+  selectedDigestNarrative: PrivacySafeWatchtowerNarrative | null;
   sendEventsConfigured: boolean;
   defaultWorkspaceId: string;
   listError: string | null;
@@ -77,6 +92,7 @@ export type MindDigestsPageData = {
   handoffFlash: MindDigestsHandoffFlash | null;
   sendFlash: MindDigestsSendFlash | null;
   reviewFlash: MindDigestsReviewFlash | null;
+  narrativeFlash: MindDigestsNarrativeFlash | null;
   statusOptions: readonly string[];
 };
 
@@ -193,6 +209,29 @@ export function parseMindDigestsReviewFlash(
   return null;
 }
 
+export function parseMindDigestsNarrativeFlash(
+  params: Record<string, string | string[] | undefined>
+): MindDigestsNarrativeFlash | null {
+  if (readParam(params, "narrative_ok")) {
+    return readParam(params, "narrative_duplicate_skipped")
+      ? { kind: "success", duplicate_skipped: true }
+      : { kind: "success" };
+  }
+
+  const error = readParam(params, "narrative_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message:
+        readParam(params, "narrative_message") ??
+        watchtowerNarrativeGenerationErrorMessage(error),
+    };
+  }
+
+  return null;
+}
+
 export function mindDigestsErrorMessage(error: string): string {
   switch (error) {
     case "supabase_not_configured":
@@ -211,6 +250,8 @@ export function mindDigestsErrorMessage(error: string): string {
       return "The external_mind_handoff_send_events table is missing. Apply the Phase 33 migration in Supabase.";
     case "handoff_not_found":
       return "External Mind handoff not found.";
+    case "evidence_mind_watchtower_narratives_table_missing":
+      return "The evidence_mind_watchtower_narratives table is missing. Apply the Phase 35 migration in Supabase.";
     default:
       return `Server error: ${error}`;
   }
@@ -223,6 +264,7 @@ export async function buildMindDigestsPageData(
   const filters = parseMindDigestsPageFilters(params);
   const configured = isEvidenceMindDigestPersistenceConfigured();
   const handoffsConfigured = isExternalMindHandoffPersistenceConfigured();
+  const narrativesConfigured = isWatchtowerNarrativePersistenceConfigured();
   const sendEventsConfigured = isExternalMindHandoffSendEventPersistenceConfigured();
   const defaultWorkspaceId =
     access.mode === "operator"
@@ -233,12 +275,14 @@ export async function buildMindDigestsPageData(
     return {
       configured: false,
       handoffsConfigured: false,
+      narrativesConfigured: false,
       filters,
       digests: [],
       selectedDigest: null,
       selectedDigestItems: [],
       selectedDigestHandoff: null,
       selectedDigestHandoffSendEvents: [],
+      selectedDigestNarrative: null,
       sendEventsConfigured: false,
       defaultWorkspaceId,
       listError: "supabase_not_configured",
@@ -249,6 +293,7 @@ export async function buildMindDigestsPageData(
       handoffFlash: parseMindDigestsHandoffFlash(params),
       sendFlash: parseMindDigestsSendFlash(params),
       reviewFlash: parseMindDigestsReviewFlash(params),
+      narrativeFlash: parseMindDigestsNarrativeFlash(params),
       statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
     };
   }
@@ -260,6 +305,7 @@ export async function buildMindDigestsPageData(
   let selectedDigestItems: PrivacySafeEvidenceMindDigestItem[] = [];
   let selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null = null;
   let selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[] = [];
+  let selectedDigestNarrative: PrivacySafeWatchtowerNarrative | null = null;
   let detailError: string | null = null;
 
   if (selectedDigestId) {
@@ -287,6 +333,13 @@ export async function buildMindDigestsPageData(
           }
         }
       }
+
+      if (narrativesConfigured) {
+        selectedDigestNarrative = await getLatestWatchtowerNarrativeForDigest(
+          selectedDigestId,
+          access
+        );
+      }
     } else if (digestResult.error) {
       detailError = digestResult.error;
     }
@@ -295,12 +348,14 @@ export async function buildMindDigestsPageData(
   return {
     configured: true,
     handoffsConfigured,
+    narrativesConfigured,
     filters,
     digests: listResult.digests,
     selectedDigest,
     selectedDigestItems,
     selectedDigestHandoff,
     selectedDigestHandoffSendEvents,
+    selectedDigestNarrative,
     sendEventsConfigured,
     defaultWorkspaceId,
     listError: listResult.error ?? null,
@@ -311,6 +366,7 @@ export async function buildMindDigestsPageData(
     handoffFlash: parseMindDigestsHandoffFlash(params),
     sendFlash: parseMindDigestsSendFlash(params),
     reviewFlash: parseMindDigestsReviewFlash(params),
+    narrativeFlash: parseMindDigestsNarrativeFlash(params),
     statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
   };
 }
@@ -432,6 +488,37 @@ export async function processMindHandoffReviewSubmission(
 
   return {
     redirectPath: `/mind-digests?${digestQuery}review_ok=1&review_action=${encodeURIComponent(result.action)}`,
+    result,
+  };
+}
+
+export type MindWatchtowerNarrativeSubmissionResult = {
+  redirectPath: string;
+  result: Awaited<ReturnType<typeof generateWatchtowerNarrativeFromDigest>>;
+};
+
+export async function processMindWatchtowerNarrativeSubmission(
+  access: ReviewQueueAccessContext,
+  digestId: string
+): Promise<MindWatchtowerNarrativeSubmissionResult> {
+  const result = await generateWatchtowerNarrativeFromDigest(digestId, access);
+
+  if (!result.ok) {
+    return {
+      redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&narrative_error=${encodeURIComponent(result.error)}&narrative_message=${encodeURIComponent(result.message)}`,
+      result,
+    };
+  }
+
+  if (result.duplicate_skipped) {
+    return {
+      redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&narrative_ok=1&narrative_duplicate_skipped=1`,
+      result,
+    };
+  }
+
+  return {
+    redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&narrative_ok=1`,
     result,
   };
 }

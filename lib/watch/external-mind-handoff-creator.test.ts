@@ -6,6 +6,13 @@ const mockFindActiveHandoffForDigest = vi.fn();
 const mockCreateExternalMindHandoff = vi.fn();
 const mockSendExternalMindHandoffIfEnabled = vi.fn();
 
+const mockGetLatestWatchtowerNarrativeForDigest = vi.fn();
+
+vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-generator", () => ({
+  getLatestWatchtowerNarrativeForDigest: (...args: unknown[]) =>
+    mockGetLatestWatchtowerNarrativeForDigest(...args),
+}));
+
 vi.mock("@/lib/watch/evidence-mind-digest-store", () => ({
   getEvidenceMindDigestById: (...args: unknown[]) => mockGetEvidenceMindDigestById(...args),
   listEvidenceMindDigestItemsForDigest: (...args: unknown[]) =>
@@ -91,6 +98,7 @@ beforeEach(() => {
     sent: false,
     reason: "external_send_disabled",
   });
+  mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValue(null);
 });
 
 describe("external-mind-handoff-creator", () => {
@@ -100,6 +108,7 @@ describe("external-mind-handoff-creator", () => {
     expect(result.ok).toBe(true);
     expect(mockCreateExternalMindHandoff).toHaveBeenCalled();
     expect(mockSendExternalMindHandoffIfEnabled).toHaveBeenCalled();
+    expect(mockGetLatestWatchtowerNarrativeForDigest).toHaveBeenCalled();
   });
 
   it("creates handoff with pending_review review status", async () => {

@@ -18,6 +18,7 @@ import {
   listExternalMindHandoffs,
   type PrivacySafeExternalMindHandoffWithPayload,
 } from "@/lib/watch/external-mind-handoff-store";
+import { getLatestWatchtowerNarrativeForDigest } from "@/lib/watch/evidence-mind-watchtower-narrative-generator";
 import {
   getEvidenceMindDigestById,
   listEvidenceMindDigestItemsForDigest,
@@ -97,9 +98,12 @@ export async function createMindHandoffFromDigest(
     };
   }
 
+  const watchtowerNarrative = await getLatestWatchtowerNarrativeForDigest(digestId, access);
+
   const payload = buildMindDigestHandoffPayload(digestResult.digest, itemsResult.items, {
     handoffType,
     destination,
+    watchtowerNarrative,
   });
 
   if (!isPrivacySafeMindDigestHandoffPayload(payload as unknown as Record<string, unknown>)) {
