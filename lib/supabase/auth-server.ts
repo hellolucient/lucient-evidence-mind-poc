@@ -1,27 +1,14 @@
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 import { logAuthCallbackDiagnostic } from "@/lib/supabase/auth-callback-diagnostics";
+import {
+  getSupabaseAuthEnvConfig,
+  isSupabaseAuthConfigured,
+} from "@/lib/supabase/auth-config";
 
-export type SupabaseAuthClient = SupabaseClient;
-
-export function isSupabaseAuthConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
-  );
-}
-
-export function getSupabaseAuthEnvConfig(): {
-  url: string | null;
-  anonKey: string | null;
-} {
-  return {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || null,
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || null,
-  };
-}
+export type { SupabaseAuthClient } from "@/lib/supabase/auth-config";
+export { getSupabaseAuthEnvConfig, isSupabaseAuthConfigured } from "@/lib/supabase/auth-config";
 
 export async function createSupabaseAuthServerClient() {
   const { url, anonKey } = getSupabaseAuthEnvConfig();

@@ -12,7 +12,7 @@ import {
 } from "@/lib/supabase/auth-callback";
 import { createSupabaseAuthBrowserClient } from "@/lib/supabase/auth-browser";
 import { completeAuthCallback } from "@/lib/supabase/complete-auth-callback";
-import { isSupabaseAuthConfigured } from "@/lib/supabase/auth-server";
+import { isSupabaseAuthConfigured } from "@/lib/supabase/auth-config";
 
 export function AuthCallbackClient() {
   const router = useRouter();

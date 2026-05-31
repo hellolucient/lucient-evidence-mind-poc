@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-import { getSupabaseAuthEnvConfig, type SupabaseAuthClient } from "@/lib/supabase/auth-server";
+import { getSupabaseAuthEnvConfig, type SupabaseAuthClient } from "@/lib/supabase/auth-config";
 
 export function createSupabaseAuthImplicitSendClient(): SupabaseAuthClient {
   const { url, anonKey } = getSupabaseAuthEnvConfig();

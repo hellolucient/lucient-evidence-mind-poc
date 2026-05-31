@@ -11,7 +11,7 @@ import {
   logAuthCallbackDiagnostic,
   type AuthCallbackDiagnosticReason,
 } from "@/lib/supabase/auth-callback-diagnostics";
-import type { SupabaseAuthClient } from "@/lib/supabase/auth-server";
+import type { SupabaseAuthClient } from "@/lib/supabase/auth-config";
 
 export type AuthCallbackCompletionResult =
   | { ok: true }
