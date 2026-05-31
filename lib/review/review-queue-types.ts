@@ -2,6 +2,7 @@ import type { ReviewItemListFilters, PrivacySafeReviewItem } from "@/lib/watch/e
 import type { ReviewItemStatus } from "@/lib/watch/evidence-review-handoff";
 import type { PrivacySafeReviewItemAuditEvent } from "@/lib/review/evidence-review-item-audit-store";
 import type { PrivacySafeReviewItemNote } from "@/lib/review/evidence-review-item-notes-store";
+import type { PrivacySafeClientClaim } from "@/lib/watch/client-claims-store";
 
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 
@@ -74,6 +75,7 @@ export type ReviewQueuePageData = {
   selectedItem: ReviewQueueDetailView | null;
   auditHistory: PrivacySafeReviewItemAuditEvent[];
   notesHistory: PrivacySafeReviewItemNote[];
+  linkedClientClaim: PrivacySafeClientClaim | null;
   effectiveSelectedId: string | null;
   filteredCount: number;
   statusCounts: ReviewQueueStatusCounts;

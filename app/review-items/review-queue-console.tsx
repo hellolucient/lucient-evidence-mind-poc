@@ -430,6 +430,11 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
         <p style={styles.subtitle}>
           Evidence changes mapped to affected client/workspace claims.
         </p>
+        <p style={{ ...styles.subtitle, fontSize: "0.875rem" }}>
+          <a href="/review-items">Review queue</a>
+          {" · "}
+          <a href="/client-claims">Client claims</a>
+        </p>
       </header>
 
       <ReviewQueueAuthPanel authStatus={initialData.authStatus} />
@@ -668,6 +673,54 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
                 <div style={styles.detailLabel}>Claim family</div>
                 <div style={styles.detailValue}>{selectedItem.claim_family}</div>
               </div>
+
+              {initialData.linkedClientClaim ? (
+                <div style={{ marginTop: "0.75rem", marginBottom: "0.75rem" }}>
+                  <div style={styles.detailLabel}>Client claim</div>
+                  <div
+                    style={{
+                      border: "1px solid #dbeafe",
+                      borderRadius: "8px",
+                      padding: "0.75rem",
+                      background: "#f8fbff",
+                      fontSize: "0.8125rem",
+                    }}
+                  >
+                    <div style={styles.detailRow}>
+                      <div style={styles.detailLabel}>Client claim ID</div>
+                      <div style={styles.detailValue}>
+                        {initialData.linkedClientClaim.client_claim_id}
+                      </div>
+                    </div>
+                    <div style={styles.detailRow}>
+                      <div style={styles.detailLabel}>Claim text</div>
+                      <div style={styles.detailValue}>
+                        {initialData.linkedClientClaim.claim_text}
+                      </div>
+                    </div>
+                    {(initialData.linkedClientClaim.claim_source_label ||
+                      initialData.linkedClientClaim.claim_source_type) && (
+                      <div style={styles.detailRow}>
+                        <div style={styles.detailLabel}>Source</div>
+                        <div style={styles.detailValue}>
+                          {initialData.linkedClientClaim.claim_source_type ?? "—"}
+                          {initialData.linkedClientClaim.claim_source_label
+                            ? ` · ${initialData.linkedClientClaim.claim_source_label}`
+                            : ""}
+                        </div>
+                      </div>
+                    )}
+                    <div style={styles.detailRow}>
+                      <div style={styles.detailLabel}>Risk / status</div>
+                      <div style={styles.detailValue}>
+                        {initialData.linkedClientClaim.risk_level ?? "—"} ·{" "}
+                        {initialData.linkedClientClaim.status}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               <div style={styles.detailRow}>
                 <div style={styles.detailLabel}>Evidence alert ID</div>
                 <div style={styles.detailValue}>{selectedItem.evidence_alert_id ?? "—"}</div>

@@ -2,7 +2,7 @@
 
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For detailed deliverables and validation notes per completed phase, see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md).
 
-**Current phase marker (production):** `25`  
+**Current phase marker (production):** `26` (implemented; production validation pending)  
 **Strategic status:** Internal alpha validated — Phase 25 operator notes complete; next near-term step is Phase 26 (durable client claim registry).
 
 ---
@@ -48,7 +48,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 | Phase | Name | Horizon | Status |
 |-------|------|---------|--------|
-| **26** | **Durable client claim registry** | Near-term | Planned |
+| **26** | **Durable client claim registry** | Near-term | Implemented (pending production validation) |
 | **27** | **Claim-to-watchlist mapping** | Medium-term | Planned |
 | **28** | **Evidence change brief generator** | Medium-term | Planned |
 | **29** | **Mind digest / watchtower summary** | Mind integration | Planned |
@@ -97,7 +97,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Production validation: notes and audit history in detail panel | 25 | **PASS / Done** | Notes history and note-related audit activity visible to authorized operators |
 | Production validation: magic-link login restored during Phase 25 | 25 | **PASS / Done** | Operator login via `/review-login` working again after auth-flow fix |
 | Production validation: review queue regressions after Phase 25 | 25 | **PASS / Done** | Status-change audit, auth, break-glass, API protection, cron isolation unchanged |
-| Durable client claim registry | 26 | Planned | Near-term |
+| Durable client claim registry | 26 | Implemented (pending validation) | `/client-claims` registry UI + durable `client_claims` table |
 | Claim-to-watchlist mapping | 27 | Planned | Medium-term |
 | Evidence change brief generator | 28 | Planned | Medium-term |
 | Mind digest / watchtower summary | 29 | Planned | Mind integration |
@@ -914,4 +914,4 @@ Do not start Phase 27 (claim-to-watchlist mapping) until Phase 26 is validated.
 | 2026-05-30 | Phase 24 implemented; operator audit trail for review queue status changes |
 | 2026-05-30 | Phase 24 marked PASS / Done; production audit migration, status-change audit rows, and detail panel history validated |
 | 2026-05-31 | Phase 25 implemented; operator notes, notes history, and `note_added` audit integration |
-| 2026-05-31 | Phase 25 marked PASS / Production validated; notes migration, note creation, audit integration, and magic-link login fix validated |
+| 2026-05-31 | Phase 26 implemented; durable client claim registry, `/client-claims` UI, review-item claim linking (pending production validation) |

@@ -5,6 +5,7 @@ import {
 } from "@/lib/operator-auth";
 import { listReviewItemAuditEvents } from "@/lib/review/evidence-review-item-audit-store";
 import { listReviewItemNotes } from "@/lib/review/evidence-review-item-notes-store";
+import { resolveLinkedClientClaimForReviewItem } from "@/lib/watch/client-claims-store";
 import { performReviewItemNoteCreate } from "@/lib/review/review-item-note-create";
 import { performReviewItemStatusUpdate } from "@/lib/review/review-item-status-update";
 import {
@@ -309,6 +310,7 @@ export async function buildReviewQueuePageData(
       selectedErrorMessage: null,
       auditHistory: [],
       notesHistory: [],
+      linkedClientClaim: null,
       updateFlash: parseReviewQueueUpdateFlash(params),
       noteFlash: parseReviewQueueNoteFlash(params),
     };
@@ -356,13 +358,16 @@ export async function buildReviewQueuePageData(
 
   let auditHistory: Awaited<ReturnType<typeof listReviewItemAuditEvents>>["events"] = [];
   let notesHistory: Awaited<ReturnType<typeof listReviewItemNotes>>["notes"] = [];
+  let linkedClientClaim: Awaited<ReturnType<typeof resolveLinkedClientClaimForReviewItem>> = null;
   if (selectedItem && effectiveSelectedId) {
-    const [auditHistoryResult, notesHistoryResult] = await Promise.all([
+    const [auditHistoryResult, notesHistoryResult, linkedClaim] = await Promise.all([
       listReviewItemAuditEvents(effectiveSelectedId, access),
       listReviewItemNotes(effectiveSelectedId, access),
+      resolveLinkedClientClaimForReviewItem(selectedItem, access),
     ]);
     auditHistory = auditHistoryResult.events;
     notesHistory = notesHistoryResult.notes;
+    linkedClientClaim = linkedClaim;
   }
 
   return {
@@ -372,6 +377,7 @@ export async function buildReviewQueuePageData(
     selectedItem,
     auditHistory,
     notesHistory,
+    linkedClientClaim,
     effectiveSelectedId,
     filteredCount: listResult.count,
     statusCounts: computeStatusCounts(countResult.items),

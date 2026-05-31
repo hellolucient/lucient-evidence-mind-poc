@@ -2,6 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockListReviewItemAuditEvents = vi.fn();
 const mockListReviewItemNotes = vi.fn();
+const mockResolveLinkedClientClaimForReviewItem = vi.fn();
+
+vi.mock("@/lib/watch/client-claims-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/watch/client-claims-store")>();
+  return {
+    ...actual,
+    resolveLinkedClientClaimForReviewItem: (...args: unknown[]) =>
+      mockResolveLinkedClientClaimForReviewItem(...args),
+  };
+});
 
 vi.mock("@/lib/review/evidence-review-item-audit-store", async (importOriginal) => {
   const actual =
@@ -35,6 +45,7 @@ vi.mock("@/lib/watch/evidence-review-item-store", () => ({
 
 import { buildReviewQueuePageData } from "@/lib/review/review-queue-ui";
 import { isPrivacySafeReviewItemNotePayload } from "@/lib/review/evidence-review-item-notes-store";
+import { isPrivacySafeClientClaimPayload } from "@/lib/watch/client-claims-store";
 
 const demoItem = {
   id: "bb192f23-b028-4b17-bbd7-749ae5748932",
@@ -74,6 +85,19 @@ beforeEach(() => {
       },
     ],
   });
+  mockResolveLinkedClientClaimForReviewItem.mockResolvedValue({
+    workspace_id: "demo-workspace-spa-menu",
+    client_claim_id: "demo-claim-magnesium-stress-001",
+    claim_text: "Magnesium helps reduce stress and supports healthy cortisol balance.",
+    claim_source_type: "spa_menu",
+    claim_source_label: null,
+    source_url: null,
+    claim_family: "magnesium_cortisol_stress",
+    risk_level: "medium",
+    status: "active",
+    created_at: "2026-05-31T10:00:00.000Z",
+    updated_at: "2026-05-31T10:00:00.000Z",
+  });
 });
 
 describe("buildReviewQueuePageData notes history", () => {
@@ -106,5 +130,38 @@ describe("buildReviewQueuePageData notes history", () => {
     expect(pageData.selectedItem).toBeNull();
     expect(pageData.notesHistory).toEqual([]);
     expect(mockListReviewItemNotes).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildReviewQueuePageData linked client claim", () => {
+  it("resolves linked durable client claim for selected review item", async () => {
+    const pageData = await buildReviewQueuePageData(
+      { selected_id: demoItem.id },
+      operatorAccess
+    );
+
+    expect(mockResolveLinkedClientClaimForReviewItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: demoItem.workspace_id,
+        client_claim_id: demoItem.client_claim_id,
+      }),
+      operatorAccess
+    );
+    expect(pageData.linkedClientClaim?.client_claim_id).toBe("demo-claim-magnesium-stress-001");
+    expect(
+      isPrivacySafeClientClaimPayload(pageData.linkedClientClaim as Record<string, unknown>)
+    ).toBe(true);
+  });
+
+  it("leaves linked client claim null when durable claim is missing", async () => {
+    mockResolveLinkedClientClaimForReviewItem.mockResolvedValueOnce(null);
+
+    const pageData = await buildReviewQueuePageData(
+      { selected_id: demoItem.id },
+      operatorAccess
+    );
+
+    expect(pageData.linkedClientClaim).toBeNull();
+    expect(pageData.selectedItem?.client_claim_id).toBe("demo-claim-magnesium-stress-001");
   });
 });
