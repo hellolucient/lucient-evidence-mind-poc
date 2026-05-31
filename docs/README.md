@@ -6,7 +6,9 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 
 > **For current phase status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** This index includes historical phase-specific guides; older docs may describe only the phase they were written for.
 
-## Current capabilities (Phases 1–27 validated)
+## Current capabilities (Phases 1–35 production validated)
+
+**Production phase marker:** `35`. **Next proposed phase:** Phase 36 — Watchtower Narrative History / Diff Layer (not started).
 
 | Capability | Entry point / table |
 |------------|---------------------|
@@ -20,15 +22,21 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | Durable client claims | `client_claims`, `/client-claims` |
 | Claim-family profiles | `claim_family_profiles` |
 | Claim-to-watchlist mappings | `client_claim_watchlist_mappings` |
+| Evidence change briefs | `evidence_change_briefs`, `/evidence-briefs` |
+| Mind digests | `evidence_mind_digests`, `/mind-digests` |
+| Watchtower narratives (deterministic templates only) | `evidence_mind_watchtower_narratives`, `/mind-digests/generate-narrative` |
+| External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` when narrative exists |
+| Operator approval before send | Phase 34 — test-sink send blocked until `approved` |
+| Test-sink send + send audit | Phase 32–33 — real Animoca delivery disabled by default |
 
-**Phase 28 next:** Evidence Change Brief Generator (not started).
+**Validated production chain (Phases 29–35):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → external Mind handoff payload (including `watchtower_narrative` when present) → operator approval → test-sink send → send audit log.
 
 ## Quick links
 
 | Doc | Purpose |
 |-----|---------|
 | [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) | **Canonical live roadmap** — phase status, validation, next step |
-| [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–27 summary) |
+| [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–35) |
 | [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md) | Handoff and durable claim mapping architecture |
 | [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md) | Review queue UI (Phase 19 origin; current-status note at top) |
 | [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md) | Review queue API (Phase 18 origin; current-status note at top) |
@@ -74,7 +82,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 12 | Vercel Cron — `GET /api/watch/cron` daily 21:00 UTC (4:00 AM Bangkok); CRON_SECRET + user-agent auth |
 | 13 | Durable run logging — `watch_runs` table; cron + run-due audit trail |
 
-Phases 14–27 added review queue, operator auth, audit, notes, client claims, and mappings. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
+Phases 14–27 added review queue, operator auth, audit, notes, client claims, and mappings. Phases 28–35 added evidence briefs, Mind digests, handoff payloads, test-sink send, send audit, operator approval before send, and watchtower narratives. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
 
 ## Default vs PubMed mode
 

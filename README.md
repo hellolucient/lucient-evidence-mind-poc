@@ -12,9 +12,9 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 
 **Use demo workspace IDs and synthetic queries only.** Do not send real client-private data.
 
-## Current capabilities (Phases 1–27 validated)
+## Current capabilities (Phases 1–35 production validated)
 
-Production-validated internal alpha — **Phase 28 (Evidence Change Brief Generator) is next and not started.**
+Production-validated internal alpha — **production phase marker: 35**. **Phase 36 (Watchtower Narrative History / Diff Layer) is next and not started.**
 
 | Capability | Status |
 |------------|--------|
@@ -29,6 +29,14 @@ Production-validated internal alpha — **Phase 28 (Evidence Change Brief Genera
 | Durable client claims | `client_claims` — `/client-claims` |
 | Claim-family profiles | `claim_family_profiles` |
 | Claim-to-watchlist mappings | `client_claim_watchlist_mappings` |
+| Evidence change briefs | `evidence_change_briefs` — `/evidence-briefs` |
+| Mind digests / watchtower summaries | `evidence_mind_digests` — `/mind-digests` |
+| Watchtower narratives (deterministic templates) | `evidence_mind_watchtower_narratives` — generate from `/mind-digests` |
+| External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` when narrative exists |
+| Operator approval before handoff send | Phase 34 — pending review blocks test-sink send until approved |
+| Test-sink send + send audit log | Disabled-by-default external send; real Animoca delivery not enabled |
+
+**Validated production chain (Phases 29–35):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → external Mind handoff payload (including `watchtower_narrative` when present) → operator approval → test-sink send → send audit log.
 
 **For detailed phase status and validation records, see [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md).**
 
@@ -73,8 +81,8 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) | Supabase durable watchlist store (Phase 11) |
 | [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md) | Vercel Cron scheduled monitoring (Phase 12) |
 | [docs/watch-run-logging-phase-13.md](./docs/watch-run-logging-phase-13.md) | Durable watch run logging (Phase 13) |
-| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 27 |
-| [docs/DEVELOPMENT_PHASES.md](./docs/DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–27 summary) |
+| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 35 |
+| [docs/DEVELOPMENT_PHASES.md](./docs/DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–35) |
 | [docs/REVIEW_QUEUE_API.md](./docs/REVIEW_QUEUE_API.md) | Review queue API (Phase 18 origin; see current-status note) |
 | [docs/REVIEW_QUEUE_UI.md](./docs/REVIEW_QUEUE_UI.md) | Review queue UI (Phase 19 origin; see current-status note) |
 | [docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md) | Handoff and claim mapping architecture |
@@ -99,7 +107,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 12 | Vercel Cron — `GET /api/watch/cron` daily at 21:00 UTC (4:00 AM Bangkok); Supabase-backed autonomous monitoring |
 | 13 | Durable watch run logging — `public.watch_runs` audit trail for cron and manual runs |
 
-Phases 14–27 added evidence alerts, signal classification, review queue, operator auth, audit trail, notes, client claims, and claim-to-watchlist mapping. See [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md).
+Phases 14–27 added evidence alerts, signal classification, review queue, operator auth, audit trail, notes, client claims, and claim-to-watchlist mapping. Phases 28–35 added evidence change briefs, Mind digests, scheduled digest generation, external Mind handoff payloads, disabled-by-default test-sink send, send audit trail, operator approval before send, and deterministic watchtower narratives. See [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md).
 
 ## Setup
 
