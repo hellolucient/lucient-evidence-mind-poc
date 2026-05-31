@@ -4,10 +4,34 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 
 **Use demo workspace IDs and synthetic queries only.** Do not send real client-private data.
 
+> **For current phase status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** This index includes historical phase-specific guides; older docs may describe only the phase they were written for.
+
+## Current capabilities (Phases 1–27 validated)
+
+| Capability | Entry point / table |
+|------------|---------------------|
+| Supabase magic-link operator login | `/review-login`, `/auth/callback` |
+| Break-glass internal access | `INTERNAL_REVIEW_ACCESS_TOKEN` |
+| Scheduled cron/watch | `GET /api/watch/cron` |
+| Durable watchlist persistence | `watchlist_topics`, `watch_runs`, `evidence_alerts` |
+| Durable review items | `evidence_review_items`, `/review-items` |
+| Audit trail | `evidence_review_item_audit_events` |
+| Operator notes | `evidence_review_item_notes` |
+| Durable client claims | `client_claims`, `/client-claims` |
+| Claim-family profiles | `claim_family_profiles` |
+| Claim-to-watchlist mappings | `client_claim_watchlist_mappings` |
+
+**Phase 28 next:** Evidence Change Brief Generator (not started).
+
 ## Quick links
 
 | Doc | Purpose |
 |-----|---------|
+| [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) | **Canonical live roadmap** — phase status, validation, next step |
+| [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–27 summary) |
+| [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md) | Handoff and durable claim mapping architecture |
+| [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md) | Review queue UI (Phase 19 origin; current-status note at top) |
+| [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md) | Review queue API (Phase 18 origin; current-status note at top) |
 | [magnesium-test.md](./magnesium-test.md) | Base API reference — request/response schema, auth, errors |
 | [dynamic-claim-tests.md](./dynamic-claim-tests.md) | Phase 2 — keyword claim classification and risk levels |
 | [evidence-source-stubs.md](./evidence-source-stubs.md) | Phase 3 — claim-tailored evidence stubs |
@@ -25,9 +49,9 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | [future-watchlist-persistence-schema.md](./future-watchlist-persistence-schema.md) | Watchlist persistence schema (`watchlist_topics`, Phase 11) |
 | [supabase-watchlist-store-phase-11.md](./supabase-watchlist-store-phase-11.md) | Phase 11 — Supabase durable watchlist store |
 | [vercel-cron-phase-12.md](./vercel-cron-phase-12.md) | Phase 12 — Vercel Cron scheduled watchlist monitoring |
-| [watch-run-logging-phase-13.md](./watch-run-logging-phase-13.md) | Phase 13 — durable watch run logging (`watch_runs`) |
+| [watch-run-logging-phase-13.md](./watch-run-logging-phase-13.md) | Phase 13 — durable watch run logging (`watch_runs`) — *historical phase guide* |
 
-## POC phase summary
+## POC phase summary (historical — Phases 1–13)
 
 | Phase | What it adds |
 |-------|----------------|
@@ -49,6 +73,8 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | 11 | SupabaseWatchlistStore — durable watchlist_topics with env-based fallback |
 | 12 | Vercel Cron — `GET /api/watch/cron` daily 21:00 UTC (4:00 AM Bangkok); CRON_SECRET + user-agent auth |
 | 13 | Durable run logging — `watch_runs` table; cron + run-due audit trail |
+
+Phases 14–27 added review queue, operator auth, audit, notes, client claims, and mappings. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
 
 ## Default vs PubMed mode
 
@@ -111,8 +137,13 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 | `POST` | `/api/watch/check` | Bearer | 9 |
 | `GET` | `/api/watch/run-due` | None | 10+ |
 | `POST` | `/api/watch/run-due` | Bearer | 10+ |
-| `GET` | `/api/watch/cron` | Vercel Cron UA or `CRON_SECRET` Bearer | 12–13 |
-| `GET` | `/api/watch/runs` | Vercel Cron UA or `CRON_SECRET` Bearer | 13 |
+| `GET` | `/api/watch/cron` | Vercel Cron UA or `CRON_SECRET` Bearer | 12+ |
+| `GET` | `/api/watch/runs` | Vercel Cron UA or `CRON_SECRET` Bearer | 13+ |
+| `GET` | `/api/review-items` | Operator session or break-glass | 18+ |
+| `GET/POST` | `/api/review-items/[id]/*` | Operator session or break-glass | 18+ |
+| `GET` | `/review-items` | Operator session or break-glass | 19+ |
+| `GET` | `/review-login` | None | 23+ |
+| `GET` | `/client-claims` | Operator session or break-glass | 26–27 |
 
 ## Current top-level response fields
 
@@ -120,9 +151,9 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 
 ## What this POC does not include
 
-Dashboard, auth providers, client workspace mapping UI, full evidence engine, PDF handling, webhooks, non-PubMed regulatory sources, or real client data.
+Client-facing dashboard, evidence change brief generator (Phase 28 — next), PDF handling, webhooks, non-PubMed regulatory sources, or real client data.
 
-**Included since Phase 11:** server-side Supabase persistence for `watchlist_topics` only (watch topic metadata, PMIDs, alerts — not client copy).
+**Historical note (Phases 11–13):** early docs described Supabase as watchlist-only. Since Phases 14–27, Supabase also stores review items, audit events, notes, client claims, and claim mappings. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
 
 **Included since Phase 12:** Vercel Cron scheduled `GET /api/watch/cron` at 21:00 UTC daily (4:00 AM Bangkok). See [vercel-cron-phase-12.md](./vercel-cron-phase-12.md).
 

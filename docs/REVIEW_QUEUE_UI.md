@@ -1,5 +1,7 @@
 # Review Queue UI
 
+> **Current status note (post–Phase 27).** This doc was originally written for Phase 19. The review queue has since gained **Supabase magic-link operator login**, **break-glass fallback**, **audit history**, **operator notes**, **linked durable client claim display**, and integration with **durable client claims/mappings**. For current behavior and validation status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) and the [README](../README.md) current capabilities section. The Phase 19 details below remain useful as historical UI reference.
+
 Phase 19 adds a minimal internal operator console for Evidence Mind review items.
 
 ## Route
@@ -17,8 +19,10 @@ The review queue page lets an operator:
 3. Browse review items in a table
 4. Select an item to inspect details in a side panel
 5. Update review item status via operator action buttons
+6. View audit history and append-only notes in the detail panel (Phases 24–25)
+7. See linked durable client claim when `client_claim_id` resolves (Phase 26)
 
-Data is loaded server-side from Supabase through the existing review item store (`listReviewItems`, `getReviewItemById`, `updateReviewItemStatus`). Status updates use a server action that calls the store directly.
+Data is loaded server-side from Supabase through the existing review item store (`listReviewItems`, `getReviewItemById`, `updateReviewItemStatus`). Status updates and note submission use server-side route handlers with operator auth.
 
 ## Fields shown
 
@@ -60,13 +64,18 @@ The page does **not** show:
 
 `CRON_SECRET` is never sent to the browser. The UI does not call `/api/review-items*` from client JavaScript with bearer auth. Server Components and Server Actions read/write through the store using server-only Supabase credentials.
 
-## Auth handling (POC)
+## Auth handling
 
-This phase intentionally does **not** add a full auth system.
+> **Updated since Phase 19:** The review queue is **not** unauthenticated. Access requires Supabase operator login (`/review-login`) or break-glass `INTERNAL_REVIEW_ACCESS_TOKEN`. Workspace scope is enforced via `workspace_operator_memberships`.
 
-- The Phase 18 API routes remain protected by cron auth (`CRON_SECRET` bearer or Vercel cron user-agent).
-- The Phase 19 UI bypasses those HTTP routes and uses server-only store access instead.
-- In production, restrict access to `/review-items` at the deployment/network layer until workspace operator auth exists.
+- `/review-items` requires operator session or break-glass access (Phases 20–23)
+- `/api/review-items*` uses operator/break-glass auth — **not** cron secret (Phase 21+)
+- The UI uses server-only store access; `CRON_SECRET` is never sent to the browser
+- Manage client claims and mappings at `/client-claims` (Phases 26–27)
+
+### Historical note (Phase 19 origin)
+
+The original Phase 19 design intentionally deferred full auth. Phases 21–23 superseded this with production operator login.
 
 ## Empty and error states
 
@@ -83,29 +92,22 @@ The page shows helpful messages when:
 - Minimal styling only (inline styles, no design system)
 - No pagination UI (store/API limit remains 50 items)
 - Status summary cards count up to 50 items for the current non-status filters
-- No workspace-scoped login or role-based access control
-- No real-time updates; refresh happens after status changes via `router.refresh()`
+- No real-time updates; refresh happens after status changes
 - Does not enable automatic review handoff creation (`EIE_ENABLE_REVIEW_HANDOFFS` unchanged)
+- Notes are append-only (no edit/delete)
 
 ## Relationship to Phase 18 API
 
 | Surface | Auth | Use case |
 |---------|------|----------|
-| `/api/review-items*` | Cron secret / Vercel cron UA | curl, automation, internal ops scripts |
-| `/review-items` | Server-only Supabase access | browser operator console |
+| `/api/review-items*` | Operator session or break-glass token | curl, automation, internal ops scripts |
+| `/review-items` | Operator session or break-glass token | browser operator console |
 
-Both surfaces return the same privacy-safe item shape.
-
-## Future work
-
-- Workspace-scoped operator authentication
-- Pagination and richer filtering (date range, severity)
-- Deep links from Mind/app claim views into a pre-filtered queue
-- Audit trail for operator status changes
-- Optional read-only mode for non-operator stakeholders
+Both surfaces return privacy-safe item shapes and enforce workspace scoping for operators.
 
 See also:
 
+- [evidence-mind-roadmap.md](./evidence-mind-roadmap.md)
 - [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md)
 - [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md)
 - [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md)

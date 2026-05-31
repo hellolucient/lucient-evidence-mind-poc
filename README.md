@@ -12,6 +12,26 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 
 **Use demo workspace IDs and synthetic queries only.** Do not send real client-private data.
 
+## Current capabilities (Phases 1–27 validated)
+
+Production-validated internal alpha — **Phase 28 (Evidence Change Brief Generator) is next and not started.**
+
+| Capability | Status |
+|------------|--------|
+| Supabase magic-link operator login | `/review-login` → `/auth/callback` |
+| Break-glass internal access | `INTERNAL_REVIEW_ACCESS_TOKEN` fallback |
+| Scheduled cron/watch endpoint | `GET /api/watch/cron` (`CRON_SECRET`) |
+| Durable watchlist persistence | `watchlist_topics`, `watch_runs`, `evidence_alerts` |
+| Durable review items | `evidence_review_items` |
+| Review queue UI | `/review-items` |
+| Audit trail | `evidence_review_item_audit_events` |
+| Operator notes | `evidence_review_item_notes` |
+| Durable client claims | `client_claims` — `/client-claims` |
+| Claim-family profiles | `claim_family_profiles` |
+| Claim-to-watchlist mappings | `client_claim_watchlist_mappings` |
+
+**For detailed phase status and validation records, see [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md).**
+
 ## Endpoints
 
 | Method | Path | Auth | Description |
@@ -21,8 +41,13 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 | `POST` | `/api/watch/check` | `Authorization: Bearer <API_KEY>` | Manual live watchlist PubMed check (Phase 9) |
 | `GET` | `/api/watch/run-due` | None | Scheduled runner health check (Phase 10+) |
 | `POST` | `/api/watch/run-due` | `Authorization: Bearer <API_KEY>` | Manual scheduled watchlist run (Phases 10–11) |
-| `GET` | `/api/watch/cron` | Vercel Cron user-agent **or** `Authorization: Bearer <CRON_SECRET>` | Production scheduled watchlist run (Phase 12–13) |
-| `GET` | `/api/watch/runs` | Same as cron | Latest watch run history (Phase 13) |
+| `GET` | `/api/watch/cron` | Vercel Cron user-agent **or** `Authorization: Bearer <CRON_SECRET>` | Production scheduled watchlist run (Phase 12+) |
+| `GET` | `/api/watch/runs` | Same as cron | Latest watch run history (Phase 13+) |
+| `GET` | `/api/review-items` | Operator session or break-glass token | List review items (Phase 18+) |
+| `GET/POST` | `/api/review-items/[id]/*` | Operator session or break-glass token | Review item detail and status (Phase 18+) |
+| `GET` | `/review-items` | Operator session or break-glass token | Internal review queue UI (Phase 19+) |
+| `GET` | `/review-login` | None | Operator magic-link login (Phase 23+) |
+| `GET` | `/client-claims` | Operator session or break-glass token | Client claims registry + mappings (Phase 26–27) |
 
 ## Documentation
 
@@ -48,8 +73,13 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) | Supabase durable watchlist store (Phase 11) |
 | [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md) | Vercel Cron scheduled monitoring (Phase 12) |
 | [docs/watch-run-logging-phase-13.md](./docs/watch-run-logging-phase-13.md) | Durable watch run logging (Phase 13) |
+| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 27 |
+| [docs/DEVELOPMENT_PHASES.md](./docs/DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–27 summary) |
+| [docs/REVIEW_QUEUE_API.md](./docs/REVIEW_QUEUE_API.md) | Review queue API (Phase 18 origin; see current-status note) |
+| [docs/REVIEW_QUEUE_UI.md](./docs/REVIEW_QUEUE_UI.md) | Review queue UI (Phase 19 origin; see current-status note) |
+| [docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md) | Handoff and claim mapping architecture |
 
-## POC phases (current)
+## POC phases (historical summary — Phases 1–13)
 
 | Phase | Capability |
 |-------|------------|
@@ -68,6 +98,8 @@ Full doc index: [docs/README.md](./docs/README.md)
 | 11 | SupabaseWatchlistStore — durable `watchlist_topics` persistence with in-memory fallback |
 | 12 | Vercel Cron — `GET /api/watch/cron` daily at 21:00 UTC (4:00 AM Bangkok); Supabase-backed autonomous monitoring |
 | 13 | Durable watch run logging — `public.watch_runs` audit trail for cron and manual runs |
+
+Phases 14–27 added evidence alerts, signal classification, review queue, operator auth, audit trail, notes, client claims, and claim-to-watchlist mapping. See [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md).
 
 ## Setup
 
@@ -248,17 +280,16 @@ Use the curl examples above with your Vercel URL and API key. PubMed mode requir
 
 ## What this does not include
 
-- Dashboard, auth provider, RLS policies, or client workspace mapping UI
+- Client-facing dashboard or polished SaaS UI
 - Full evidence search, PDF handling, or final claim substantiation
 - Webhooks or client-facing alert delivery
 - Non-PubMed regulatory source integration
+- Evidence Change Brief Generator (Phase 28 — next)
 - Real client data — demo workspace IDs and synthetic queries only
 
 PubMed retrieval and Phase 7 appraisal are **conservative and automated only** — not proof that a claim is supported.
 
-**Phase 11 note:** Supabase is used server-side for durable watchlist state (`watchlist_topics`) only — not for client claims, private copy, or general app data.
-
-**Phase 12 note:** Vercel Cron runs `GET /api/watch/cron` daily at 21:00 UTC (4:00 AM Bangkok). See [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md).
+**Note:** Supabase is used server-side for watchlist state, review items, audit/notes, client claims, and claim mappings. See [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) for the full validated capability list.
 
 ## License
 

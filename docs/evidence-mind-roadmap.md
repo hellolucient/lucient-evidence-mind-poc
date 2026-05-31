@@ -1,9 +1,21 @@
 # lucient Evidence Mind — Roadmap
 
-High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For detailed deliverables and validation notes per completed phase, see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md).
+> **Canonical live roadmap.** This file is the source of truth for current phase status. It **supersedes older phase docs** (including per-phase guides and `DEVELOPMENT_PHASES.md` sections written before Phase 21) when there is a conflict.
+
+High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–27, see the summary there and the detailed validation records below.
 
 **Current phase marker (production):** `27`  
-**Strategic status:** Internal alpha validated — Phase 27 claim-to-watchlist mapping production-validated; next near-term step is Phase 28 (evidence change brief generator).
+**Strategic status:** Internal alpha validated — Phases 1–27 production-validated; **Phase 28 (Evidence Change Brief Generator) is next and not started.**
+
+### Recent phase status (quick reference)
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **24** | Operator audit trail for review queue actions | **PASS / Production validated** |
+| **25** | Operator notes and review decision rationale | **PASS / Production validated** |
+| **26** | Durable client claim registry | **PASS / Production validated** |
+| **27** | Claim-to-watchlist mapping | **PASS / Production validated** |
+| **28** | Evidence change brief generator | **Planned — next** |
 
 ---
 
@@ -1048,3 +1060,21 @@ Resume implementation with the smallest intelligence increment after validated c
 | 2026-05-31 | Phase 26 marked PASS / Production validated; manual claim registry, review-item linking, and controlled-value/extraction design notes recorded |
 | 2026-05-31 | Phase 27 implemented; claim family profiles, durable claim-to-watchlist mappings, `/client-claims` mapping UI, async handoff integration (pending production validation) |
 | 2026-05-31 | Phase 27 marked PASS / Production validated; mapping migration, controlled dropdown, durable resolution, and review queue regressions confirmed |
+| 2026-05-31 | Documentation sync after Phase 27 — roadmap confirmed canonical; `DEVELOPMENT_PHASES.md`, README files, handoff/review-queue docs updated or marked historical |
+
+---
+
+## Documentation sync status
+
+**Last sync:** after Phase 27 production validation (2026-05-31).
+
+| Doc | Role after sync |
+|-----|-----------------|
+| **`docs/evidence-mind-roadmap.md`** | **Canonical** — current phase status, validation records, next step |
+| **`docs/DEVELOPMENT_PHASES.md`** | Historical detail for Phases 1–20 + concise Phase 21–27 summary |
+| **`README.md`**, **`docs/README.md`** | Current capabilities snapshot + links to roadmap |
+| **`docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md`** | Updated for durable mapping architecture (Phase 27) |
+| **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
+| **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
+
+**Next build step:** Phase 28 — Evidence Change Brief Generator (not started).

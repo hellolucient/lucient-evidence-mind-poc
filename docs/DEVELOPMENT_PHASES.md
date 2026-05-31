@@ -2,6 +2,8 @@
 
 lucient Evidence Mind is evolving from a one-off evidence query and brief system into a persistent evidence-monitoring and claim-intelligence platform for wellness claims. The phases below track what has been built, what has been validated in production, and what comes next so future work stays aligned with the platform direction.
 
+> **For current phase status (Phases 21–28), see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** This file provides historical detail for Phases 1–20 and a concise summary for Phases 21–27. When there is a conflict, the roadmap wins.
+
 ---
 
 ## Phase 1 — Basic Evidence Query Endpoint
@@ -361,6 +363,8 @@ See [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md)
 
 **Note:** `/review-items` remains an internal POC route and should be restricted at the deployment/network level until workspace auth exists.
 
+> **Superseded by Phases 23A–23B:** Supabase magic-link operator login is now production-validated. See [Phase 21–27 Summary Update](#phase-2127-summary-update).
+
 **Intentionally not included in v1:**
 
 - Full client-facing SaaS UI or workspace auth
@@ -376,6 +380,8 @@ See [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md)
 **Status:** PASS
 
 **Purpose:** Phase 20 protects the internal review queue UI with a server-side access token until workspace auth exists later.
+
+> **Superseded by Phases 21–23:** Operator login and break-glass fallback replaced token-only access as the primary path. Phase 20 token gate remains as break-glass.
 
 **Phase 20 v1 deliverables:**
 
@@ -399,6 +405,96 @@ See [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md)
 - Changes to Supabase persistence, cron behavior, or `CRON_SECRET`
 - Protecting `/api/review-items*` routes (still cron-auth only)
 
+> **Superseded by Phases 21–23:** Review APIs and `/review-items` now use Supabase operator auth with break-glass fallback. See [Phase 21–27 Summary Update](#phase-2127-summary-update) and [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
+
+---
+
+## Phase 21–27 Summary Update
+
+Concise record of phases completed after Phase 20. **Full validation detail:** [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
+
+### Phase 21 — Review Queue API Hardening
+
+**Status:** PASS / Production validated
+
+Replaced cron-secret auth on `/api/review-items*` with internal review access (httpOnly cookie or Bearer `INTERNAL_REVIEW_ACCESS_TOKEN`). Review queue API is no longer callable with `CRON_SECRET` alone. `/api/watch/cron` remains on cron auth.
+
+**Key surfaces:** `GET/POST /api/review-items*`, `lib/operator-auth.ts` (early internal review path)
+
+---
+
+### Phase 22 — Workspace Operator Auth Planning
+
+**Status:** PASS / Done (planning only)
+
+Documented Supabase Auth magic-link operator login and workspace membership scoping as the path forward. No production code changes; break-glass token retained as fallback.
+
+---
+
+### Phase 23A — Supabase Auth + Demo Workspace Membership
+
+**Status:** PASS / Production validated
+
+Added Supabase magic-link operator login, `workspace_operator_memberships`, and workspace-scoped review queue access. Break-glass `INTERNAL_REVIEW_ACCESS_TOKEN` remains available.
+
+**Durable tables:** `workspaces`, `workspace_operator_memberships`  
+**Key routes:** `/review-login`, `/auth/callback`, `/review-items`
+
+---
+
+### Phase 23B — Operator Logout, Session Visibility, Access Denied UX, Login Diagnostics
+
+**Status:** PASS / Production validated
+
+Added operator auth panel, logout, access-denied UX, login eligibility pre-checks, and server-side login diagnostics. Fixed production session cookie persistence on auth callback.
+
+**Key routes:** `/review-items/logout`, `/review-login/send`
+
+---
+
+### Phase 24 — Operator Audit Trail for Review Queue Actions
+
+**Status:** PASS / Production validated
+
+Added durable audit events for review item status changes with privacy-safe history in the review detail panel.
+
+**Durable table:** `evidence_review_item_audit_events`  
+**Key routes:** status updates via `/review-items/update`, `/api/review-items/[id]/status`
+
+---
+
+### Phase 25 — Operator Notes and Review Decision Rationale
+
+**Status:** PASS / Production validated
+
+Added durable operator notes, append-only notes history in the review detail panel, and best-effort `note_added` audit events. Restored magic-link login during production validation.
+
+**Durable table:** `evidence_review_item_notes`  
+**Key routes:** `POST /review-items/notes`
+
+---
+
+### Phase 26 — Durable Client Claim Registry
+
+**Status:** PASS / Production validated
+
+Added workspace-scoped durable client claims with internal `/client-claims` UI and review-item linking when `client_claim_id` resolves.
+
+**Durable table:** `client_claims`  
+**Key routes:** `/client-claims`, `/client-claims/create`, `/client-claims/update-status`
+
+---
+
+### Phase 27 — Claim-to-Watchlist Mapping
+
+**Status:** PASS / Production validated
+
+Added controlled claim-family profiles, durable claim-to-watchlist mappings, mapping UI on `/client-claims`, and durable-first affected-claim resolution in async watch handoff (in-memory fallback retained).
+
+**Durable tables:** `claim_family_profiles`, `client_claim_watchlist_mappings`  
+**Key routes:** `/client-claims/create-mapping`, `/client-claims/update-mapping-status`  
+**Next:** Phase 28 will use these mappings for Evidence Change Briefs. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
+
 ---
 
 ## Summary
@@ -417,3 +513,5 @@ See [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md)
 | **Phase 18** | Review queue API and operator status actions |
 | **Phase 19** | Minimal internal review queue UI |
 | **Phase 20** | Simple internal route protection for `/review-items` |
+| **Phases 21–27** | Review API hardening, operator auth, audit trail, notes, client claims, claim-to-watchlist mapping — see [Phase 21–27 Summary Update](#phase-2127-summary-update) and [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) |
+| **Phase 28** | Evidence change brief generator (planned — next) |

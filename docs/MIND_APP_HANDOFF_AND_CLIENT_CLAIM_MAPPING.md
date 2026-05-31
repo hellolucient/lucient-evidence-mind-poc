@@ -1,6 +1,8 @@
 # Mind/App Handoff and Client Claim Mapping
 
-Phase 17 introduces the bridge between abstract evidence monitoring and private client/workspace claims.
+> **Current architecture (Phase 27 validated).** For live phase status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md). Phase 17 introduced the handoff concept; Phases 26–27 added durable client claims and durable claim-to-watchlist mappings.
+
+Phase 17 introduced the bridge between abstract evidence monitoring and private client/workspace claims. Phase 27 completed the durable mapping layer.
 
 ## Why claim-family monitoring is separate from client claims
 
@@ -13,30 +15,55 @@ Keeping these layers separate protects privacy and keeps the scheduled runner si
 | Layer | Sees | Does not see |
 |-------|------|----------------|
 | Scheduled runner / cron | Watch topic, claim family, query strategy, PMID metadata, signal classification, evidence alert IDs | Client exact wording, workspace private notes, brand confidential copy |
-| App / Mind mapping layer | Workspace claims, source labels, review queues, handoff items | (Operates inside authenticated workspace context) |
+| App / Mind mapping layer | Workspace claims, source labels, review queues, handoff items, durable mappings | (Operates inside authenticated workspace context) |
 
 ## How `claim_family_id` maps to affected client claims
 
-Phase 17 v1 uses a lightweight mapping module:
+### Durable path (Phase 27 — preferred)
 
-- `lib/watch/client-claim-mapper.ts`
+Production mapping uses durable Supabase tables:
 
-Core function:
+| Table | Role |
+|-------|------|
+| `public.claim_family_profiles` | Controlled registry of known claim families (display names, default watchlist IDs) |
+| `public.client_claim_watchlist_mappings` | Workspace-scoped links between `client_claim_id` and `claim_family` |
+| `public.client_claims` | Durable client claim registry (Phase 26) |
 
-```typescript
-findAffectedClientClaimsForClaimFamily(claimFamilyId)
-```
+**Resolution modules:**
 
-When an evidence alert is created for `magnesium_cortisol_stress`, the mapper returns affected client claims such as:
+- `lib/watch/affected-client-claims-resolver.ts` — durable-first lookup by `claim_family`
+- `lib/watch/client-claim-watchlist-mapping-store.ts` — mapping CRUD
+- `lib/watch/claim-family-profile-store.ts` — profile listing
 
-- **workspace_id:** `demo-workspace-spa-menu`
-- **client_claim_id:** `demo-claim-magnesium-stress-001`
-- **source_type:** `spa_menu_description`
-- **source_label:** Demo Spa Magnesium Recovery Treatment
+When an evidence alert is created for `magnesium_cortisol_stress`, the resolver:
 
-Unknown claim families return an empty list — no handoff items are created.
+1. Queries `client_claim_watchlist_mappings` where `claim_family = magnesium_cortisol_stress` and `mapping_status = active`
+2. Joins to `client_claims` where `status = active`
+3. Returns affected workspace claims for handoff
 
-In production, this mapping will eventually be backed by workspace-scoped data. Phase 17 ships demo/sample mappings plus optional Supabase persistence for review items only.
+Operators manage mappings at `/client-claims` using a controlled claim-family dropdown (not free-text family IDs).
+
+**Migration:** `supabase/migrations/20260531140000_create_claim_mappings.sql`
+
+### In-memory fallback (Phase 17 demo — retained)
+
+- `lib/watch/client-claim-mapper.ts` — demo/sample mappings for local development and fallback
+- `findAffectedClientClaimsForClaimFamily(claimFamilyId)` — **sync** in-memory lookup
+
+The in-memory mapper is **not** the production path. It remains when:
+
+- Supabase is not configured
+- Durable mapping tables are empty or missing
+- Sync handoff helpers call the in-memory path directly
+
+### Async vs sync handoff paths
+
+| Path | Lookup behavior |
+|------|----------------|
+| **Async** (cron persistence via `buildReviewItemsFromAlertCandidateAsync`) | **Durable-first**, then in-memory fallback |
+| **Sync** (`buildReviewItemsForEvidenceAlert`) | In-memory fallback only |
+
+Phase 28 (Evidence Change Brief Generator) will use durable Phase 27 mappings to identify affected client claims when generating briefs.
 
 ## What a review handoff item is
 
@@ -52,11 +79,11 @@ A review handoff item connects:
 Modules:
 
 - `lib/watch/evidence-review-handoff.ts` — builds handoff item shapes
-- `lib/watch/evidence-review-item-store.ts` — optional Supabase persistence
+- `lib/watch/evidence-review-item-store.ts` — Supabase persistence
 
 When `EIE_ENABLE_REVIEW_HANDOFFS=true` and Supabase is configured, new evidence alerts can also insert rows into `public.evidence_review_items`. The feature flag defaults to **off**, so production alert behavior is unchanged unless explicitly enabled.
 
-Suggested migration (run manually if not using Supabase CLI):
+Migration:
 
 `supabase/migrations/20260530140000_create_evidence_review_items.sql`
 
@@ -66,23 +93,28 @@ Duplicate protection uses a unique index on `(evidence_alert_id, client_claim_id
 
 The scheduled runner payload (cron summary, run-due/check responses) must not include private client claim text.
 
-Phase 17 preserves this boundary:
+This boundary is preserved:
 
 - Mapping and handoff modules live in the app/Mind layer, not in PubMed query or cron auth paths.
 - `buildScheduledRunnerSafeHandoffSummary()` exposes IDs, claim family, signal fields, and summaries — not full `claim_text`.
-- Demo client claim wording exists only inside `client-claim-mapper.ts` and handoff `raw_payload` for workspace-context use.
+- Durable claim text is available only in authenticated operator contexts (`/client-claims`, review detail linking).
 
-## Future work (not in Phase 17)
+## Completed since Phase 17
 
-- Real workspace UI for review queues
-- Client claim ingestion from menus, products, and campaigns
+- Workspace-scoped operator auth (Phases 23A–23B)
+- Review queue UI at `/review-items` with audit history and notes (Phases 24–25)
+- Durable client claim registry at `/client-claims` (Phase 26)
+- Durable claim-to-watchlist mappings with controlled profiles (Phase 27)
+
+## Future work
+
+- **Phase 28:** Evidence Change Brief Generator using durable mappings
+- Client claim ingestion from menus, products, and campaigns (Phase 26.5 / Phase 32 planning)
 - Notification rules and client-safe alerts
-- Audit trails and role-based access
-- Multi-client isolation and tenant-scoped RLS policies
-- Automatic watch_run_id backfill on review items after cron logging
-- Replacing demo mappings with workspace-backed client claim tables
+- Multi-client RLS policies beyond app-level workspace scoping
 
 ## Related docs
 
-- [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md)
+- [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — canonical phase status
+- [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md) — phase history
 - [EVIDENCE_SIGNAL_CLASSIFICATION.md](./EVIDENCE_SIGNAL_CLASSIFICATION.md)

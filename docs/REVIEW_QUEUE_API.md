@@ -1,5 +1,7 @@
 # Review Queue API
 
+> **Current status note (post–Phase 27).** This doc was originally written for Phase 18 when routes used cron auth. Since **Phase 21**, `/api/review-items*` requires **Supabase operator session or break-glass `INTERNAL_REVIEW_ACCESS_TOKEN`** — not `CRON_SECRET`. The review queue also now includes audit trail, notes, and linked client claims. For current behavior, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md). Phase 18 API details below are updated where auth is described.
+
 Phase 18 adds a minimal backend for managing evidence review handoff items created in Phase 17.
 
 ## Purpose
@@ -12,7 +14,7 @@ Phase 18 makes those items manageable through simple API routes so the lucient a
 - inspect a single item
 - update operator status (acknowledge, resolve, dismiss, etc.)
 
-No UI is included in this phase.
+No UI is included in this phase (UI added in Phase 19; operator auth in Phases 21–23).
 
 ## Relationship to Phase 17
 
@@ -35,10 +37,12 @@ Unsupported statuses are rejected with `unsupported_review_item_status`.
 
 ## API routes
 
-All routes use the same internal auth as `/api/watch/cron`:
+All routes require **operator session or break-glass internal review access** (Phase 21+):
 
-- `Authorization: Bearer CRON_SECRET`, or
-- Vercel cron user-agent for scheduled/internal callers
+- Supabase operator session cookie (magic-link login via `/review-login`), or
+- `Authorization: Bearer INTERNAL_REVIEW_ACCESS_TOKEN`
+
+`CRON_SECRET` is **not** accepted on review queue routes. Cron auth remains isolated to `/api/watch/cron` and related watch endpoints.
 
 ### `GET /api/review-items`
 
@@ -56,9 +60,11 @@ Example:
 
 ```bash
 curl -s \
-  -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  -H "Authorization: Bearer YOUR_INTERNAL_REVIEW_ACCESS_TOKEN" \
   "https://lucient-evidence-mind-poc.vercel.app/api/review-items?status=open&limit=10"
 ```
+
+> Prefer operator session cookie in browser contexts. Use break-glass bearer token for scripted internal ops only.
 
 ### `GET /api/review-items/[id]`
 
@@ -66,7 +72,7 @@ Fetch one review item by UUID.
 
 ```bash
 curl -s \
-  -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  -H "Authorization: Bearer YOUR_INTERNAL_REVIEW_ACCESS_TOKEN" \
   "https://lucient-evidence-mind-poc.vercel.app/api/review-items/REVIEW_ITEM_ID"
 ```
 
@@ -76,7 +82,7 @@ Update review item status.
 
 ```bash
 curl -s -X POST \
-  -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  -H "Authorization: Bearer YOUR_INTERNAL_REVIEW_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"status":"acknowledged"}' \
   "https://lucient-evidence-mind-poc.vercel.app/api/review-items/REVIEW_ITEM_ID/status"
@@ -127,14 +133,13 @@ Code-level demo fixture: `createDemoReviewItem()` in `lib/watch/evidence-review-
 
 ## Future work
 
-- Workspace-authenticated app routes (separate from cron-secret internal ops API)
-- Review queue UI and operator dashboards
+- Evidence Change Brief Generator (Phase 28)
+- Pagination and richer filtering
 - Notification rules when status changes
-- Audit trail for operator actions
-- Role-based access and multi-tenant isolation
-- Link review items to live client claim records after claim ingestion exists
+- Role-based access beyond workspace membership
 
 ## Related docs
 
+- [evidence-mind-roadmap.md](./evidence-mind-roadmap.md)
 - [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md)
 - [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md)
