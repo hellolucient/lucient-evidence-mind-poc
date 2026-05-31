@@ -34,6 +34,7 @@ import {
   getExternalMindHandoffById,
   isPrivacySafeExternalMindHandoffPayload,
   listExternalMindHandoffs,
+  recordExternalMindHandoffSendAttempt,
   toPrivacySafeExternalMindHandoff,
 } from "@/lib/watch/external-mind-handoff-store";
 
@@ -100,6 +101,8 @@ const handoffRow = {
   updated_at: "2026-05-31T12:00:00.000Z",
   sent_at: null,
   error_message: null,
+  send_attempted_at: null,
+  send_result_json: null,
 };
 
 function setupSupabaseMocks() {
@@ -258,5 +261,45 @@ describe("external-mind-handoff-store", () => {
       true
     );
     expect("payload_json" in safe).toBe(false);
+  });
+
+  it("records test sink send attempt with sent status and send result metadata", async () => {
+    mockMaybeSingle.mockResolvedValueOnce({ data: handoffRow, error: null });
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        ...handoffRow,
+        status: "sent",
+        sent_at: "2026-05-31T13:00:00.000Z",
+        send_attempted_at: "2026-05-31T13:00:00.000Z",
+        send_result_json: {
+          result: "test_sink_sent",
+          destination: "test_sink",
+          payload_version: "mind_digest_payload_v1",
+          timestamp: "2026-05-31T13:00:00.000Z",
+          test_sink_only: true,
+        },
+      },
+      error: null,
+    });
+
+    const result = await recordExternalMindHandoffSendAttempt("handoff-uuid-001", operatorAccess, {
+      status: "sent",
+      sent_at: "2026-05-31T13:00:00.000Z",
+      send_attempted_at: "2026-05-31T13:00:00.000Z",
+      send_result_json: {
+        result: "test_sink_sent",
+        destination: "test_sink",
+        payload_version: "mind_digest_payload_v1",
+        timestamp: "2026-05-31T13:00:00.000Z",
+        test_sink_only: true,
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.handoff.status).toBe("sent");
+      expect(result.handoff.sent_at).toBe("2026-05-31T13:00:00.000Z");
+      expect(result.handoff.send_result_json?.result).toBe("test_sink_sent");
+    }
   });
 });

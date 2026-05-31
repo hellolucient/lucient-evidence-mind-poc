@@ -12,6 +12,10 @@ import {
   getLatestHandoffForDigest,
   mindHandoffCreationErrorMessage,
 } from "@/lib/watch/external-mind-handoff-creator";
+import {
+  externalMindHandoffSendErrorMessage,
+  sendExternalMindHandoff,
+} from "@/lib/watch/external-mind-handoff-send";
 import type { PrivacySafeExternalMindHandoffWithPayload } from "@/lib/watch/external-mind-handoff-store";
 import {
   isExternalMindHandoffPersistenceConfigured,
@@ -36,6 +40,10 @@ export type MindDigestsHandoffFlash =
   | { kind: "success"; duplicate_skipped?: boolean }
   | { kind: "error"; error: string; message: string };
 
+export type MindDigestsSendFlash =
+  | { kind: "success"; result?: string }
+  | { kind: "error"; error: string; message: string };
+
 export type MindDigestsPageData = {
   configured: boolean;
   handoffsConfigured: boolean;
@@ -51,6 +59,7 @@ export type MindDigestsPageData = {
   detailErrorMessage: string | null;
   generateFlash: MindDigestsGenerateFlash | null;
   handoffFlash: MindDigestsHandoffFlash | null;
+  sendFlash: MindDigestsSendFlash | null;
   statusOptions: readonly string[];
 };
 
@@ -123,6 +132,28 @@ export function parseMindDigestsHandoffFlash(
   return null;
 }
 
+export function parseMindDigestsSendFlash(
+  params: Record<string, string | string[] | undefined>
+): MindDigestsSendFlash | null {
+  if (readParam(params, "send_ok")) {
+    return {
+      kind: "success",
+      result: readParam(params, "send_result") ?? undefined,
+    };
+  }
+
+  const error = readParam(params, "send_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message: readParam(params, "send_message") ?? externalMindHandoffSendErrorMessage(error),
+    };
+  }
+
+  return null;
+}
+
 export function mindDigestsErrorMessage(error: string): string {
   switch (error) {
     case "supabase_not_configured":
@@ -172,6 +203,7 @@ export async function buildMindDigestsPageData(
       detailErrorMessage: null,
       generateFlash: parseMindDigestsGenerateFlash(params),
       handoffFlash: parseMindDigestsHandoffFlash(params),
+      sendFlash: parseMindDigestsSendFlash(params),
       statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
     };
   }
@@ -219,6 +251,7 @@ export async function buildMindDigestsPageData(
     detailErrorMessage: detailError ? mindDigestsErrorMessage(detailError) : null,
     generateFlash: parseMindDigestsGenerateFlash(params),
     handoffFlash: parseMindDigestsHandoffFlash(params),
+    sendFlash: parseMindDigestsSendFlash(params),
     statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
   };
 }
@@ -281,6 +314,32 @@ export async function processMindHandoffCreationSubmission(
 
   return {
     redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&handoff_ok=1`,
+    result,
+  };
+}
+
+export type MindHandoffSendSubmissionResult = {
+  redirectPath: string;
+  result: Awaited<ReturnType<typeof sendExternalMindHandoff>>;
+};
+
+export async function processMindHandoffSendSubmission(
+  access: ReviewQueueAccessContext,
+  handoffId: string,
+  digestId?: string
+): Promise<MindHandoffSendSubmissionResult> {
+  const result = await sendExternalMindHandoff(handoffId, access);
+  const digestQuery = digestId ? `digest_id=${encodeURIComponent(digestId)}&` : "";
+
+  if (!result.ok) {
+    return {
+      redirectPath: `/mind-digests?${digestQuery}send_error=${encodeURIComponent(result.error)}&send_message=${encodeURIComponent(result.message)}`,
+      result,
+    };
+  }
+
+  return {
+    redirectPath: `/mind-digests?${digestQuery}send_ok=1&send_result=${encodeURIComponent(result.sendResult.result)}`,
     result,
   };
 }

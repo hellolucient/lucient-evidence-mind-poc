@@ -5,6 +5,7 @@ import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const GENERATE_DEMO_PATH = "/mind-digests/generate-demo";
 const CREATE_HANDOFF_PATH = "/mind-digests/create-handoff";
+const SEND_HANDOFF_PATH = "/mind-handoffs/send";
 
 const styles = {
   page: {
@@ -135,8 +136,8 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
         <h1 style={{ marginTop: 0, marginBottom: "0.35rem" }}>Mind digests</h1>
         <p style={{ margin: 0, color: "#475569", fontSize: "0.9375rem" }}>
           Internal watchtower summaries built from stored evidence alerts, review items, briefs, and
-          mapped claims. Phase 31 packages digests into privacy-safe external Mind handoff payloads;
-          external send remains disabled by default.
+          mapped claims. Phase 32 adds disabled-by-default external Mind send plumbing with safe
+          test-sink send behavior; real Animoca Mind delivery remains off unless explicitly enabled.
         </p>
         <nav style={styles.nav}>
           <a href="/review-items">Review queue</a>
@@ -165,6 +166,18 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
 
       {pageData.handoffFlash?.kind === "error" ? (
         <div style={styles.error}>{pageData.handoffFlash.message}</div>
+      ) : null}
+
+      {pageData.sendFlash?.kind === "success" ? (
+        <div style={styles.success}>
+          {pageData.sendFlash.result === "test_sink_sent"
+            ? "Test sink send completed. Handoff marked as sent."
+            : "Mind handoff send completed."}
+        </div>
+      ) : null}
+
+      {pageData.sendFlash?.kind === "error" ? (
+        <div style={styles.error}>{pageData.sendFlash.message}</div>
       ) : null}
 
       {pageData.generateFlash?.kind === "success" ? (
@@ -307,8 +320,9 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
 
           <h3 style={{ fontSize: "0.9375rem", marginTop: "1.5rem" }}>External Mind handoff</h3>
           <p style={styles.note}>
-            Creates a durable privacy-safe payload for future external Mind integration. No external
-            network call is made in Phase 31.
+            Creates a durable privacy-safe payload for future external Mind integration. Phase 32
+            supports safe test-sink send only by default; no real Animoca Mind call is made unless
+            external send is explicitly enabled in server configuration.
           </p>
 
           {pageData.handoffsConfigured ? (
@@ -328,7 +342,45 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                     {pageData.selectedDigestHandoff.payload_version} · Status:{" "}
                     {pageData.selectedDigestHandoff.status} · Created:{" "}
                     {formatTimestamp(pageData.selectedDigestHandoff.created_at)}
+                    {pageData.selectedDigestHandoff.sent_at
+                      ? ` · Sent: ${formatTimestamp(pageData.selectedDigestHandoff.sent_at)}`
+                      : ""}
                   </div>
+
+                  {pageData.selectedDigestHandoff.status === "ready" &&
+                  pageData.selectedDigestHandoff.destination === "test_sink" ? (
+                    <form action={SEND_HANDOFF_PATH} method="post" style={{ marginTop: "0.75rem" }}>
+                      <input
+                        type="hidden"
+                        name="handoff_id"
+                        value={pageData.selectedDigestHandoff.id}
+                      />
+                      <input
+                        type="hidden"
+                        name="digest_id"
+                        value={pageData.selectedDigest.id}
+                      />
+                      <button type="submit" style={styles.button}>
+                        Send to test sink
+                      </button>
+                    </form>
+                  ) : null}
+
+                  {pageData.selectedDigestHandoff.send_result_json ? (
+                    <>
+                      <div style={styles.detailLabel}>Send result</div>
+                      <div style={styles.detailValue}>
+                        Result: {pageData.selectedDigestHandoff.send_result_json.result}
+                        {pageData.selectedDigestHandoff.send_result_json.test_sink_only
+                          ? " · Test sink only"
+                          : ""}
+                        {pageData.selectedDigestHandoff.send_attempted_at
+                          ? ` · Attempted: ${formatTimestamp(pageData.selectedDigestHandoff.send_attempted_at)}`
+                          : ""}
+                      </div>
+                    </>
+                  ) : null}
+
                   <div style={styles.detailLabel}>Payload preview</div>
                   <pre style={styles.codePreview}>
                     {JSON.stringify(pageData.selectedDigestHandoff.payload_json, null, 2)}

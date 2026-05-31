@@ -6,7 +6,13 @@ const mockListEvidenceMindDigestItemsForDigest = vi.fn();
 const mockGenerateDemoEvidenceMindDigest = vi.fn();
 const mockCreateMindHandoffFromDigest = vi.fn();
 const mockGetLatestHandoffForDigest = vi.fn();
+const mockSendExternalMindHandoff = vi.fn();
 const mockIsExternalMindHandoffPersistenceConfigured = vi.fn();
+
+vi.mock("@/lib/watch/external-mind-handoff-send", () => ({
+  sendExternalMindHandoff: (...args: unknown[]) => mockSendExternalMindHandoff(...args),
+  externalMindHandoffSendErrorMessage: (error: string) => error,
+}));
 
 vi.mock("@/lib/watch/external-mind-handoff-store", () => ({
   isExternalMindHandoffPersistenceConfigured: (...args: unknown[]) =>
@@ -45,6 +51,7 @@ import {
   buildMindDigestsPageData,
   processDemoDigestGenerationSubmission,
   processMindHandoffCreationSubmission,
+  processMindHandoffSendSubmission,
 } from "@/lib/review/mind-digests-page";
 
 const operatorAccess = {
@@ -101,6 +108,11 @@ beforeEach(() => {
   });
   mockGenerateDemoEvidenceMindDigest.mockResolvedValue({ ok: true, digest: digestRow });
   mockCreateMindHandoffFromDigest.mockResolvedValue({ ok: true, handoff: { id: "handoff-uuid-001" } });
+  mockSendExternalMindHandoff.mockResolvedValue({
+    ok: true,
+    handoff: { id: "handoff-uuid-001", status: "sent" },
+    sendResult: { result: "test_sink_sent" },
+  });
 });
 
 describe("mind-digests-page", () => {
@@ -129,5 +141,17 @@ describe("mind-digests-page", () => {
     expect(submission.result.ok).toBe(true);
     expect(submission.redirectPath).toContain("/mind-digests");
     expect(submission.redirectPath).toContain("generate_ok=1");
+  });
+
+  it("redirects after successful test sink send submission", async () => {
+    const submission = await processMindHandoffSendSubmission(
+      operatorAccess,
+      "handoff-uuid-001",
+      "digest-uuid-001"
+    );
+
+    expect(submission.result.ok).toBe(true);
+    expect(submission.redirectPath).toContain("send_ok=1");
+    expect(submission.redirectPath).toContain("send_result=test_sink_sent");
   });
 });

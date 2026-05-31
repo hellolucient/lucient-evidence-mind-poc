@@ -17,6 +17,7 @@ import {
 } from "@/lib/review/external-mind-handoff-constants";
 import { canAccessReviewItemWorkspace, type ReviewQueueAccessContext } from "@/lib/operator-auth";
 import type { MindDigestHandoffPayloadV1 } from "@/lib/watch/external-mind-handoff-payload-builder";
+import type { PrivacySafeExternalMindHandoffSendResult } from "@/lib/review/external-mind-handoff-send-result";
 import { sanitizeWatchRunErrorMessage } from "@/lib/watch/watch-run-logger";
 
 export type ExternalMindHandoffRow = {
@@ -32,6 +33,8 @@ export type ExternalMindHandoffRow = {
   updated_at: string;
   sent_at: string | null;
   error_message: string | null;
+  send_attempted_at: string | null;
+  send_result_json: PrivacySafeExternalMindHandoffSendResult | null;
 };
 
 export type PrivacySafeExternalMindHandoff = {
@@ -45,6 +48,8 @@ export type PrivacySafeExternalMindHandoff = {
   created_at: string;
   updated_at: string;
   sent_at: string | null;
+  send_attempted_at: string | null;
+  send_result_json: PrivacySafeExternalMindHandoffSendResult | null;
 };
 
 export type PrivacySafeExternalMindHandoffWithPayload = PrivacySafeExternalMindHandoff & {
@@ -79,6 +84,18 @@ export type ExternalMindHandoffArchiveResult =
   | { ok: true; handoff: PrivacySafeExternalMindHandoff }
   | { ok: false; error: string };
 
+export type ExternalMindHandoffSendRecordInput = {
+  status: ExternalMindHandoffStatus;
+  sent_at?: string | null;
+  send_attempted_at: string;
+  send_result_json: PrivacySafeExternalMindHandoffSendResult;
+  error_message?: string | null;
+};
+
+export type ExternalMindHandoffSendRecordResult =
+  | { ok: true; handoff: PrivacySafeExternalMindHandoffWithPayload }
+  | { ok: false; error: string };
+
 export type ExternalMindHandoffListFilters = {
   workspace_id?: string;
   digest_id?: string;
@@ -99,6 +116,8 @@ export const HANDOFF_DISPLAY_FIELDS = [
   "created_at",
   "updated_at",
   "sent_at",
+  "send_attempted_at",
+  "send_result_json",
 ] as const;
 
 function isMissingTableError(error: { code?: string; message?: string }): boolean {
@@ -163,6 +182,8 @@ export function toPrivacySafeExternalMindHandoff(
     created_at: row.created_at,
     updated_at: row.updated_at,
     sent_at: row.sent_at,
+    send_attempted_at: row.send_attempted_at,
+    send_result_json: row.send_result_json,
   };
 }
 
@@ -286,7 +307,7 @@ export async function listExternalMindHandoffs(
     const client = createSupabaseServerClient();
     const scopedFilters = applyAccessToListFilters(filters, access);
     let query = client.from(EXTERNAL_MIND_HANDOFFS_TABLE).select(
-      "id, workspace_id, digest_id, handoff_type, destination, payload_version, status, created_at, updated_at, sent_at"
+      "id, workspace_id, digest_id, handoff_type, destination, payload_version, status, created_at, updated_at, sent_at, send_attempted_at, send_result_json"
     );
 
     if (scopedFilters.workspace_ids) {
@@ -437,7 +458,7 @@ export async function archiveExternalMindHandoff(
         updated_at: new Date().toISOString(),
       })
       .eq("id", handoffId)
-      .select("id, workspace_id, digest_id, handoff_type, destination, payload_version, status, created_at, updated_at, sent_at, payload_json, error_message")
+      .select("id, workspace_id, digest_id, handoff_type, destination, payload_version, status, created_at, updated_at, sent_at, payload_json, error_message, send_attempted_at, send_result_json")
       .single();
 
     if (error) {
@@ -447,6 +468,57 @@ export async function archiveExternalMindHandoff(
     return {
       ok: true,
       handoff: toPrivacySafeExternalMindHandoff(data as ExternalMindHandoffRow),
+    };
+  } catch (error) {
+    return { ok: false, error: normalizeStoreError(error) };
+  }
+}
+
+export async function recordExternalMindHandoffSendAttempt(
+  handoffId: string,
+  access: ReviewQueueAccessContext,
+  input: ExternalMindHandoffSendRecordInput
+): Promise<ExternalMindHandoffSendRecordResult> {
+  const lookup = await getExternalMindHandoffById(handoffId, access);
+  if (lookup.error === "forbidden") {
+    return { ok: false, error: "forbidden" };
+  }
+
+  if (!lookup.handoff) {
+    return { ok: false, error: lookup.error ?? "handoff_not_found" };
+  }
+
+  if (!isSupportedExternalMindHandoffStatus(input.status)) {
+    return { ok: false, error: "unsupported_handoff_status" };
+  }
+
+  if (!isExternalMindHandoffPersistenceConfigured()) {
+    return { ok: false, error: "supabase_not_configured" };
+  }
+
+  try {
+    const client = createSupabaseServerClient();
+    const { data, error } = await client
+      .from(EXTERNAL_MIND_HANDOFFS_TABLE)
+      .update({
+        status: input.status,
+        sent_at: input.sent_at ?? null,
+        send_attempted_at: input.send_attempted_at,
+        send_result_json: input.send_result_json,
+        error_message: input.error_message ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", handoffId)
+      .select("*")
+      .single();
+
+    if (error) {
+      return { ok: false, error: normalizeStoreError(error) };
+    }
+
+    return {
+      ok: true,
+      handoff: toPrivacySafeExternalMindHandoffWithPayload(data as ExternalMindHandoffRow),
     };
   } catch (error) {
     return { ok: false, error: normalizeStoreError(error) };

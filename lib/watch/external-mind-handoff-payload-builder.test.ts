@@ -70,7 +70,7 @@ describe("external-mind-handoff-payload-builder", () => {
     expect(payload.affected_client_claims).toContain("demo-claim-magnesium-stress-001");
     expect(payload.referenced_evidence_briefs).toHaveLength(1);
     expect(payload.source_system).toBe("lucient_evidence_mind");
-    expect(payload.phase).toBe("31");
+    expect(payload.phase).toBe("32");
   });
 
   it("excludes secrets and private auth metadata from payload", () => {
