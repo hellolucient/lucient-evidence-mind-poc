@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const mockFindAffectedClientClaimsForClaimFamilyAsync = vi.fn();
+
+vi.mock("./affected-client-claims-resolver", () => ({
+  findAffectedClientClaimsForClaimFamilyAsync: (...args: unknown[]) =>
+    mockFindAffectedClientClaimsForClaimFamilyAsync(...args),
+}));
 
 import { DEMO_CLIENT_CLAIM_MAGNESIUM_STRESS } from "./client-claim-mapper";
 import type { EvidenceAlertCandidate } from "./evidence-alert-store";
 import {
   buildReviewHandoffItem,
   buildReviewItemsForEvidenceAlert,
+  buildReviewItemsForEvidenceAlertAsync,
   buildReviewItemsFromAlertCandidate,
   buildScheduledRunnerSafeHandoffSummary,
   isReviewHandoffEnabled,
@@ -58,6 +66,26 @@ describe("evidence-review-handoff", () => {
       client_claim_re_review_required: true,
       status: "open",
     });
+  });
+
+  it("builds review items asynchronously using durable mapping resolution", async () => {
+    mockFindAffectedClientClaimsForClaimFamilyAsync.mockResolvedValueOnce([
+      {
+        ...DEMO_CLIENT_CLAIM_MAGNESIUM_STRESS,
+        id: "durable-claim-001",
+      },
+    ]);
+
+    const result = await buildReviewItemsForEvidenceAlertAsync({
+      evidence_alert_id: "alert-uuid-async",
+      watch_run_id: "run-uuid-async",
+      claim_family_id: "magnesium_cortisol_stress",
+      external_id: "99988877",
+      raw_payload: alertCandidate.raw_payload,
+    });
+
+    expect(result.affected_claim_count).toBe(1);
+    expect(result.items[0].client_claim_id).toBe("durable-claim-001");
   });
 
   it("returns no review items for unknown claim families", () => {

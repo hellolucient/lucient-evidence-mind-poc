@@ -1,4 +1,8 @@
-import { findAffectedClientClaimsForClaimFamily, type ClientClaimRecord } from "./client-claim-mapper";
+import {
+  findAffectedClientClaimsForClaimFamily,
+  type ClientClaimRecord,
+} from "./client-claim-mapper";
+import { findAffectedClientClaimsForClaimFamilyAsync } from "./affected-client-claims-resolver";
 import type { EvidenceSignalCategory } from "./evidence-signal-classifier";
 import type { EvidenceAlertCandidate } from "./evidence-alert-store";
 
@@ -148,6 +152,19 @@ export function buildReviewItemsForEvidenceAlert(
   };
 }
 
+export async function buildReviewItemsForEvidenceAlertAsync(
+  alert: EvidenceAlertHandoffInput
+): Promise<ReviewHandoffBuildResult> {
+  const affectedClaims = await findAffectedClientClaimsForClaimFamilyAsync(
+    alert.claim_family_id
+  );
+
+  return {
+    affected_claim_count: affectedClaims.length,
+    items: affectedClaims.map((claim) => buildReviewHandoffItem(alert, claim)),
+  };
+}
+
 export function buildReviewItemsFromAlertCandidate(options: {
   candidate: EvidenceAlertCandidate;
   evidence_alert_id: string;
@@ -156,6 +173,26 @@ export function buildReviewItemsFromAlertCandidate(options: {
   const signalMeta = readSignalFromPayload(options.candidate.raw_payload);
 
   return buildReviewItemsForEvidenceAlert({
+    evidence_alert_id: options.evidence_alert_id,
+    watch_run_id: options.watch_run_id,
+    claim_family_id: options.candidate.claim_family,
+    external_id: options.candidate.external_id,
+    signal: String(signalMeta.signal),
+    severity: options.candidate.severity,
+    human_review_required: signalMeta.human_review_required,
+    client_claim_re_review_required: signalMeta.client_claim_re_review_required,
+    raw_payload: options.candidate.raw_payload,
+  });
+}
+
+export async function buildReviewItemsFromAlertCandidateAsync(options: {
+  candidate: EvidenceAlertCandidate;
+  evidence_alert_id: string;
+  watch_run_id: string | null;
+}): Promise<ReviewHandoffBuildResult> {
+  const signalMeta = readSignalFromPayload(options.candidate.raw_payload);
+
+  return buildReviewItemsForEvidenceAlertAsync({
     evidence_alert_id: options.evidence_alert_id,
     watch_run_id: options.watch_run_id,
     claim_family_id: options.candidate.claim_family,

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockCreateClientClaim = vi.fn();
 const mockListClientClaims = vi.fn();
+const mockListClientClaimWatchlistMappings = vi.fn();
+const mockListClaimFamilyProfiles = vi.fn();
 
 vi.mock("@/lib/watch/client-claims-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/watch/client-claims-store")>();
@@ -12,10 +14,20 @@ vi.mock("@/lib/watch/client-claims-store", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/watch/client-claim-watchlist-mapping-store", () => ({
+  listClientClaimWatchlistMappings: (...args: unknown[]) => mockListClientClaimWatchlistMappings(...args),
+}));
+
+vi.mock("@/lib/watch/claim-family-profile-store", () => ({
+  listClaimFamilyProfiles: (...args: unknown[]) => mockListClaimFamilyProfiles(...args),
+}));
+
 import {
   buildClientClaimsCreateRedirectPath,
+  buildClientClaimsMappingCreateRedirectPath,
   clientClaimsErrorMessage,
   processClientClaimCreateSubmission,
+  processClientClaimMappingCreateSubmission,
 } from "@/lib/review/client-claims-page";
 
 const operatorAccess = {
@@ -28,6 +40,20 @@ const operatorAccess = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockListClientClaims.mockResolvedValue({ claims: [] });
+  mockListClientClaimWatchlistMappings.mockResolvedValue({ mappings: [] });
+  mockListClaimFamilyProfiles.mockResolvedValue({
+    profiles: [
+      {
+        claim_family: "magnesium_cortisol_stress",
+        display_name: "Magnesium / Stress / Cortisol",
+        description: null,
+        default_watchlist_id: "watch-magnesium-cortisol",
+        status: "active",
+        created_at: "2026-05-31T10:00:00.000Z",
+        updated_at: "2026-05-31T10:00:00.000Z",
+      },
+    ],
+  });
   mockCreateClientClaim.mockResolvedValue({
     ok: true,
     claim: {
@@ -76,6 +102,37 @@ describe("client-claims-page submission", () => {
     });
 
     expect(path).toContain("create_error=duplicate_client_claim_id");
+    expect(path).not.toContain("service_role");
+  });
+
+  it("rejects mapping create when claim family is not in controlled registry", async () => {
+    const formData = new FormData();
+    formData.set("workspace_id", "demo-workspace-spa-menu");
+    formData.set("client_claim_id", "demo-claim-magnesium-stress-001");
+    formData.set("claim_family", "free_text_family");
+
+    const submission = await processClientClaimMappingCreateSubmission(formData, operatorAccess, [
+      "magnesium_cortisol_stress",
+    ]);
+
+    expect(submission.result.ok).toBe(false);
+    if (!submission.result.ok) {
+      expect(submission.result.error).toBe("unsupported_claim_family");
+    }
+    expect(submission.redirectPath).toContain("mapping_error=unsupported_claim_family");
+  });
+
+  it("builds safe mapping redirect path without secrets", () => {
+    const path = buildClientClaimsMappingCreateRedirectPath({
+      returnQuery: "",
+      result: {
+        ok: false,
+        error: "duplicate_mapping",
+        message: "A mapping for this claim and claim family already exists in the workspace.",
+      },
+    });
+
+    expect(path).toContain("mapping_error=duplicate_mapping");
     expect(path).not.toContain("service_role");
   });
 });

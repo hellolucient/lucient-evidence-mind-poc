@@ -8,6 +8,22 @@ import {
   isSupportedClientClaimStatus,
 } from "@/lib/review/client-claims-constants";
 import {
+  MAPPING_CONFIDENCE_LEVELS,
+  MAPPING_STATUSES,
+  isSupportedMappingConfidence,
+  isSupportedMappingStatus,
+  type MappingConfidence,
+  type MappingStatus,
+} from "@/lib/review/claim-mapping-constants";
+import { listClaimFamilyProfiles, type PrivacySafeClaimFamilyProfile } from "@/lib/watch/claim-family-profile-store";
+import {
+  createClientClaimWatchlistMapping,
+  listClientClaimWatchlistMappings,
+  updateClientClaimWatchlistMappingStatus,
+  type ClientClaimWatchlistMappingInsertInput,
+  type PrivacySafeClientClaimWatchlistMapping,
+} from "@/lib/watch/client-claim-watchlist-mapping-store";
+import {
   createClientClaim,
   isClientClaimsPersistenceConfigured,
   listClientClaims,
@@ -31,17 +47,39 @@ export type ClientClaimsCreateFlash =
   | { kind: "success" }
   | { kind: "error"; error: string; message: string };
 
+export type ClientClaimsMappingCreateResult =
+  | { ok: true; mapping: PrivacySafeClientClaimWatchlistMapping }
+  | { ok: false; error: string; message: string };
+
+export type ClientClaimsMappingStatusUpdateResult =
+  | { ok: true; mapping: PrivacySafeClientClaimWatchlistMapping }
+  | { ok: false; error: string; message: string };
+
+export type ClientClaimsMappingCreateFlash =
+  | { kind: "success" }
+  | { kind: "error"; error: string; message: string };
+
+export type ClientClaimWithMappings = PrivacySafeClientClaim & {
+  mappings: PrivacySafeClientClaimWatchlistMapping[];
+};
+
 export type ClientClaimsPageData = {
   configured: boolean;
   filters: ClientClaimsPageFilters;
-  claims: PrivacySafeClientClaim[];
+  claims: ClientClaimWithMappings[];
+  claimFamilyProfiles: PrivacySafeClaimFamilyProfile[];
   defaultWorkspaceId: string;
   listError: string | null;
   listErrorMessage: string | null;
+  mappingListError: string | null;
+  mappingListErrorMessage: string | null;
   createFlash: ClientClaimsCreateFlash | null;
+  mappingCreateFlash: ClientClaimsMappingCreateFlash | null;
   statusOptions: readonly string[];
   sourceTypeOptions: readonly string[];
   riskLevelOptions: readonly string[];
+  mappingStatusOptions: readonly string[];
+  mappingConfidenceOptions: readonly string[];
 };
 
 function readParam(
@@ -87,6 +125,25 @@ export function parseClientClaimsCreateFlash(
   return null;
 }
 
+export function parseClientClaimsMappingCreateFlash(
+  params: Record<string, string | string[] | undefined>
+): ClientClaimsMappingCreateFlash | null {
+  if (readParam(params, "mapping_ok")) {
+    return { kind: "success" };
+  }
+
+  const error = readParam(params, "mapping_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message: readParam(params, "mapping_error_message") ?? error,
+    };
+  }
+
+  return null;
+}
+
 export function clientClaimsErrorMessage(error: string | null | undefined): string | null {
   if (!error) {
     return null;
@@ -111,6 +168,22 @@ export function clientClaimsErrorMessage(error: string | null | undefined): stri
       return "Unsupported risk level.";
     case "client_claim_not_found":
       return "Client claim not found.";
+    case "claim_family_profiles_table_missing":
+      return "The claim_family_profiles table is missing. Apply the Phase 27 migration in Supabase.";
+    case "client_claim_watchlist_mappings_table_missing":
+      return "The client_claim_watchlist_mappings table is missing. Apply the Phase 27 migration in Supabase.";
+    case "duplicate_mapping":
+      return "A mapping for this claim and claim family already exists in the workspace.";
+    case "unsupported_mapping_status":
+      return "Unsupported mapping status.";
+    case "unsupported_mapping_source":
+      return "Unsupported mapping source.";
+    case "unsupported_mapping_confidence":
+      return "Unsupported mapping confidence.";
+    case "mapping_not_found":
+      return "Claim-to-watchlist mapping not found.";
+    case "unsupported_claim_family":
+      return "Claim family must be selected from the controlled profile registry.";
     default:
       return `Server error: ${error}`;
   }
@@ -132,29 +205,59 @@ export async function buildClientClaimsPageData(
       configured: false,
       filters,
       claims: [],
+      claimFamilyProfiles: [],
       defaultWorkspaceId,
       listError: "supabase_not_configured",
       listErrorMessage: clientClaimsErrorMessage("supabase_not_configured"),
+      mappingListError: "supabase_not_configured",
+      mappingListErrorMessage: clientClaimsErrorMessage("supabase_not_configured"),
       createFlash: parseClientClaimsCreateFlash(params),
+      mappingCreateFlash: parseClientClaimsMappingCreateFlash(params),
       statusOptions: CLIENT_CLAIM_STATUSES,
       sourceTypeOptions: CLIENT_CLAIM_SOURCE_TYPES,
       riskLevelOptions: CLIENT_CLAIM_RISK_LEVELS,
+      mappingStatusOptions: MAPPING_STATUSES,
+      mappingConfidenceOptions: MAPPING_CONFIDENCE_LEVELS,
     };
   }
 
-  const listResult = await listClientClaims(access, filters);
+  const [listResult, mappingResult, profileResult] = await Promise.all([
+    listClientClaims(access, filters),
+    listClientClaimWatchlistMappings(access),
+    listClaimFamilyProfiles(),
+  ]);
+
+  const mappingsByClaimKey = new Map<string, PrivacySafeClientClaimWatchlistMapping[]>();
+  for (const mapping of mappingResult.mappings) {
+    const key = `${mapping.workspace_id}:${mapping.client_claim_id}`;
+    const existing = mappingsByClaimKey.get(key) ?? [];
+    existing.push(mapping);
+    mappingsByClaimKey.set(key, existing);
+  }
+
+  const claimsWithMappings: ClientClaimWithMappings[] = listResult.claims.map((claim) => ({
+    ...claim,
+    mappings:
+      mappingsByClaimKey.get(`${claim.workspace_id}:${claim.client_claim_id}`) ?? [],
+  }));
 
   return {
     configured: true,
     filters,
-    claims: listResult.claims,
+    claims: claimsWithMappings,
+    claimFamilyProfiles: profileResult.profiles,
     defaultWorkspaceId,
     listError: listResult.error ?? null,
     listErrorMessage: clientClaimsErrorMessage(listResult.error),
+    mappingListError: mappingResult.error ?? null,
+    mappingListErrorMessage: clientClaimsErrorMessage(mappingResult.error),
     createFlash: parseClientClaimsCreateFlash(params),
+    mappingCreateFlash: parseClientClaimsMappingCreateFlash(params),
     statusOptions: CLIENT_CLAIM_STATUSES,
     sourceTypeOptions: CLIENT_CLAIM_SOURCE_TYPES,
     riskLevelOptions: CLIENT_CLAIM_RISK_LEVELS,
+    mappingStatusOptions: MAPPING_STATUSES,
+    mappingConfidenceOptions: MAPPING_CONFIDENCE_LEVELS,
   };
 }
 
@@ -312,5 +415,183 @@ export async function processClientClaimStatusSubmission(
   return {
     result,
     redirectPath: buildClientClaimsStatusRedirectPath({ returnQuery, result }),
+  };
+}
+
+export function parseClientClaimMappingCreateFormData(
+  formData: FormData
+): ClientClaimWatchlistMappingInsertInput {
+  const confidence = String(formData.get("mapping_confidence") ?? "").trim();
+  const status = String(formData.get("mapping_status") ?? "active").trim();
+
+  return {
+    workspace_id: String(formData.get("workspace_id") ?? "").trim(),
+    client_claim_id: String(formData.get("client_claim_id") ?? "").trim(),
+    claim_family: String(formData.get("claim_family") ?? "").trim(),
+    watchlist_id: String(formData.get("watchlist_id") ?? "").trim() || null,
+    mapping_status: (isSupportedMappingStatus(status) ? status : "active") as MappingStatus,
+    mapping_confidence: confidence
+      ? ((isSupportedMappingConfidence(confidence)
+          ? confidence
+          : null) as MappingConfidence | null)
+      : null,
+    mapping_source: "manual",
+  };
+}
+
+export function buildClientClaimsMappingCreateRedirectPath(options: {
+  returnQuery: string;
+  result: ClientClaimsMappingCreateResult;
+}): string {
+  const params = new URLSearchParams(options.returnQuery);
+  params.delete("mapping_ok");
+  params.delete("mapping_error");
+  params.delete("mapping_error_message");
+
+  if (options.result.ok) {
+    params.set("mapping_ok", "1");
+  } else {
+    params.set("mapping_error", options.result.error);
+    params.set("mapping_error_message", options.result.message);
+  }
+
+  const query = params.toString();
+  return query ? `/client-claims?${query}` : "/client-claims";
+}
+
+export async function processClientClaimMappingCreateSubmission(
+  formData: FormData,
+  access: ReviewQueueAccessContext,
+  knownClaimFamilies: readonly string[]
+): Promise<{ redirectPath: string; result: ClientClaimsMappingCreateResult }> {
+  const returnQuery = String(formData.get("return_query") ?? "").trim();
+  const input = parseClientClaimMappingCreateFormData(formData);
+
+  if (!input.workspace_id || !input.client_claim_id || !input.claim_family) {
+    const result: ClientClaimsMappingCreateResult = {
+      ok: false,
+      error: "required_fields_missing",
+      message: "Workspace, client_claim_id, and claim family are required.",
+    };
+    return {
+      result,
+      redirectPath: buildClientClaimsMappingCreateRedirectPath({ returnQuery, result }),
+    };
+  }
+
+  if (!knownClaimFamilies.includes(input.claim_family)) {
+    const result: ClientClaimsMappingCreateResult = {
+      ok: false,
+      error: "unsupported_claim_family",
+      message:
+        clientClaimsErrorMessage("unsupported_claim_family") ??
+        "Claim family must be selected from the controlled profile registry.",
+    };
+    return {
+      result,
+      redirectPath: buildClientClaimsMappingCreateRedirectPath({ returnQuery, result }),
+    };
+  }
+
+  const storeResult = await createClientClaimWatchlistMapping(input, access);
+  const result: ClientClaimsMappingCreateResult = storeResult.ok
+    ? storeResult
+    : {
+        ok: false,
+        error: storeResult.error,
+        message: clientClaimsErrorMessage(storeResult.error) ?? storeResult.error,
+      };
+
+  return {
+    result,
+    redirectPath: buildClientClaimsMappingCreateRedirectPath({ returnQuery, result }),
+  };
+}
+
+export function parseClientClaimMappingStatusFormData(formData: FormData): {
+  workspaceId: string;
+  clientClaimId: string;
+  claimFamily: string;
+  mappingStatus: string;
+  returnQuery: string;
+} {
+  return {
+    workspaceId: String(formData.get("workspace_id") ?? "").trim(),
+    clientClaimId: String(formData.get("client_claim_id") ?? "").trim(),
+    claimFamily: String(formData.get("claim_family") ?? "").trim(),
+    mappingStatus: String(formData.get("mapping_status") ?? "").trim(),
+    returnQuery: String(formData.get("return_query") ?? "").trim(),
+  };
+}
+
+export function buildClientClaimsMappingStatusRedirectPath(options: {
+  returnQuery: string;
+  result: ClientClaimsMappingStatusUpdateResult;
+}): string {
+  const params = new URLSearchParams(options.returnQuery);
+  params.delete("mapping_status_ok");
+  params.delete("mapping_status_error");
+  params.delete("mapping_status_error_message");
+
+  if (options.result.ok) {
+    params.set("mapping_status_ok", "1");
+  } else {
+    params.set("mapping_status_error", options.result.error);
+    params.set("mapping_status_error_message", options.result.message);
+  }
+
+  const query = params.toString();
+  return query ? `/client-claims?${query}` : "/client-claims";
+}
+
+export async function processClientClaimMappingStatusSubmission(
+  formData: FormData,
+  access: ReviewQueueAccessContext
+): Promise<{ redirectPath: string; result: ClientClaimsMappingStatusUpdateResult }> {
+  const parsed = parseClientClaimMappingStatusFormData(formData);
+  const returnQuery = parsed.returnQuery;
+
+  if (!parsed.workspaceId || !parsed.clientClaimId || !parsed.claimFamily || !parsed.mappingStatus) {
+    const result: ClientClaimsMappingStatusUpdateResult = {
+      ok: false,
+      error: "required_fields_missing",
+      message: "Workspace, client_claim_id, claim family, and mapping status are required.",
+    };
+    return {
+      result,
+      redirectPath: buildClientClaimsMappingStatusRedirectPath({ returnQuery, result }),
+    };
+  }
+
+  if (!isSupportedMappingStatus(parsed.mappingStatus)) {
+    const result: ClientClaimsMappingStatusUpdateResult = {
+      ok: false,
+      error: "unsupported_mapping_status",
+      message: clientClaimsErrorMessage("unsupported_mapping_status") ?? "Unsupported mapping status.",
+    };
+    return {
+      result,
+      redirectPath: buildClientClaimsMappingStatusRedirectPath({ returnQuery, result }),
+    };
+  }
+
+  const storeResult = await updateClientClaimWatchlistMappingStatus(
+    parsed.workspaceId,
+    parsed.clientClaimId,
+    parsed.claimFamily,
+    parsed.mappingStatus,
+    access
+  );
+  const result: ClientClaimsMappingStatusUpdateResult = storeResult.ok
+    ? storeResult
+    : {
+        ok: false,
+        error: storeResult.error,
+        message: clientClaimsErrorMessage(storeResult.error) ?? storeResult.error,
+      };
+
+  return {
+    result,
+    redirectPath: buildClientClaimsMappingStatusRedirectPath({ returnQuery, result }),
   };
 }

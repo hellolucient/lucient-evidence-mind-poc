@@ -5,7 +5,7 @@ import {
 } from "@/engine/watchlist/supabase-client";
 import { sanitizeWatchRunErrorMessage } from "./watch-run-logger";
 import type { EvidenceReviewHandoffItem, ReviewItemStatus } from "./evidence-review-handoff";
-import { buildReviewItemsFromAlertCandidate } from "./evidence-review-handoff";
+import { buildReviewItemsFromAlertCandidateAsync } from "./evidence-review-handoff";
 import type { EvidenceAlertCandidate } from "./evidence-alert-store";
 
 export type ReviewItemPersistenceResult = {
@@ -305,13 +305,16 @@ export async function persistReviewHandoffsForAlertCandidates(options: {
   }>;
   watchRunId: string | null;
 }): Promise<ReviewItemPersistenceResult> {
-  const items = options.candidates.flatMap(({ candidate, evidence_alert_id }) =>
-    buildReviewItemsFromAlertCandidate({
-      candidate,
-      evidence_alert_id,
-      watch_run_id: options.watchRunId,
-    }).items
+  const handoffResults = await Promise.all(
+    options.candidates.map(({ candidate, evidence_alert_id }) =>
+      buildReviewItemsFromAlertCandidateAsync({
+        candidate,
+        evidence_alert_id,
+        watch_run_id: options.watchRunId,
+      })
+    )
   );
+  const items = handoffResults.flatMap((result) => result.items);
 
   return persistReviewHandoffItems(items);
 }

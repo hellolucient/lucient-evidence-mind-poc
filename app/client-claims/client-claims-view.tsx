@@ -5,6 +5,8 @@ import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const CLIENT_CLAIMS_CREATE_PATH = "/client-claims/create";
 const CLIENT_CLAIMS_STATUS_PATH = "/client-claims/update-status";
+const CLIENT_CLAIMS_MAPPING_CREATE_PATH = "/client-claims/create-mapping";
+const CLIENT_CLAIMS_MAPPING_STATUS_PATH = "/client-claims/update-mapping-status";
 
 const styles = {
   page: {
@@ -103,6 +105,14 @@ function formatTimestamp(value: string): string {
   return date.toLocaleString();
 }
 
+function claimFamilyDisplayName(
+  claimFamily: string,
+  profiles: ClientClaimsPageData["claimFamilyProfiles"]
+): string {
+  const profile = profiles.find((entry) => entry.claim_family === claimFamily);
+  return profile?.display_name ?? claimFamily;
+}
+
 export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps) {
   return (
     <main style={styles.page}>
@@ -130,6 +140,14 @@ export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps
 
       {pageData.createFlash?.kind === "error" ? (
         <div style={styles.error}>{pageData.createFlash.message}</div>
+      ) : null}
+
+      {pageData.mappingCreateFlash?.kind === "success" ? (
+        <div style={styles.success}>Claim-to-watchlist mapping created.</div>
+      ) : null}
+
+      {pageData.mappingCreateFlash?.kind === "error" ? (
+        <div style={styles.error}>{pageData.mappingCreateFlash.message}</div>
       ) : null}
 
       <section style={styles.section}>
@@ -172,7 +190,14 @@ export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps
             </label>
             <label style={styles.label}>
               Claim family
-              <input type="text" name="claim_family" style={styles.input} />
+              <select name="claim_family" style={styles.input} defaultValue="">
+                <option value="">—</option>
+                {pageData.claimFamilyProfiles.map((profile) => (
+                  <option key={profile.claim_family} value={profile.claim_family}>
+                    {profile.display_name}
+                  </option>
+                ))}
+              </select>
             </label>
             <label style={styles.label}>
               Risk level
@@ -211,6 +236,9 @@ export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps
         {pageData.listErrorMessage && pageData.configured ? (
           <div style={styles.error}>{pageData.listErrorMessage}</div>
         ) : null}
+        {pageData.mappingListErrorMessage && pageData.configured ? (
+          <div style={styles.error}>{pageData.mappingListErrorMessage}</div>
+        ) : null}
         {pageData.claims.length === 0 ? (
           <p style={{ color: "#64748b", margin: 0 }}>No client claims found for the current scope.</p>
         ) : (
@@ -222,6 +250,7 @@ export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps
                 <th style={styles.th}>Claim text</th>
                 <th style={styles.th}>Source</th>
                 <th style={styles.th}>Family</th>
+                <th style={styles.th}>Watchlist mappings</th>
                 <th style={styles.th}>Risk</th>
                 <th style={styles.th}>Status</th>
                 <th style={styles.th}>Updated</th>
@@ -237,7 +266,85 @@ export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps
                     {claim.claim_source_type ?? "—"}
                     {claim.claim_source_label ? ` · ${claim.claim_source_label}` : ""}
                   </td>
-                  <td style={styles.td}>{claim.claim_family ?? "—"}</td>
+                  <td style={styles.td}>
+                    {claim.claim_family
+                      ? claimFamilyDisplayName(claim.claim_family, pageData.claimFamilyProfiles)
+                      : "—"}
+                  </td>
+                  <td style={styles.td}>
+                    {claim.mappings.length === 0 ? (
+                      <form action={CLIENT_CLAIMS_MAPPING_CREATE_PATH} method="POST">
+                        <input type="hidden" name="workspace_id" value={claim.workspace_id} />
+                        <input type="hidden" name="client_claim_id" value={claim.client_claim_id} />
+                        <input type="hidden" name="return_query" value="" />
+                        <select name="claim_family" required style={{ ...styles.input, minWidth: "180px" }}>
+                          <option value="">Select claim family</option>
+                          {pageData.claimFamilyProfiles.map((profile) => (
+                            <option key={profile.claim_family} value={profile.claim_family}>
+                              {profile.display_name}
+                            </option>
+                          ))}
+                        </select>
+                        <select name="mapping_confidence" style={{ ...styles.input, minWidth: "120px", marginTop: "0.35rem" }}>
+                          <option value="">Confidence —</option>
+                          {pageData.mappingConfidenceOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="submit" style={{ ...styles.button, marginTop: "0.35rem" }}>
+                          Map to watchlist
+                        </button>
+                      </form>
+                    ) : (
+                      <div>
+                        {claim.mappings.map((mapping) => (
+                          <div
+                            key={`${mapping.workspace_id}:${mapping.client_claim_id}:${mapping.claim_family}`}
+                            style={{ marginBottom: "0.75rem" }}
+                          >
+                            <div>
+                              <strong>
+                                {claimFamilyDisplayName(mapping.claim_family, pageData.claimFamilyProfiles)}
+                              </strong>
+                              {mapping.mapping_confidence ? (
+                                <span style={{ color: "#64748b" }}>
+                                  {" "}
+                                  · {mapping.mapping_confidence} confidence
+                                </span>
+                              ) : null}
+                            </div>
+                            <div style={{ color: "#64748b", fontSize: "0.75rem" }}>
+                              {mapping.claim_family}
+                              {mapping.watchlist_id ? ` · watchlist ${mapping.watchlist_id}` : ""}
+                              {` · source ${mapping.mapping_source}`}
+                            </div>
+                            <form action={CLIENT_CLAIMS_MAPPING_STATUS_PATH} method="POST">
+                              <input type="hidden" name="workspace_id" value={mapping.workspace_id} />
+                              <input type="hidden" name="client_claim_id" value={mapping.client_claim_id} />
+                              <input type="hidden" name="claim_family" value={mapping.claim_family} />
+                              <input type="hidden" name="return_query" value="" />
+                              <select
+                                name="mapping_status"
+                                defaultValue={mapping.mapping_status}
+                                style={{ ...styles.input, minWidth: "120px" }}
+                              >
+                                {pageData.mappingStatusOptions.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                              <button type="submit" style={{ ...styles.button, marginTop: "0.35rem" }}>
+                                Update mapping
+                              </button>
+                            </form>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </td>
                   <td style={styles.td}>{claim.risk_level ?? "—"}</td>
                   <td style={styles.td}>
                     <form action={CLIENT_CLAIMS_STATUS_PATH} method="POST">

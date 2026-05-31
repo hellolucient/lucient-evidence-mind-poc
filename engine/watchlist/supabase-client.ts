@@ -7,6 +7,8 @@ const EVIDENCE_REVIEW_ITEMS_TABLE = "evidence_review_items";
 const EVIDENCE_REVIEW_ITEM_AUDIT_EVENTS_TABLE = "evidence_review_item_audit_events";
 const EVIDENCE_REVIEW_ITEM_NOTES_TABLE = "evidence_review_item_notes";
 const CLIENT_CLAIMS_TABLE = "client_claims";
+const CLAIM_FAMILY_PROFILES_TABLE = "claim_family_profiles";
+const CLIENT_CLAIM_WATCHLIST_MAPPINGS_TABLE = "client_claim_watchlist_mappings";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -59,4 +61,6 @@ export {
   EVIDENCE_REVIEW_ITEM_AUDIT_EVENTS_TABLE,
   EVIDENCE_REVIEW_ITEM_NOTES_TABLE,
   CLIENT_CLAIMS_TABLE,
+  CLAIM_FAMILY_PROFILES_TABLE,
+  CLIENT_CLAIM_WATCHLIST_MAPPINGS_TABLE,
 };
