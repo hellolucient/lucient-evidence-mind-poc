@@ -8,6 +8,15 @@ const mockCreateMindHandoffFromDigest = vi.fn();
 const mockGetLatestHandoffForDigest = vi.fn();
 const mockSendExternalMindHandoff = vi.fn();
 const mockIsExternalMindHandoffPersistenceConfigured = vi.fn();
+const mockIsExternalMindHandoffSendEventPersistenceConfigured = vi.fn();
+const mockListExternalMindHandoffSendEventsForHandoff = vi.fn();
+
+vi.mock("@/lib/watch/external-mind-handoff-send-event-store", () => ({
+  isExternalMindHandoffSendEventPersistenceConfigured: (...args: unknown[]) =>
+    mockIsExternalMindHandoffSendEventPersistenceConfigured(...args),
+  listExternalMindHandoffSendEventsForHandoff: (...args: unknown[]) =>
+    mockListExternalMindHandoffSendEventsForHandoff(...args),
+}));
 
 vi.mock("@/lib/watch/external-mind-handoff-send", () => ({
   sendExternalMindHandoff: (...args: unknown[]) => mockSendExternalMindHandoff(...args),
@@ -86,7 +95,26 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockIsEvidenceMindDigestPersistenceConfigured.mockReturnValue(true);
   mockIsExternalMindHandoffPersistenceConfigured.mockReturnValue(true);
-  mockGetLatestHandoffForDigest.mockResolvedValue(null);
+  mockIsExternalMindHandoffSendEventPersistenceConfigured.mockReturnValue(true);
+  mockListExternalMindHandoffSendEventsForHandoff.mockResolvedValue({
+    events: [
+      {
+        event_type: "send_succeeded",
+        result: "test_sink_sent",
+        destination: "test_sink",
+        actor_type: "supabase_operator",
+        access_mode: "supabase_operator",
+        attempted_at: "2026-05-31T13:00:00.000Z",
+        completed_at: "2026-05-31T13:00:00.000Z",
+        error_message: null,
+      },
+    ],
+  });
+  mockGetLatestHandoffForDigest.mockResolvedValue({
+    id: "handoff-uuid-001",
+    status: "sent",
+    destination: "test_sink",
+  });
   mockListEvidenceMindDigests.mockResolvedValue({ digests: [digestRow] });
   mockGetEvidenceMindDigestById.mockResolvedValue({ digest: digestRow });
   mockListEvidenceMindDigestItemsForDigest.mockResolvedValue({
@@ -126,6 +154,9 @@ describe("mind-digests-page", () => {
     expect(pageData.selectedDigestItems).toHaveLength(1);
     expect(pageData.selectedDigestItems[0].item_type).toBe("evidence_brief");
     expect(pageData.handoffsConfigured).toBe(true);
+    expect(pageData.sendEventsConfigured).toBe(true);
+    expect(pageData.selectedDigestHandoffSendEvents).toHaveLength(1);
+    expect(pageData.selectedDigestHandoffSendEvents[0].event_type).toBe("send_succeeded");
   });
 
   it("redirects after successful handoff creation submission", async () => {

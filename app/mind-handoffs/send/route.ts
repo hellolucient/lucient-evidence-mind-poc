@@ -6,6 +6,7 @@ import {
   resolveReviewQueueAccess,
 } from "@/lib/operator-auth";
 import { processMindHandoffSendSubmission } from "@/lib/review/mind-digests-page";
+import { getSupabaseAuthUser } from "@/lib/supabase/auth-server";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const submission = await processMindHandoffSendSubmission(auth, handoffId, digestId || undefined);
+  const submission = await processMindHandoffSendSubmission(
+    auth,
+    handoffId,
+    digestId || undefined,
+    auth.mode === "operator" ? (await getSupabaseAuthUser())?.email : null
+  );
 
   if (submission.result.ok) {
     revalidatePath("/mind-digests");

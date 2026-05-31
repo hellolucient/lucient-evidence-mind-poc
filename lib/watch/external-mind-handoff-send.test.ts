@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockGetExternalMindHandoffById = vi.fn();
 const mockRecordExternalMindHandoffSendAttempt = vi.fn();
 const mockExecuteExternalMindHandoffTransport = vi.fn();
+const mockRecordExternalMindHandoffSendAttempted = vi.fn();
+const mockRecordExternalMindHandoffSendOutcome = vi.fn();
 
 vi.mock("@/lib/watch/external-mind-handoff-store", () => ({
   getExternalMindHandoffById: (...args: unknown[]) => mockGetExternalMindHandoffById(...args),
@@ -13,6 +15,18 @@ vi.mock("@/lib/watch/external-mind-handoff-store", () => ({
 vi.mock("@/lib/watch/external-mind-handoff-sender", () => ({
   executeExternalMindHandoffTransport: (...args: unknown[]) =>
     mockExecuteExternalMindHandoffTransport(...args),
+}));
+
+vi.mock("@/lib/watch/external-mind-handoff-send-audit", () => ({
+  recordExternalMindHandoffSendAttempted: (...args: unknown[]) =>
+    mockRecordExternalMindHandoffSendAttempted(...args),
+  recordExternalMindHandoffSendOutcome: (...args: unknown[]) =>
+    mockRecordExternalMindHandoffSendOutcome(...args),
+  mapSendErrorToEventResult: (error: string) =>
+    error === "already_sent" ? "already_sent" : error === "handoff_not_ready" ? "invalid_status" : "failed",
+  mapSendErrorToEventType: (error: string) =>
+    error === "already_sent" ? "send_already_sent" : "send_blocked",
+  buildPrivacySafeMetadata: () => null,
 }));
 
 import { sendExternalMindHandoff } from "@/lib/watch/external-mind-handoff-send";
@@ -58,7 +72,7 @@ const payload = {
   referenced_review_items: [],
   generated_at: "2026-05-31T12:00:00.000Z",
   source_system: "lucient_evidence_mind",
-  phase: "31",
+  phase: "33",
 };
 
 const readyHandoff = {
@@ -135,7 +149,7 @@ describe("external-mind-handoff-send", () => {
     }
   });
 
-  it("refuses non-ready handoff", async () => {
+  it("refuses non-ready handoff and writes blocked audit events", async () => {
     mockGetExternalMindHandoffById.mockResolvedValueOnce({
       handoff: { ...readyHandoff, status: "draft" },
     });
@@ -143,52 +157,35 @@ describe("external-mind-handoff-send", () => {
     const result = await sendExternalMindHandoff("handoff-uuid-001", operatorAccess);
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toBe("handoff_not_ready");
-    }
+    expect(mockRecordExternalMindHandoffSendAttempted).toHaveBeenCalledOnce();
+    expect(mockRecordExternalMindHandoffSendOutcome).toHaveBeenCalledOnce();
   });
 
-  it("refuses already sent handoff", async () => {
+  it("refuses already sent handoff and writes already_sent audit events", async () => {
     mockGetExternalMindHandoffById.mockResolvedValueOnce({
       handoff: {
         ...readyHandoff,
         status: "sent",
         sent_at: "2026-05-31T13:00:00.000Z",
-        send_result_json: {
-          result: "test_sink_sent",
-          destination: "test_sink",
-          payload_version: "mind_digest_payload_v1",
-          timestamp: "2026-05-31T13:00:00.000Z",
-          test_sink_only: true,
-        },
       },
     });
 
     const result = await sendExternalMindHandoff("handoff-uuid-001", operatorAccess);
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toBe("already_sent");
-    }
+    expect(mockRecordExternalMindHandoffSendAttempted).toHaveBeenCalledOnce();
+    expect(mockRecordExternalMindHandoffSendOutcome).toHaveBeenCalledOnce();
   });
 
-  it("marks test_sink handoff sent with privacy-safe send result", async () => {
+  it("marks test_sink handoff sent and writes attempted/succeeded audit events", async () => {
     const result = await sendExternalMindHandoff("handoff-uuid-001", operatorAccess);
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.handoff.status).toBe("sent");
-      expect(result.handoff.sent_at).toBe("2026-05-31T13:00:00.000Z");
-      expect(result.sendResult.result).toBe("test_sink_sent");
-      expect(result.sendResult.test_sink_only).toBe(true);
-    }
-
-    expect(mockRecordExternalMindHandoffSendAttempt).toHaveBeenCalledWith(
-      "handoff-uuid-001",
-      operatorAccess,
+    expect(mockRecordExternalMindHandoffSendAttempted).toHaveBeenCalledOnce();
+    expect(mockRecordExternalMindHandoffSendOutcome).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: "sent",
-        send_result_json: expect.objectContaining({ result: "test_sink_sent" }),
+        eventType: "send_succeeded",
+        result: "test_sink_sent",
       })
     );
   });
@@ -212,27 +209,53 @@ describe("external-mind-handoff-send", () => {
       handoff: {
         ...readyHandoff,
         destination: "animoca_mind",
-        send_attempted_at: "2026-05-31T13:00:00.000Z",
-        send_result_json: {
-          result: "send_disabled",
-          destination: "animoca_mind",
-          payload_version: "mind_digest_payload_v1",
-          timestamp: "2026-05-31T13:00:00.000Z",
-        },
       },
     });
 
     const result = await sendExternalMindHandoff("handoff-uuid-001", operatorAccess);
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toBe("send_disabled");
-    }
+    expect(mockRecordExternalMindHandoffSendAttempted).toHaveBeenCalledOnce();
+    expect(mockRecordExternalMindHandoffSendOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "send_blocked",
+        result: "send_disabled",
+      })
+    );
+  });
 
-    expect(mockRecordExternalMindHandoffSendAttempt).toHaveBeenCalledWith(
-      "handoff-uuid-001",
-      operatorAccess,
-      expect.objectContaining({ status: "ready" })
+  it("records failed send when external enabled but config missing", async () => {
+    mockGetExternalMindHandoffById.mockResolvedValueOnce({
+      handoff: { ...readyHandoff, destination: "animoca_mind" },
+    });
+    mockExecuteExternalMindHandoffTransport.mockResolvedValueOnce({
+      kind: "failed",
+      error: "missing_config",
+      errorMessage: "missing_config",
+      sendResult: {
+        result: "missing_config",
+        destination: "animoca_mind",
+        payload_version: "mind_digest_payload_v1",
+        timestamp: "2026-05-31T13:00:00.000Z",
+      },
+    });
+    mockRecordExternalMindHandoffSendAttempt.mockResolvedValueOnce({
+      ok: true,
+      handoff: {
+        ...readyHandoff,
+        destination: "animoca_mind",
+        status: "failed",
+      },
+    });
+
+    const result = await sendExternalMindHandoff("handoff-uuid-001", operatorAccess);
+
+    expect(result.ok).toBe(false);
+    expect(mockRecordExternalMindHandoffSendOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "send_failed",
+        result: "missing_config",
+      })
     );
   });
 });

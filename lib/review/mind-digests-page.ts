@@ -16,6 +16,11 @@ import {
   externalMindHandoffSendErrorMessage,
   sendExternalMindHandoff,
 } from "@/lib/watch/external-mind-handoff-send";
+import {
+  isExternalMindHandoffSendEventPersistenceConfigured,
+  listExternalMindHandoffSendEventsForHandoff,
+  type PrivacySafeExternalMindHandoffSendEvent,
+} from "@/lib/watch/external-mind-handoff-send-event-store";
 import type { PrivacySafeExternalMindHandoffWithPayload } from "@/lib/watch/external-mind-handoff-store";
 import {
   isExternalMindHandoffPersistenceConfigured,
@@ -52,6 +57,8 @@ export type MindDigestsPageData = {
   selectedDigest: PrivacySafeEvidenceMindDigest | null;
   selectedDigestItems: PrivacySafeEvidenceMindDigestItem[];
   selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null;
+  selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[];
+  sendEventsConfigured: boolean;
   defaultWorkspaceId: string;
   listError: string | null;
   listErrorMessage: string | null;
@@ -168,6 +175,8 @@ export function mindDigestsErrorMessage(error: string): string {
       return "Evidence Mind digest not found.";
     case "external_mind_handoffs_table_missing":
       return "The external_mind_handoffs table is missing. Apply the Phase 31 migration in Supabase.";
+    case "external_mind_handoff_send_events_table_missing":
+      return "The external_mind_handoff_send_events table is missing. Apply the Phase 33 migration in Supabase.";
     case "handoff_not_found":
       return "External Mind handoff not found.";
     default:
@@ -182,6 +191,7 @@ export async function buildMindDigestsPageData(
   const filters = parseMindDigestsPageFilters(params);
   const configured = isEvidenceMindDigestPersistenceConfigured();
   const handoffsConfigured = isExternalMindHandoffPersistenceConfigured();
+  const sendEventsConfigured = isExternalMindHandoffSendEventPersistenceConfigured();
   const defaultWorkspaceId =
     access.mode === "operator"
       ? (access.workspaceIds[0] ?? DEMO_WORKSPACE_ID)
@@ -196,6 +206,8 @@ export async function buildMindDigestsPageData(
       selectedDigest: null,
       selectedDigestItems: [],
       selectedDigestHandoff: null,
+      selectedDigestHandoffSendEvents: [],
+      sendEventsConfigured: false,
       defaultWorkspaceId,
       listError: "supabase_not_configured",
       listErrorMessage: mindDigestsErrorMessage("supabase_not_configured"),
@@ -214,6 +226,7 @@ export async function buildMindDigestsPageData(
   let selectedDigest: PrivacySafeEvidenceMindDigest | null = null;
   let selectedDigestItems: PrivacySafeEvidenceMindDigestItem[] = [];
   let selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null = null;
+  let selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[] = [];
   let detailError: string | null = null;
 
   if (selectedDigestId) {
@@ -230,6 +243,16 @@ export async function buildMindDigestsPageData(
 
       if (handoffsConfigured) {
         selectedDigestHandoff = await getLatestHandoffForDigest(selectedDigestId, access);
+        if (selectedDigestHandoff && sendEventsConfigured) {
+          const eventsResult = await listExternalMindHandoffSendEventsForHandoff(
+            selectedDigestHandoff.id,
+            access
+          );
+          selectedDigestHandoffSendEvents = eventsResult.events;
+          if (eventsResult.error && eventsResult.error !== "forbidden") {
+            detailError = detailError ?? eventsResult.error;
+          }
+        }
       }
     } else if (digestResult.error) {
       detailError = digestResult.error;
@@ -244,6 +267,8 @@ export async function buildMindDigestsPageData(
     selectedDigest,
     selectedDigestItems,
     selectedDigestHandoff,
+    selectedDigestHandoffSendEvents,
+    sendEventsConfigured,
     defaultWorkspaceId,
     listError: listResult.error ?? null,
     listErrorMessage: listResult.error ? mindDigestsErrorMessage(listResult.error) : null,
@@ -326,9 +351,10 @@ export type MindHandoffSendSubmissionResult = {
 export async function processMindHandoffSendSubmission(
   access: ReviewQueueAccessContext,
   handoffId: string,
-  digestId?: string
+  digestId?: string,
+  operatorEmail?: string | null
 ): Promise<MindHandoffSendSubmissionResult> {
-  const result = await sendExternalMindHandoff(handoffId, access);
+  const result = await sendExternalMindHandoff(handoffId, access, { operatorEmail });
   const digestQuery = digestId ? `digest_id=${encodeURIComponent(digestId)}&` : "";
 
   if (!result.ok) {

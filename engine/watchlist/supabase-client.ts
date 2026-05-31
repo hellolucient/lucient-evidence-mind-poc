@@ -14,6 +14,7 @@ const EVIDENCE_CHANGE_BRIEF_CLAIMS_TABLE = "evidence_change_brief_claims";
 const EVIDENCE_MIND_DIGESTS_TABLE = "evidence_mind_digests";
 const EVIDENCE_MIND_DIGEST_ITEMS_TABLE = "evidence_mind_digest_items";
 const EXTERNAL_MIND_HANDOFFS_TABLE = "external_mind_handoffs";
+const EXTERNAL_MIND_HANDOFF_SEND_EVENTS_TABLE = "external_mind_handoff_send_events";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -73,4 +74,5 @@ export {
   EVIDENCE_MIND_DIGESTS_TABLE,
   EVIDENCE_MIND_DIGEST_ITEMS_TABLE,
   EXTERNAL_MIND_HANDOFFS_TABLE,
+  EXTERNAL_MIND_HANDOFF_SEND_EVENTS_TABLE,
 };

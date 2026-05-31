@@ -136,8 +136,8 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
         <h1 style={{ marginTop: 0, marginBottom: "0.35rem" }}>Mind digests</h1>
         <p style={{ margin: 0, color: "#475569", fontSize: "0.9375rem" }}>
           Internal watchtower summaries built from stored evidence alerts, review items, briefs, and
-          mapped claims. Phase 32 adds disabled-by-default external Mind send plumbing with safe
-          test-sink send behavior; real Animoca Mind delivery remains off unless explicitly enabled.
+          mapped claims. Phase 33 adds a durable send audit log for handoff send attempts; real
+          Animoca Mind delivery remains disabled unless explicitly enabled in server configuration.
         </p>
         <nav style={styles.nav}>
           <a href="/review-items">Review queue</a>
@@ -385,6 +385,48 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                   <pre style={styles.codePreview}>
                     {JSON.stringify(pageData.selectedDigestHandoff.payload_json, null, 2)}
                   </pre>
+
+                  {pageData.sendEventsConfigured ? (
+                    <>
+                      <h4 style={{ fontSize: "0.875rem", marginTop: "1.25rem" }}>Send history</h4>
+                      {pageData.selectedDigestHandoffSendEvents.length === 0 ? (
+                        <p style={{ ...styles.note, marginTop: "0.5rem" }}>
+                          No send events recorded for this handoff yet.
+                        </p>
+                      ) : (
+                        <table style={{ ...styles.table, marginTop: "0.5rem" }}>
+                          <thead>
+                            <tr>
+                              <th style={styles.th}>Event</th>
+                              <th style={styles.th}>Result</th>
+                              <th style={styles.th}>Destination</th>
+                              <th style={styles.th}>Actor</th>
+                              <th style={styles.th}>Access</th>
+                              <th style={styles.th}>Attempted</th>
+                              <th style={styles.th}>Completed</th>
+                              <th style={styles.th}>Error</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pageData.selectedDigestHandoffSendEvents.map((event, index) => (
+                              <tr key={`${event.event_type}:${event.attempted_at}:${index}`}>
+                                <td style={styles.td}>{event.event_type}</td>
+                                <td style={styles.td}>{event.result ?? "—"}</td>
+                                <td style={styles.td}>{event.destination}</td>
+                                <td style={styles.td}>{event.actor_type}</td>
+                                <td style={styles.td}>{event.access_mode ?? "—"}</td>
+                                <td style={styles.td}>{formatTimestamp(event.attempted_at)}</td>
+                                <td style={styles.td}>
+                                  {event.completed_at ? formatTimestamp(event.completed_at) : "—"}
+                                </td>
+                                <td style={styles.td}>{event.error_message ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </>
+                  ) : null}
                 </div>
               ) : (
                 <p style={{ ...styles.note, marginTop: "0.75rem" }}>
