@@ -12,6 +12,11 @@ import {
   type DigestItemType,
   type EvidenceMindDigestStatus,
 } from "@/lib/review/evidence-mind-digest-constants";
+import {
+  ACTIVE_EVIDENCE_MIND_DIGEST_STATUSES,
+  canonicalDigestPeriodInstant,
+  digestPeriodBoundsEqual,
+} from "@/lib/review/evidence-mind-digest-period";
 import { canAccessReviewItemWorkspace, type ReviewQueueAccessContext } from "@/lib/operator-auth";
 import { sanitizeWatchRunErrorMessage } from "@/lib/watch/watch-run-logger";
 
@@ -187,6 +192,16 @@ function isMissingTableError(error: { code?: string; message?: string }): boolea
   );
 }
 
+function isDuplicateActiveDigestError(error: { code?: string; message?: string }): boolean {
+  const message = error.message?.toLowerCase() ?? "";
+  return (
+    error.code === "23505" &&
+    (message.includes("evidence_mind_digests_active_period_unique_idx") ||
+      message.includes("duplicate key") ||
+      message.includes("unique constraint"))
+  );
+}
+
 function normalizeStoreError(error: unknown, tableKind: "digests" | "digest_items"): string {
   const sanitized = sanitizeWatchRunErrorMessage(error);
 
@@ -198,6 +213,15 @@ function normalizeStoreError(error: unknown, tableKind: "digests" | "digest_item
     return tableKind === "digests"
       ? "evidence_mind_digests_table_missing"
       : "evidence_mind_digest_items_table_missing";
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    tableKind === "digests" &&
+    isDuplicateActiveDigestError(error as { code?: string; message?: string })
+  ) {
+    return "duplicate_active_digest";
   }
 
   return sanitized;
@@ -328,8 +352,8 @@ export async function createEvidenceMindDigest(
       .from(EVIDENCE_MIND_DIGESTS_TABLE)
       .insert({
         workspace_id: input.workspace_id.trim(),
-        period_start: input.period_start,
-        period_end: input.period_end,
+        period_start: canonicalDigestPeriodInstant(input.period_start),
+        period_end: canonicalDigestPeriodInstant(input.period_end),
         digest_title: input.digest_title.trim(),
         digest_summary: input.digest_summary.trim(),
         watchlists_checked_count: input.watchlists_checked_count,
@@ -551,17 +575,40 @@ export async function findActiveDigestForPeriod(
     return { digest: null, error: "forbidden" };
   }
 
-  const listResult = await listEvidenceMindDigests(access, { workspace_id: workspaceId });
-  if (listResult.error) {
-    return { digest: null, error: listResult.error };
+  if (!isEvidenceMindDigestPersistenceConfigured()) {
+    return { digest: null, error: "supabase_not_configured" };
   }
 
-  const activeDigest = listResult.digests.find(
-    (digest) =>
-      (digest.status === "draft" || digest.status === "ready_for_review") &&
-      digest.period_start === periodStart &&
-      digest.period_end === periodEnd
-  );
+  try {
+    const client = createSupabaseServerClient();
+    const { data, error } = await client
+      .from(EVIDENCE_MIND_DIGESTS_TABLE)
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .in("status", [...ACTIVE_EVIDENCE_MIND_DIGEST_STATUSES])
+      .order("created_at", { ascending: false })
+      .limit(20);
 
-  return { digest: activeDigest ?? null };
+    if (error) {
+      return { digest: null, error: normalizeStoreError(error, "digests") };
+    }
+
+    const canonicalStart = canonicalDigestPeriodInstant(periodStart);
+    const canonicalEnd = canonicalDigestPeriodInstant(periodEnd);
+
+    const activeDigest = ((data ?? []) as EvidenceMindDigestRow[]).find((digest) =>
+      digestPeriodBoundsEqual(
+        digest.period_start,
+        digest.period_end,
+        canonicalStart,
+        canonicalEnd
+      )
+    );
+
+    return {
+      digest: activeDigest ? toPrivacySafeEvidenceMindDigest(activeDigest) : null,
+    };
+  } catch (error) {
+    return { digest: null, error: normalizeStoreError(error, "digests") };
+  }
 }

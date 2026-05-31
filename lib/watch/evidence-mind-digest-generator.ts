@@ -281,12 +281,14 @@ export async function generateDemoEvidenceMindDigest(
   }
 
   const period = buildRecentDigestPeriod();
+  const canonicalStart = period.period_start;
+  const canonicalEnd = period.period_end;
 
   if (!options?.skipDuplicateCheck) {
     const existing = await findActiveDigestForPeriod(
       workspaceId,
-      period.period_start,
-      period.period_end,
+      canonicalStart,
+      canonicalEnd,
       access
     );
     if (existing.digest) {
@@ -294,11 +296,7 @@ export async function generateDemoEvidenceMindDigest(
     }
   }
 
-  const source = await collectDigestSourceData(
-    workspaceId,
-    period.period_start,
-    period.period_end
-  );
+  const source = await collectDigestSourceData(workspaceId, canonicalStart, canonicalEnd);
 
   if (source.error && source.error !== "supabase_not_configured") {
     return {
@@ -313,6 +311,18 @@ export async function generateDemoEvidenceMindDigest(
 
   const createResult = await createEvidenceMindDigest(insertInput, access);
   if (!createResult.ok) {
+    if (createResult.error === "duplicate_active_digest" && !options?.skipDuplicateCheck) {
+      const existing = await findActiveDigestForPeriod(
+        workspaceId,
+        canonicalStart,
+        canonicalEnd,
+        access
+      );
+      if (existing.digest) {
+        return { ok: true, digest: existing.digest, duplicate_skipped: true };
+      }
+    }
+
     return {
       ok: false,
       error: createResult.error,
@@ -350,6 +360,8 @@ export function digestGenerationErrorMessage(error: string): string {
       return "You do not have access to create digests in this workspace.";
     case "required_fields_missing":
       return "Required digest fields are missing.";
+    case "duplicate_active_digest":
+      return "An active digest already exists for this period.";
     default:
       return `Unable to generate digest: ${error}`;
   }

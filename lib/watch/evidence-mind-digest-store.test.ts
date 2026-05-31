@@ -27,6 +27,7 @@ vi.mock("@/engine/watchlist/supabase-client", () => ({
 import {
   createEvidenceMindDigest,
   createEvidenceMindDigestItemSnapshots,
+  findActiveDigestForPeriod,
   getEvidenceMindDigestById,
   isPrivacySafeEvidenceMindDigestItemPayload,
   isPrivacySafeEvidenceMindDigestPayload,
@@ -251,5 +252,79 @@ describe("evidence-mind-digest-store", () => {
     const safe = toPrivacySafeEvidenceMindDigestItem(digestItemRow);
     expect(isPrivacySafeEvidenceMindDigestItemPayload(safe)).toBe(true);
     expect("id" in safe).toBe(false);
+  });
+
+  it("findActiveDigestForPeriod matches period bounds across timestamp formats", async () => {
+    queryBuilder.limit.mockResolvedValueOnce({
+      data: [
+        {
+          ...digestRow,
+          period_start: "2026-05-24T00:00:00+00:00",
+          period_end: "2026-05-31T23:59:59.999+00:00",
+        },
+      ],
+      error: null,
+    });
+
+    const result = await findActiveDigestForPeriod(
+      "demo-workspace-spa-menu",
+      "2026-05-24T00:00:00.000Z",
+      "2026-05-31T23:59:59.999Z",
+      operatorAccess
+    );
+
+    expect(result.digest?.id).toBe("digest-uuid-001");
+    expect(queryBuilder.in).toHaveBeenCalledWith("status", ["draft", "ready_for_review"]);
+  });
+
+  it("findActiveDigestForPeriod ignores reviewed and archived digests", async () => {
+    queryBuilder.limit.mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    const result = await findActiveDigestForPeriod(
+      "demo-workspace-spa-menu",
+      digestRow.period_start,
+      digestRow.period_end,
+      operatorAccess
+    );
+
+    expect(result.digest).toBeNull();
+  });
+
+  it("returns duplicate_active_digest when unique index rejects insert", async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: "23505",
+        message:
+          'duplicate key value violates unique constraint "evidence_mind_digests_active_period_unique_idx"',
+      },
+    });
+
+    const result = await createEvidenceMindDigest(
+      {
+        workspace_id: "demo-workspace-spa-menu",
+        period_start: digestRow.period_start,
+        period_end: digestRow.period_end,
+        digest_title: digestRow.digest_title,
+        digest_summary: digestRow.digest_summary,
+        watchlists_checked_count: 0,
+        new_alerts_count: 0,
+        review_items_count: 0,
+        briefs_count: 0,
+        affected_claim_families_count: 0,
+        affected_client_claims_count: 0,
+        highest_risk_implication: "none",
+        recommended_focus: digestRow.recommended_focus,
+      },
+      operatorAccess
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("duplicate_active_digest");
+    }
   });
 });

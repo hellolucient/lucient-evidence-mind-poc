@@ -142,7 +142,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
       {pageData.generateFlash?.kind === "success" ? (
         <div style={styles.success}>
           {pageData.generateFlash.duplicate_skipped
-            ? "An active digest already exists for this workspace and period — showing existing digest."
+            ? "An active digest already exists for this period — showing existing digest."
             : "Demo Mind digest generated."}
         </div>
       ) : null}

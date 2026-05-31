@@ -185,6 +185,26 @@ describe("evidence-mind-digest-generator", () => {
       expect(result.duplicate_skipped).toBe(true);
     }
     expect(mockCreateEvidenceMindDigest).not.toHaveBeenCalled();
+    expect(mockCreateEvidenceMindDigestItemSnapshots).not.toHaveBeenCalled();
+  });
+
+  it("returns existing digest when insert hits duplicate_active_digest race", async () => {
+    mockCreateEvidenceMindDigest.mockResolvedValueOnce({
+      ok: false,
+      error: "duplicate_active_digest",
+    });
+    mockFindActiveDigestForPeriod
+      .mockResolvedValueOnce({ digest: null })
+      .mockResolvedValueOnce({ digest: digestRow });
+
+    const result = await generateDemoEvidenceMindDigest(operatorAccess);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.duplicate_skipped).toBe(true);
+      expect(result.digest.id).toBe("digest-uuid-001");
+    }
+    expect(mockCreateEvidenceMindDigestItemSnapshots).not.toHaveBeenCalled();
   });
 
   it("blocks cross-workspace operator demo generation", async () => {

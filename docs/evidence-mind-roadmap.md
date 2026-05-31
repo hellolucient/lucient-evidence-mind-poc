@@ -414,6 +414,7 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Added demo digest generation action (last 7 days for demo workspace)
 - Added highest-risk ranking and recommended operator focus
 - Added duplicate prevention for active digests (same workspace + period)
+- **Production fix (pending re-validation):** canonical period comparison (`+00:00` vs `.000Z`), pre-insert active lookup, migration archives pre-existing duplicate active rows then adds partial unique index on active statuses, and duplicate-skip UI message
 - Updated phase marker to `29`
 
 **Architecture note:** Phase 29 creates internal durable Mind Digests but does not call an external Animoca Mind and does not schedule automatic digest generation. External Mind handoff is Phase 31 or later; scheduled generation is Phase 30 or later.
@@ -422,8 +423,9 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 
 | Area | Change |
 |------|--------|
-| Supabase migration | `20260531180000_create_evidence_mind_digests.sql` |
+| Supabase migration | `20260531180000_create_evidence_mind_digests.sql`, `20260531190000_add_evidence_mind_digests_active_period_unique_idx.sql` |
 | Digest store | `lib/watch/evidence-mind-digest-store.ts` |
+| Period helpers | `lib/review/evidence-mind-digest-period.ts` |
 | Digest data collector | `lib/watch/evidence-mind-digest-data-collector.ts` |
 | Digest generator | `lib/watch/evidence-mind-digest-generator.ts` |
 | Digest constants | `lib/review/evidence-mind-digest-constants.ts` |
