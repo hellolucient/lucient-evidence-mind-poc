@@ -436,6 +436,8 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
           <a href="/client-claims">Client claims</a>
           {" · "}
           <a href="/evidence-briefs">Evidence briefs</a>
+          {" · "}
+          <a href="/mind-digests">Mind digests</a>
         </p>
       </header>
 

@@ -1,9 +1,9 @@
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
-import type { EvidenceBriefsPageData } from "@/lib/review/evidence-briefs-page";
+import type { MindDigestsPageData } from "@/lib/review/mind-digests-page";
 
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
-const GENERATE_DEMO_PATH = "/evidence-briefs/generate-demo";
+const GENERATE_DEMO_PATH = "/mind-digests/generate-demo";
 
 const styles = {
   page: {
@@ -79,10 +79,15 @@ const styles = {
   selectedRow: {
     background: "#eff6ff",
   } as const,
+  note: {
+    fontSize: "0.8125rem",
+    color: "#64748b",
+    marginBottom: "0.75rem",
+  } as const,
 };
 
-type EvidenceBriefsViewProps = {
-  pageData: EvidenceBriefsPageData;
+type MindDigestsViewProps = {
+  pageData: MindDigestsPageData;
   authStatus: ReviewQueueAuthPanelData;
 };
 
@@ -95,24 +100,27 @@ function formatTimestamp(value: string): string {
   return date.toLocaleString();
 }
 
-function claimFamilyDisplayName(
-  claimFamily: string,
-  profiles: EvidenceBriefsPageData["claimFamilyProfiles"]
-): string {
-  const profile = profiles.find((entry) => entry.claim_family === claimFamily);
-  return profile?.display_name ?? claimFamily;
+function formatPeriod(start: string, end: string): string {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return `${start} – ${end}`;
+  }
+
+  return `${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`;
 }
 
-export function EvidenceBriefsView({ pageData, authStatus }: EvidenceBriefsViewProps) {
-  const selectedBriefId = pageData.selectedBrief?.id ?? null;
+export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) {
+  const selectedDigestId = pageData.selectedDigest?.id ?? null;
 
   return (
     <main style={styles.page}>
       <header style={styles.header}>
-        <h1 style={{ marginTop: 0, marginBottom: "0.35rem" }}>Evidence change briefs</h1>
+        <h1 style={{ marginTop: 0, marginBottom: "0.35rem" }}>Mind digests</h1>
         <p style={{ margin: 0, color: "#475569", fontSize: "0.9375rem" }}>
-          Internal briefs generated when evidence changes affect mapped claim families and client
-          claims.
+          Internal watchtower summaries built from stored evidence alerts, review items, briefs, and
+          mapped claims. Phase 29 does not call an external Animoca Mind or schedule automatic
+          generation.
         </p>
         <nav style={styles.nav}>
           <a href="/review-items">Review queue</a>
@@ -134,8 +142,8 @@ export function EvidenceBriefsView({ pageData, authStatus }: EvidenceBriefsViewP
       {pageData.generateFlash?.kind === "success" ? (
         <div style={styles.success}>
           {pageData.generateFlash.duplicate_skipped
-            ? "An active brief already exists for this claim family — showing existing brief."
-            : "Demo magnesium brief generated."}
+            ? "An active digest already exists for this workspace and period — showing existing digest."
+            : "Demo Mind digest generated."}
         </div>
       ) : null}
 
@@ -148,55 +156,56 @@ export function EvidenceBriefsView({ pageData, authStatus }: EvidenceBriefsViewP
       ) : null}
 
       <section style={styles.section}>
-        <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Generate demo brief</h2>
-        <p style={{ margin: "0 0 0.75rem", fontSize: "0.8125rem", color: "#64748b" }}>
-          Creates a template brief for claim family magnesium_cortisol_stress using durable Phase 27
-          mappings in workspace {pageData.defaultWorkspaceId}.
+        <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Generate demo digest</h2>
+        <p style={styles.note}>
+          Creates a template digest for workspace {pageData.defaultWorkspaceId} covering the last 7
+          days, summarizing existing evidence briefs, review items, alerts, and mappings where
+          available.
         </p>
         <form action={GENERATE_DEMO_PATH} method="post">
           <input type="hidden" name="workspace_id" value={pageData.defaultWorkspaceId} />
           <button type="submit" style={styles.button}>
-            Generate demo magnesium brief
+            Generate demo digest
           </button>
         </form>
       </section>
 
       <section style={styles.section}>
-        <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Briefs</h2>
-        {pageData.briefs.length === 0 ? (
+        <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Digests</h2>
+        {pageData.digests.length === 0 ? (
           <p style={{ margin: 0, color: "#64748b", fontSize: "0.875rem" }}>
-            No evidence change briefs yet.
+            No Mind digests yet.
           </p>
         ) : (
           <table style={styles.table}>
             <thead>
               <tr>
                 <th style={styles.th}>Title</th>
-                <th style={styles.th}>Claim family</th>
+                <th style={styles.th}>Period</th>
                 <th style={styles.th}>Status</th>
-                <th style={styles.th}>Risk</th>
+                <th style={styles.th}>Highest risk</th>
                 <th style={styles.th}>Affected claims</th>
                 <th style={styles.th}>Created</th>
               </tr>
             </thead>
             <tbody>
-              {pageData.briefs.map((brief) => (
+              {pageData.digests.map((digest) => (
                 <tr
-                  key={brief.id}
-                  style={brief.id === selectedBriefId ? styles.selectedRow : undefined}
+                  key={digest.id}
+                  style={digest.id === selectedDigestId ? styles.selectedRow : undefined}
                 >
                   <td style={styles.td}>
-                    <a href={`/evidence-briefs?brief_id=${encodeURIComponent(brief.id)}`}>
-                      {brief.brief_title}
+                    <a href={`/mind-digests?digest_id=${encodeURIComponent(digest.id)}`}>
+                      {digest.digest_title}
                     </a>
                   </td>
                   <td style={styles.td}>
-                    {claimFamilyDisplayName(brief.claim_family, pageData.claimFamilyProfiles)}
+                    {formatPeriod(digest.period_start, digest.period_end)}
                   </td>
-                  <td style={styles.td}>{brief.status}</td>
-                  <td style={styles.td}>{brief.risk_implication}</td>
-                  <td style={styles.td}>{brief.affected_client_claims_count}</td>
-                  <td style={styles.td}>{formatTimestamp(brief.created_at)}</td>
+                  <td style={styles.td}>{digest.status}</td>
+                  <td style={styles.td}>{digest.highest_risk_implication}</td>
+                  <td style={styles.td}>{digest.affected_client_claims_count}</td>
+                  <td style={styles.td}>{formatTimestamp(digest.created_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -208,59 +217,53 @@ export function EvidenceBriefsView({ pageData, authStatus }: EvidenceBriefsViewP
         <div style={styles.error}>{pageData.detailErrorMessage}</div>
       ) : null}
 
-      {pageData.selectedBrief ? (
+      {pageData.selectedDigest ? (
         <section style={styles.section}>
-          <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Brief detail</h2>
+          <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Digest detail</h2>
           <div style={styles.detailLabel}>Summary</div>
-          <div style={styles.detailValue}>{pageData.selectedBrief.brief_summary}</div>
+          <div style={styles.detailValue}>{pageData.selectedDigest.digest_summary}</div>
 
-          <div style={styles.detailLabel}>What changed</div>
-          <div style={styles.detailValue}>{pageData.selectedBrief.what_changed}</div>
+          <div style={styles.detailLabel}>Recommended focus</div>
+          <div style={styles.detailValue}>{pageData.selectedDigest.recommended_focus}</div>
 
-          <div style={styles.detailLabel}>Why it matters</div>
-          <div style={styles.detailValue}>{pageData.selectedBrief.why_it_matters}</div>
+          <div style={styles.detailLabel}>Watch activity</div>
+          <div style={styles.detailValue}>
+            Watchlists checked: {pageData.selectedDigest.watchlists_checked_count} · New alerts:{" "}
+            {pageData.selectedDigest.new_alerts_count} · Review items:{" "}
+            {pageData.selectedDigest.review_items_count} · Briefs:{" "}
+            {pageData.selectedDigest.briefs_count}
+          </div>
 
-          <div style={styles.detailLabel}>Evidence signal</div>
-          <div style={styles.detailValue}>{pageData.selectedBrief.evidence_signal}</div>
+          <div style={styles.detailLabel}>Affected scope</div>
+          <div style={styles.detailValue}>
+            Claim families: {pageData.selectedDigest.affected_claim_families_count} · Client claims:{" "}
+            {pageData.selectedDigest.affected_client_claims_count}
+          </div>
 
-          <div style={styles.detailLabel}>Risk implication</div>
-          <div style={styles.detailValue}>{pageData.selectedBrief.risk_implication}</div>
-
-          <div style={styles.detailLabel}>Recommended action</div>
-          <div style={styles.detailValue}>{pageData.selectedBrief.recommended_action}</div>
-
-          {pageData.selectedBrief.safer_wording ? (
-            <>
-              <div style={styles.detailLabel}>Safer wording</div>
-              <div style={styles.detailValue}>{pageData.selectedBrief.safer_wording}</div>
-            </>
-          ) : null}
-
-          <h3 style={{ fontSize: "0.9375rem", marginTop: "1rem" }}>Affected client claim snapshots</h3>
-          {pageData.selectedBriefClaims.length === 0 ? (
+          <h3 style={{ fontSize: "0.9375rem", marginTop: "1rem" }}>Digest item snapshots</h3>
+          {pageData.selectedDigestItems.length === 0 ? (
             <p style={{ margin: 0, color: "#64748b", fontSize: "0.875rem" }}>
-              No affected client claims were mapped at generation time.
+              No item snapshots were recorded for this digest.
             </p>
           ) : (
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>Client claim ID</th>
-                  <th style={styles.th}>Claim text (snapshot)</th>
-                  <th style={styles.th}>Source</th>
-                  <th style={styles.th}>Mapping confidence</th>
+                  <th style={styles.th}>Type</th>
+                  <th style={styles.th}>Title</th>
+                  <th style={styles.th}>Claim family</th>
+                  <th style={styles.th}>Client claim</th>
+                  <th style={styles.th}>Risk</th>
                 </tr>
               </thead>
               <tbody>
-                {pageData.selectedBriefClaims.map((claim) => (
-                  <tr key={`${claim.brief_id}:${claim.client_claim_id}`}>
-                    <td style={styles.td}>{claim.client_claim_id}</td>
-                    <td style={styles.td}>{claim.claim_text_snapshot}</td>
-                    <td style={styles.td}>
-                      {claim.claim_source_type ?? "—"}
-                      {claim.claim_source_label ? ` (${claim.claim_source_label})` : ""}
-                    </td>
-                    <td style={styles.td}>{claim.mapping_confidence ?? "—"}</td>
+                {pageData.selectedDigestItems.map((item) => (
+                  <tr key={`${item.digest_id}:${item.item_type}:${item.title_snapshot}:${item.item_ref_id ?? ""}`}>
+                    <td style={styles.td}>{item.item_type}</td>
+                    <td style={styles.td}>{item.title_snapshot}</td>
+                    <td style={styles.td}>{item.claim_family ?? "—"}</td>
+                    <td style={styles.td}>{item.client_claim_id ?? "—"}</td>
+                    <td style={styles.td}>{item.risk_implication ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

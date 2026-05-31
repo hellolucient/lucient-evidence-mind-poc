@@ -2,10 +2,10 @@
 
 > **Canonical live roadmap.** This file is the source of truth for current phase status. It **supersedes older phase docs** (including per-phase guides and `DEVELOPMENT_PHASES.md` sections written before Phase 21) when there is a conflict.
 
-High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–28, see the summary there and the detailed validation records below.
+High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–29, see the summary there and the detailed validation records below.
 
-**Current phase marker (production):** `28`  
-**Strategic status:** Internal alpha validated — Phases 1–28 production-validated; **Phase 29 (Mind Digest / Watchtower Summary) is next and not started.**
+**Current phase marker (production):** `29`  
+**Strategic status:** Internal alpha validated — Phases 1–28 production-validated; **Phase 29 (Mind Digest / Watchtower Summary) implemented — pending production validation.**
 
 ### Recent phase status (quick reference)
 
@@ -16,6 +16,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **26** | Durable client claim registry | **PASS / Production validated** |
 | **27** | Claim-to-watchlist mapping | **PASS / Production validated** |
 | **28** | Evidence change brief generator | **PASS / Production validated** |
+| **29** | Mind digest / watchtower summary | **Implemented — pending production validation** |
 
 ---
 
@@ -24,7 +25,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
 | **Completed** | 1–28 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry, claim-to-watchlist mapping, evidence change briefs |
-| **Mind integration** | 29–31 | Planned | Mind digest, client dashboard requirements, reporting/export |
+| **Mind integration** | 29 | Implemented (pending validation) | Internal Mind digest / watchtower summary |
+| **Mind integration** | 30–31 | Planned | Client dashboard planning, reporting/export, external Mind handoff |
 
 ---
 
@@ -122,13 +124,13 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Production validation: demo magnesium brief generation | 28 | **PASS / Done** | Brief and affected claim snapshots persisted; durable Phase 27 mappings used |
 | Production validation: duplicate prevention for active briefs | 28 | **PASS / Done** | Second generation for same workspace + claim family shows existing brief |
 | Production validation: review queue regressions after Phase 28 | 28 | **PASS / Done** | Audit trail, notes, client claims, mappings, auth, break-glass, cron isolation unchanged |
-| Mind digest / watchtower summary | 29 | Planned | Mind integration |
+| Mind digest / watchtower summary | 29 | Implemented | Internal `evidence_mind_digests` + `/mind-digests` UI + demo digest generation |
 | Client workspace dashboard planning | 30 | Planned | Requirements only |
 | Reporting and export layer | 31 | Planned | Mind integration |
 
 ---
 
-## Current System State After Phase 28
+## Current System State After Phase 29
 
 The POC is a validated **internal alpha** for evidence monitoring and operator review. Production-validated capabilities include:
 
@@ -168,8 +170,13 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Deterministic/template-based evidence change brief generator | Working |
 | Demo magnesium brief generation with durable Phase 27 mapping resolution | Working |
 | Duplicate prevention for active briefs (same workspace + claim family) | Working |
+| Durable Mind digests (`evidence_mind_digests`) | Working (Phase 29 — pending production validation) |
+| Digest item snapshots (`evidence_mind_digest_items`) | Working (Phase 29 — pending production validation) |
+| Internal Mind digests UI (`/mind-digests`) | Working (Phase 29 — pending production validation) |
+| Deterministic/template-based watchtower digest generator | Working (Phase 29 — pending production validation) |
+| Demo digest generation (last 7 days, manual trigger) | Working (Phase 29 — pending production validation) |
 
-**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, and view or generate evidence change briefs at `/evidence-briefs`.
+**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, and view or generate internal Mind digests at `/mind-digests`. Phase 29 digests are internal-only; they do not call an external Animoca Mind.
 
 ---
 
@@ -183,7 +190,8 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | In-memory claim mapper retained as fallback | Durable mapping lookup preferred in async handoff path; sync path and empty-mapping fallback still use in-memory demo mapper |
 | Watchlist configuration is developer-driven | Not yet client-operable |
 | Review queue has no note editing/deletion | Notes are append-only internal review notes |
-| No Mind digest or operating feed | Watchtower output is not yet Mind-readable at scale |
+| Mind digests are internal-only (Phase 29) | No external Animoca Mind call; no scheduled automatic generation yet |
+| Mind digest generation is template-only | Manually triggered via demo action; LLM enrichment planned for later phases |
 | No client-facing dashboard | Internal operator UI only |
 | No reporting or export layer | No claim-risk memos or monthly summaries |
 | No notification system | Email/alerts to operators or clients not built |
@@ -203,7 +211,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 4. **Review governance workflow** — operator notes and status audit trail are in place; note editing/deletion and richer decision rationale fields remain future work.
 5. **Claim-to-evidence linkage** — durable claim-to-watchlist mappings validated in Phase 27.
 6. **Structured evidence briefs** — template-based brief generator validated in Phase 28; LLM enrichment and automatic watch-triggered generation remain future work.
-7. **Mind digest / feed** — no consolidated watchtower summary for Mind consumption (Phase 29).
+7. **Mind digest / feed** — internal durable Mind Digests implemented in Phase 29; external Animoca Mind handoff and scheduled generation remain future work (Phases 30–31).
 8. **Client dashboard definition** — requirements for client-facing UX are undefined.
 9. **Reporting and export** — no exportable evidence reports or monitoring summaries.
 10. **Notifications** — no delivery layer for operator or client alerts.
@@ -270,6 +278,8 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 
 #### Phase 29 — Mind Digest / Watchtower Summary
 
+**Status:** Implemented — pending production validation
+
 **Goal:** Generate a Mind-readable digest summarizing:
 
 - new evidence detected
@@ -280,6 +290,29 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - recommended next actions
 
 **Why:** This becomes the operating feed for Animoca Evidence Mind.
+
+**Architecture note (Phase 29):** Phase 29 creates internal durable Mind Digests from the app’s own stored data using a deterministic/template-based generator. It does **not** call an external Animoca Mind and does **not** schedule automatic digest generation. External Mind handoff is planned for Phase 31 or later; scheduled digest generation is planned for Phase 30 or later.
+
+### Implementation summary (Phase 29)
+
+- Added durable digest storage (`evidence_mind_digests`)
+- Added digest item snapshot table (`evidence_mind_digest_items`)
+- Added store modules for digest CRUD, item snapshots, and privacy-safe shaping
+- Added deterministic/template-based digest generator from stored watch alerts, review items, briefs, and mappings
+- Added internal UI at `/mind-digests` with list, detail panel, and digest item snapshots
+- Added demo generation action: **Generate demo digest** (last 7 days for demo workspace)
+- Duplicate prevention: skips generation when an active digest (`draft` or `ready_for_review`) already exists for the same workspace + period
+- Updated phase marker to `29`
+
+**Limitations (Phase 29):**
+
+- Digest generation is template-based only; no LLM integration yet
+- No external Animoca Mind API call
+- No scheduled/automatic digest generation (manual demo button only)
+- Duplicate prevention is limited to active-status digests per workspace + exact period boundaries
+- Watch run and alert counts are global/claim-family scoped rather than fully workspace-isolated for all metrics
+
+---
 
 #### Phase 30 — Client Workspace Dashboard Planning
 
@@ -362,7 +395,50 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Future requirement: claim extraction from spa menus, product descriptions, labels, websites, marketing copy, and similar source material, with operator review before registry insertion (plan as Phase 26.5 or Phase 32).
 - No claim editing/deletion yet; status updates only.
 - In-memory `client-claim-mapper.ts` retained as fallback; durable mapping lookup preferred in async handoff path.
-- Phase 28 evidence change brief generator validated in production; Phase 29 not started.
+- Phase 29 Mind digest implemented — pending production validation.
+
+---
+
+## Phase 29 — Mind Digest / Watchtower Summary
+
+**Status:** Implemented — pending production validation
+
+**Purpose:** Create a durable internal watchtower digest summarizing watch activity, evidence alerts, review items, evidence change briefs, affected claim families, and affected client claims for a workspace period — without calling an external Animoca Mind or exposing secrets.
+
+### Implementation summary
+
+- Added durable Mind digest storage (`evidence_mind_digests`)
+- Added digest item snapshot storage (`evidence_mind_digest_items`)
+- Added deterministic/template-based digest generator from stored watch runs, alerts, review items, briefs, and mappings
+- Added `/mind-digests` internal page with list, detail panel, and digest item snapshots
+- Added demo digest generation action (last 7 days for demo workspace)
+- Added highest-risk ranking and recommended operator focus
+- Added duplicate prevention for active digests (same workspace + period)
+- Updated phase marker to `29`
+
+**Architecture note:** Phase 29 creates internal durable Mind Digests but does not call an external Animoca Mind and does not schedule automatic digest generation. External Mind handoff is Phase 31 or later; scheduled generation is Phase 30 or later.
+
+### Files / areas changed
+
+| Area | Change |
+|------|--------|
+| Supabase migration | `20260531180000_create_evidence_mind_digests.sql` |
+| Digest store | `lib/watch/evidence-mind-digest-store.ts` |
+| Digest data collector | `lib/watch/evidence-mind-digest-data-collector.ts` |
+| Digest generator | `lib/watch/evidence-mind-digest-generator.ts` |
+| Digest constants | `lib/review/evidence-mind-digest-constants.ts` |
+| Digests page/helpers | `lib/review/mind-digests-page.ts` |
+| Internal UI | `app/mind-digests/page.tsx`, `mind-digests-view.tsx` |
+| Demo generation route | `app/mind-digests/generate-demo/route.ts` |
+| Phase marker | `lib/watch/watch-phase.ts` → `29` |
+
+### Remaining limitations
+
+- Digest generation is template-only; no LLM generation yet.
+- No external Animoca Mind API call.
+- No scheduled/automatic digest generation (manual demo button only).
+- Duplicate prevention only blocks active `draft`/`ready_for_review` digests for the same workspace and exact period boundaries.
+- Phase 30 has not started.
 
 ---
 
@@ -432,7 +508,7 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Brief generation is manually triggered; not yet automatically triggered by watch/cron evidence changes.
 - Duplicate prevention only blocks active `draft`/`ready_for_review` briefs for the same workspace and claim family.
 - Safer wording is limited/static where available.
-- Phase 29 has not started.
+- Phase 30 has not started.
 
 ---
 
@@ -493,7 +569,7 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Claim create form still allows free-text for some fields (`claim_source_type`, `risk_level`, etc.); only mapping uses controlled claim-family profiles.
 - Mapping create does not auto-populate `watchlist_id` from profile `default_watchlist_id`.
 - Sync handoff path still uses in-memory mapper; async cron persistence path uses durable-first lookup.
-- Phase 28 evidence change brief generator validated in production; Phase 29 not started.
+- Phase 29 Mind digest implemented — pending production validation.
 
 ---
 
@@ -569,7 +645,7 @@ During Phase 25 production validation, magic-link operator login exposed a PKCE/
 - No note editing/deletion yet.
 - Notes are internal review notes only.
 - Audit write for `note_added` remains best-effort.
-- Phase 29 has not started.
+- Phase 30 has not started.
 
 ---
 
@@ -1099,20 +1175,25 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | Phase 27 | Record production validation as phase gate | Confirms mapping UI, durable resolution, and review queue regressions |
 | Phase 28 | Evidence change brief generator + `/evidence-briefs` UI | Durable operator-facing briefs from claim-family evidence changes |
 | Phase 28 | Record production validation as phase gate | Confirms brief generation, snapshots, duplicate prevention, and review queue regressions |
-| Strategic | Mind integration plan: Phases 29–31 (digest + dashboard planning + export) | Animoca Mind operating system outputs |
+| Phase 29 | Internal Mind digest + `/mind-digests` UI | Durable watchtower operational summary from stored data |
+| Phase 29 | Record production validation as phase gate | Confirms digest generation, snapshots, duplicate prevention, and regressions |
+| Strategic | Mind integration plan: Phases 30–31 (scheduled digest + dashboard planning + external handoff) | Animoca Mind operating system outputs |
 
 ---
 
 ## Next Recommended Step
 
-**Phase 29 — Mind Digest / Watchtower Summary**
+**Phase 29 — Production validation**
 
-Resume implementation with the smallest Mind-facing increment after validated evidence change briefs:
+Validate Phase 29 in production before starting Phase 30:
 
-1. Generate a Mind-readable digest summarizing new evidence, affected claim families, review items, pending operator actions, and recommended next steps.
-2. Use durable Phase 27 mappings and Phase 28 briefs as inputs where appropriate.
-3. Preserve workspace scoping, break-glass path, audit trail, notes, client claims UI, briefs UI, API protection, and cron isolation.
-4. Add tests for digest generation boundaries, privacy-safe output, and review-queue/watch regressions.
+1. Apply migration `20260531180000_create_evidence_mind_digests.sql` in Supabase.
+2. Operator login → `/mind-digests` → generate demo digest.
+3. Confirm digest row in `evidence_mind_digests` and snapshots in `evidence_mind_digest_items`.
+4. Confirm workspace scoping, break-glass access, and duplicate skip behavior.
+5. Regression: review queue, client claims, evidence briefs, audit trail, notes, mappings, cron protection.
+
+**After validation:** Phase 30 — scheduled digest generation and/or client dashboard planning (not started).
 
 **Planning only (do not implement yet):** Phase 26.5 controlled claim-form values; Phase 32 source-material claim extraction with operator review.
 
@@ -1139,13 +1220,13 @@ Resume implementation with the smallest Mind-facing increment after validated ev
 | 2026-05-31 | Phase 26 marked PASS / Production validated; manual claim registry, review-item linking, and controlled-value/extraction design notes recorded |
 | 2026-05-31 | Phase 27 implemented; claim family profiles, durable claim-to-watchlist mappings, `/client-claims` mapping UI, async handoff integration (pending production validation) |
 | 2026-05-31 | Phase 27 marked PASS / Production validated; mapping migration, controlled dropdown, durable resolution, and review queue regressions confirmed |
-| 2026-05-31 | Phase 28 marked PASS / Production validated; brief migration, demo generation, snapshots, duplicate prevention, and review queue regressions confirmed |
+| 2026-05-31 | Phase 29 implemented; Mind digests, digest item snapshots, `/mind-digests` UI, deterministic generator, demo digest action (pending production validation) |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 28 production validation (2026-05-31).
+**Last sync:** after Phase 29 implementation (2026-05-31).
 
 | Doc | Role after sync |
 |-----|-----------------|
@@ -1156,4 +1237,4 @@ Resume implementation with the smallest Mind-facing increment after validated ev
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 29 — Mind Digest / Watchtower Summary (not started).
+**Next build step:** Phase 29 production validation, then Phase 30 — scheduled digest generation / client dashboard planning.

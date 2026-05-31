@@ -11,6 +11,8 @@ const CLAIM_FAMILY_PROFILES_TABLE = "claim_family_profiles";
 const CLIENT_CLAIM_WATCHLIST_MAPPINGS_TABLE = "client_claim_watchlist_mappings";
 const EVIDENCE_CHANGE_BRIEFS_TABLE = "evidence_change_briefs";
 const EVIDENCE_CHANGE_BRIEF_CLAIMS_TABLE = "evidence_change_brief_claims";
+const EVIDENCE_MIND_DIGESTS_TABLE = "evidence_mind_digests";
+const EVIDENCE_MIND_DIGEST_ITEMS_TABLE = "evidence_mind_digest_items";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -67,4 +69,6 @@ export {
   CLIENT_CLAIM_WATCHLIST_MAPPINGS_TABLE,
   EVIDENCE_CHANGE_BRIEFS_TABLE,
   EVIDENCE_CHANGE_BRIEF_CLAIMS_TABLE,
+  EVIDENCE_MIND_DIGESTS_TABLE,
+  EVIDENCE_MIND_DIGEST_ITEMS_TABLE,
 };
