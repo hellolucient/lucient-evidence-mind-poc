@@ -3,6 +3,10 @@
     {
       "path": "/api/watch/cron",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/mind-digests/run-due",
+      "schedule": "0 22 * * 0"
     }
   ]
 }

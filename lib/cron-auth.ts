@@ -72,13 +72,14 @@ export function authorizeCronRequest(headers: {
 }
 
 export function buildCronUnauthorizedResponse(
-  auth: CronAuthFailure
+  auth: CronAuthFailure,
+  route = "/api/watch/cron"
 ): Record<string, unknown> {
   return {
     ok: false,
     error: "unauthorized",
     phase: CURRENT_WATCH_PHASE,
-    route: "/api/watch/cron",
+    route,
     cron_secret_configured: auth.cron_secret_configured,
     message: auth.reason,
   };

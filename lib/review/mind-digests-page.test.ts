@@ -52,6 +52,7 @@ const digestRow = {
   highest_risk_implication: "monitor",
   recommended_focus: "No immediate action required. Continue monitoring.",
   status: "ready_for_review",
+  generation_source: "manual",
   created_at: "2026-05-31T12:00:00.000Z",
   updated_at: "2026-05-31T12:00:00.000Z",
 };

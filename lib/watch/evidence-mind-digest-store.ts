@@ -5,9 +5,11 @@ import {
   getSupabaseEnvConfig,
 } from "@/engine/watchlist/supabase-client";
 import {
+  isSupportedDigestGenerationSource,
   isSupportedDigestHighestRiskImplication,
   isSupportedDigestItemType,
   isSupportedEvidenceMindDigestStatus,
+  type DigestGenerationSource,
   type DigestHighestRiskImplication,
   type DigestItemType,
   type EvidenceMindDigestStatus,
@@ -36,6 +38,7 @@ export type EvidenceMindDigestRow = {
   highest_risk_implication: string;
   recommended_focus: string;
   status: string;
+  generation_source: string;
   created_at: string;
   updated_at: string;
 };
@@ -56,6 +59,7 @@ export type PrivacySafeEvidenceMindDigest = {
   highest_risk_implication: string;
   recommended_focus: string;
   status: string;
+  generation_source: string;
   created_at: string;
   updated_at: string;
 };
@@ -104,6 +108,7 @@ export type EvidenceMindDigestInsertInput = {
   highest_risk_implication: DigestHighestRiskImplication;
   recommended_focus: string;
   status?: EvidenceMindDigestStatus;
+  generation_source?: DigestGenerationSource;
 };
 
 export type EvidenceMindDigestItemSnapshotInput = {
@@ -163,6 +168,7 @@ export const DIGEST_DISPLAY_FIELDS = [
   "highest_risk_implication",
   "recommended_focus",
   "status",
+  "generation_source",
   "created_at",
   "updated_at",
 ] as const;
@@ -251,6 +257,7 @@ export function toPrivacySafeEvidenceMindDigest(
     highest_risk_implication: row.highest_risk_implication,
     recommended_focus: row.recommended_focus,
     status: row.status,
+    generation_source: row.generation_source ?? "manual",
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -342,6 +349,11 @@ export async function createEvidenceMindDigest(
     return { ok: false, error: "unsupported_highest_risk_implication" };
   }
 
+  const generationSource = input.generation_source ?? "manual";
+  if (!isSupportedDigestGenerationSource(generationSource)) {
+    return { ok: false, error: "unsupported_generation_source" };
+  }
+
   if (!isEvidenceMindDigestPersistenceConfigured()) {
     return { ok: false, error: "supabase_not_configured" };
   }
@@ -365,6 +377,7 @@ export async function createEvidenceMindDigest(
         highest_risk_implication: input.highest_risk_implication,
         recommended_focus: input.recommended_focus.trim(),
         status,
+        generation_source: generationSource,
       })
       .select("*")
       .single();

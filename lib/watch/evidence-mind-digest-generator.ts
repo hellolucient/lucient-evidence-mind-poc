@@ -1,6 +1,7 @@
 import {
   DEMO_DIGEST_PERIOD_DAYS,
   DEMO_WORKSPACE_ID,
+  type DigestGenerationSource,
 } from "@/lib/review/evidence-mind-digest-constants";
 import type { DigestHighestRiskImplication } from "@/lib/review/evidence-mind-digest-constants";
 import type { ReviewQueueAccessContext } from "@/lib/operator-auth";
@@ -38,9 +39,18 @@ export type GeneratedDigestContent = {
   item_snapshots: EvidenceMindDigestItemSnapshotInput[];
 };
 
-export type DemoDigestGenerationResult =
+export type EvidenceMindDigestGenerationResult =
   | { ok: true; digest: PrivacySafeEvidenceMindDigest; duplicate_skipped?: boolean }
   | { ok: false; error: string; message: string };
+
+/** @deprecated Use EvidenceMindDigestGenerationResult */
+export type DemoDigestGenerationResult = EvidenceMindDigestGenerationResult;
+
+export type EvidenceMindDigestGenerationOptions = {
+  workspaceId?: string;
+  skipDuplicateCheck?: boolean;
+  generationSource?: DigestGenerationSource;
+};
 
 const RISK_RANK: Record<DigestHighestRiskImplication, number> = {
   claim_not_supported: 5,
@@ -250,7 +260,8 @@ export function generateEvidenceMindDigestContent(
 export function buildDigestInsertFromGeneratedContent(
   workspaceId: string,
   period: DigestPeriod,
-  content: GeneratedDigestContent
+  content: GeneratedDigestContent,
+  options?: { generationSource?: DigestGenerationSource }
 ): EvidenceMindDigestInsertInput {
   return {
     workspace_id: workspaceId,
@@ -267,14 +278,16 @@ export function buildDigestInsertFromGeneratedContent(
     highest_risk_implication: content.highest_risk_implication,
     recommended_focus: content.recommended_focus,
     status: "ready_for_review",
+    generation_source: options?.generationSource ?? "manual",
   };
 }
 
-export async function generateDemoEvidenceMindDigest(
+export async function generateEvidenceMindDigestForWorkspace(
   access: ReviewQueueAccessContext,
-  options?: { workspaceId?: string; skipDuplicateCheck?: boolean }
-): Promise<DemoDigestGenerationResult> {
+  options?: EvidenceMindDigestGenerationOptions
+): Promise<EvidenceMindDigestGenerationResult> {
   const workspaceId = options?.workspaceId ?? DEMO_WORKSPACE_ID;
+  const generationSource = options?.generationSource ?? "manual";
 
   if (access.mode === "operator" && !access.workspaceIds.includes(workspaceId)) {
     return { ok: false, error: "forbidden", message: "You do not have access to this workspace." };
@@ -307,7 +320,9 @@ export async function generateDemoEvidenceMindDigest(
   }
 
   const content = generateEvidenceMindDigestContent(source, period);
-  const insertInput = buildDigestInsertFromGeneratedContent(workspaceId, period, content);
+  const insertInput = buildDigestInsertFromGeneratedContent(workspaceId, period, content, {
+    generationSource,
+  });
 
   const createResult = await createEvidenceMindDigest(insertInput, access);
   if (!createResult.ok) {
@@ -346,6 +361,16 @@ export async function generateDemoEvidenceMindDigest(
   }
 
   return { ok: true, digest: createResult.digest };
+}
+
+export async function generateDemoEvidenceMindDigest(
+  access: ReviewQueueAccessContext,
+  options?: { workspaceId?: string; skipDuplicateCheck?: boolean }
+): Promise<EvidenceMindDigestGenerationResult> {
+  return generateEvidenceMindDigestForWorkspace(access, {
+    ...options,
+    generationSource: "manual",
+  });
 }
 
 export function digestGenerationErrorMessage(error: string): string {

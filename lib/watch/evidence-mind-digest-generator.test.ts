@@ -19,6 +19,7 @@ vi.mock("@/lib/watch/evidence-mind-digest-data-collector", () => ({
 import {
   generateDemoEvidenceMindDigest,
   generateEvidenceMindDigestContent,
+  generateEvidenceMindDigestForWorkspace,
   rankHighestDigestRisk,
   recommendedFocusForHighestRisk,
 } from "@/lib/watch/evidence-mind-digest-generator";
@@ -59,6 +60,7 @@ const digestRow = {
   highest_risk_implication: "wording_review_recommended",
   recommended_focus: "Review wording for affected mapped claims.",
   status: "ready_for_review",
+  generation_source: "manual",
   created_at: "2026-05-31T12:00:00.000Z",
   updated_at: "2026-05-31T12:00:00.000Z",
 };
@@ -220,5 +222,26 @@ describe("evidence-mind-digest-generator", () => {
     const result = await generateDemoEvidenceMindDigest(breakGlassAccess);
 
     expect(result.ok).toBe(true);
+  });
+
+  it("passes manual generation source to digest insert", async () => {
+    await generateDemoEvidenceMindDigest(operatorAccess);
+
+    expect(mockCreateEvidenceMindDigest).toHaveBeenCalledWith(
+      expect.objectContaining({ generation_source: "manual" }),
+      operatorAccess
+    );
+  });
+
+  it("passes scheduled generation source for workspace generation", async () => {
+    await generateEvidenceMindDigestForWorkspace(breakGlassAccess, {
+      workspaceId: "demo-workspace-spa-menu",
+      generationSource: "scheduled",
+    });
+
+    expect(mockCreateEvidenceMindDigest).toHaveBeenCalledWith(
+      expect.objectContaining({ generation_source: "scheduled" }),
+      breakGlassAccess
+    );
   });
 });

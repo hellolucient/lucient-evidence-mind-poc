@@ -110,6 +110,10 @@ function formatPeriod(start: string, end: string): string {
   return `${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}`;
 }
 
+function formatGenerationSource(source: string): string {
+  return source === "scheduled" ? "Scheduled" : "Manual";
+}
+
 export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) {
   const selectedDigestId = pageData.selectedDigest?.id ?? null;
 
@@ -119,8 +123,8 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
         <h1 style={{ marginTop: 0, marginBottom: "0.35rem" }}>Mind digests</h1>
         <p style={{ margin: 0, color: "#475569", fontSize: "0.9375rem" }}>
           Internal watchtower summaries built from stored evidence alerts, review items, briefs, and
-          mapped claims. Phase 29 does not call an external Animoca Mind or schedule automatic
-          generation.
+          mapped claims. Phase 30 can generate digests on a schedule via{" "}
+          <code>/api/mind-digests/run-due</code>; this does not call an external Animoca Mind.
         </p>
         <nav style={styles.nav}>
           <a href="/review-items">Review queue</a>
@@ -183,6 +187,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                 <th style={styles.th}>Title</th>
                 <th style={styles.th}>Period</th>
                 <th style={styles.th}>Status</th>
+                <th style={styles.th}>Source</th>
                 <th style={styles.th}>Highest risk</th>
                 <th style={styles.th}>Affected claims</th>
                 <th style={styles.th}>Created</th>
@@ -203,6 +208,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                     {formatPeriod(digest.period_start, digest.period_end)}
                   </td>
                   <td style={styles.td}>{digest.status}</td>
+                  <td style={styles.td}>{formatGenerationSource(digest.generation_source)}</td>
                   <td style={styles.td}>{digest.highest_risk_implication}</td>
                   <td style={styles.td}>{digest.affected_client_claims_count}</td>
                   <td style={styles.td}>{formatTimestamp(digest.created_at)}</td>
@@ -222,6 +228,11 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
           <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Digest detail</h2>
           <div style={styles.detailLabel}>Summary</div>
           <div style={styles.detailValue}>{pageData.selectedDigest.digest_summary}</div>
+
+          <div style={styles.detailLabel}>Generation source</div>
+          <div style={styles.detailValue}>
+            {formatGenerationSource(pageData.selectedDigest.generation_source)}
+          </div>
 
           <div style={styles.detailLabel}>Recommended focus</div>
           <div style={styles.detailValue}>{pageData.selectedDigest.recommended_focus}</div>

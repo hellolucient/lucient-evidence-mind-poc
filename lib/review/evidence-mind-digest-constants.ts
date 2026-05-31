@@ -44,5 +44,18 @@ export function isSupportedDigestItemType(value: string): value is DigestItemTyp
   return (DIGEST_ITEM_TYPES as readonly string[]).includes(value);
 }
 
+export const DIGEST_GENERATION_SOURCES = ["manual", "scheduled"] as const;
+
+export type DigestGenerationSource = (typeof DIGEST_GENERATION_SOURCES)[number];
+
+export function isSupportedDigestGenerationSource(
+  value: string
+): value is DigestGenerationSource {
+  return (DIGEST_GENERATION_SOURCES as readonly string[]).includes(value);
+}
+
 export const DEMO_WORKSPACE_ID = "demo-workspace-spa-menu" as const;
 export const DEMO_DIGEST_PERIOD_DAYS = 7 as const;
+
+/** Workspaces included in scheduled digest generation for the POC. */
+export const SCHEDULED_DIGEST_WORKSPACE_IDS = [DEMO_WORKSPACE_ID] as const;
