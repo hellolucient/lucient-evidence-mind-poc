@@ -69,6 +69,7 @@ const handoff = {
   destination: "test_sink",
   payload_version: "mind_digest_payload_v1",
   status: "ready",
+  review_status: "pending_review",
   created_at: "2026-05-31T12:00:00.000Z",
   updated_at: "2026-05-31T12:00:00.000Z",
   sent_at: null,
@@ -99,6 +100,17 @@ describe("external-mind-handoff-creator", () => {
     expect(result.ok).toBe(true);
     expect(mockCreateExternalMindHandoff).toHaveBeenCalled();
     expect(mockSendExternalMindHandoffIfEnabled).toHaveBeenCalled();
+  });
+
+  it("creates handoff with pending_review review status", async () => {
+    await createMindHandoffFromDigest("digest-uuid-001", operatorAccess);
+
+    expect(mockCreateExternalMindHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "ready",
+      }),
+      operatorAccess
+    );
   });
 
   it("skips duplicate active handoff for same digest", async () => {

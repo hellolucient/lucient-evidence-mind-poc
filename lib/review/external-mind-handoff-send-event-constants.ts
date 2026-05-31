@@ -19,6 +19,7 @@ export const EXTERNAL_MIND_HANDOFF_SEND_EVENT_RESULTS = [
   "failed",
   "external_sent",
   "external_send_failed",
+  "not_approved",
 ] as const;
 
 export type ExternalMindHandoffSendEventResult =

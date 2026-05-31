@@ -156,6 +156,8 @@ export function mapSendErrorToEventResult(error: string): ExternalMindHandoffSen
       return "already_sent";
     case "handoff_not_ready":
       return "invalid_status";
+    case "not_approved":
+      return "not_approved";
     case "forbidden":
       return "unauthorized";
     case "send_disabled":
@@ -177,6 +179,7 @@ export function mapSendErrorToEventType(
       return "send_already_sent";
     case "send_disabled":
     case "handoff_not_ready":
+    case "not_approved":
     case "forbidden":
       return "send_blocked";
     default:

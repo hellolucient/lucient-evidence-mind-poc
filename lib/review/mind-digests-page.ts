@@ -17,6 +17,11 @@ import {
   sendExternalMindHandoff,
 } from "@/lib/watch/external-mind-handoff-send";
 import {
+  externalMindHandoffReviewErrorMessage,
+  reviewExternalMindHandoff,
+  type ExternalMindHandoffReviewAction,
+} from "@/lib/watch/external-mind-handoff-review";
+import {
   isExternalMindHandoffSendEventPersistenceConfigured,
   listExternalMindHandoffSendEventsForHandoff,
   type PrivacySafeExternalMindHandoffSendEvent,
@@ -49,6 +54,10 @@ export type MindDigestsSendFlash =
   | { kind: "success"; result?: string }
   | { kind: "error"; error: string; message: string };
 
+export type MindDigestsReviewFlash =
+  | { kind: "success"; action: ExternalMindHandoffReviewAction }
+  | { kind: "error"; error: string; message: string };
+
 export type MindDigestsPageData = {
   configured: boolean;
   handoffsConfigured: boolean;
@@ -67,6 +76,7 @@ export type MindDigestsPageData = {
   generateFlash: MindDigestsGenerateFlash | null;
   handoffFlash: MindDigestsHandoffFlash | null;
   sendFlash: MindDigestsSendFlash | null;
+  reviewFlash: MindDigestsReviewFlash | null;
   statusOptions: readonly string[];
 };
 
@@ -161,6 +171,28 @@ export function parseMindDigestsSendFlash(
   return null;
 }
 
+export function parseMindDigestsReviewFlash(
+  params: Record<string, string | string[] | undefined>
+): MindDigestsReviewFlash | null {
+  const action = readParam(params, "review_action");
+  if (readParam(params, "review_ok") && action) {
+    if (action === "approve" || action === "reject" || action === "request_changes") {
+      return { kind: "success", action };
+    }
+  }
+
+  const error = readParam(params, "review_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message: readParam(params, "review_message") ?? externalMindHandoffReviewErrorMessage(error),
+    };
+  }
+
+  return null;
+}
+
 export function mindDigestsErrorMessage(error: string): string {
   switch (error) {
     case "supabase_not_configured":
@@ -216,6 +248,7 @@ export async function buildMindDigestsPageData(
       generateFlash: parseMindDigestsGenerateFlash(params),
       handoffFlash: parseMindDigestsHandoffFlash(params),
       sendFlash: parseMindDigestsSendFlash(params),
+      reviewFlash: parseMindDigestsReviewFlash(params),
       statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
     };
   }
@@ -277,6 +310,7 @@ export async function buildMindDigestsPageData(
     generateFlash: parseMindDigestsGenerateFlash(params),
     handoffFlash: parseMindDigestsHandoffFlash(params),
     sendFlash: parseMindDigestsSendFlash(params),
+    reviewFlash: parseMindDigestsReviewFlash(params),
     statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
   };
 }
@@ -366,6 +400,38 @@ export async function processMindHandoffSendSubmission(
 
   return {
     redirectPath: `/mind-digests?${digestQuery}send_ok=1&send_result=${encodeURIComponent(result.sendResult.result)}`,
+    result,
+  };
+}
+
+export type MindHandoffReviewSubmissionResult = {
+  redirectPath: string;
+  result: Awaited<ReturnType<typeof reviewExternalMindHandoff>>;
+};
+
+export async function processMindHandoffReviewSubmission(
+  access: ReviewQueueAccessContext,
+  handoffId: string,
+  action: ExternalMindHandoffReviewAction,
+  digestId?: string,
+  operatorEmail?: string | null,
+  note?: string | null
+): Promise<MindHandoffReviewSubmissionResult> {
+  const result = await reviewExternalMindHandoff(handoffId, access, action, {
+    operatorEmail,
+    note,
+  });
+  const digestQuery = digestId ? `digest_id=${encodeURIComponent(digestId)}&` : "";
+
+  if (!result.ok) {
+    return {
+      redirectPath: `/mind-digests?${digestQuery}review_error=${encodeURIComponent(result.error)}&review_message=${encodeURIComponent(result.message)}`,
+      result,
+    };
+  }
+
+  return {
+    redirectPath: `/mind-digests?${digestQuery}review_ok=1&review_action=${encodeURIComponent(result.action)}`,
     result,
   };
 }

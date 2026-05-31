@@ -6,6 +6,7 @@ import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 const GENERATE_DEMO_PATH = "/mind-digests/generate-demo";
 const CREATE_HANDOFF_PATH = "/mind-digests/create-handoff";
 const SEND_HANDOFF_PATH = "/mind-handoffs/send";
+const REVIEW_HANDOFF_PATH = "/mind-handoffs/review";
 
 const styles = {
   page: {
@@ -51,6 +52,33 @@ const styles = {
     background: "#2563eb",
     color: "#fff",
     cursor: "pointer",
+    fontSize: "0.8125rem",
+  } as const,
+  buttonSecondary: {
+    padding: "0.45rem 0.75rem",
+    borderRadius: "4px",
+    border: "1px solid #cbd5e1",
+    background: "#fff",
+    color: "#334155",
+    cursor: "pointer",
+    fontSize: "0.8125rem",
+  } as const,
+  buttonDanger: {
+    padding: "0.45rem 0.75rem",
+    borderRadius: "4px",
+    border: "1px solid #b91c1c",
+    background: "#fff",
+    color: "#b91c1c",
+    cursor: "pointer",
+    fontSize: "0.8125rem",
+  } as const,
+  buttonDisabled: {
+    padding: "0.45rem 0.75rem",
+    borderRadius: "4px",
+    border: "1px solid #cbd5e1",
+    background: "#f1f5f9",
+    color: "#94a3b8",
+    cursor: "not-allowed",
     fontSize: "0.8125rem",
   } as const,
   error: {
@@ -127,6 +155,10 @@ function formatGenerationSource(source: string): string {
   return source === "scheduled" ? "Scheduled" : "Manual";
 }
 
+function formatReviewStatus(status: string): string {
+  return status.replaceAll("_", " ");
+}
+
 export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) {
   const selectedDigestId = pageData.selectedDigest?.id ?? null;
 
@@ -136,7 +168,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
         <h1 style={{ marginTop: 0, marginBottom: "0.35rem" }}>Mind digests</h1>
         <p style={{ margin: 0, color: "#475569", fontSize: "0.9375rem" }}>
           Internal watchtower summaries built from stored evidence alerts, review items, briefs, and
-          mapped claims. Phase 33 adds a durable send audit log for handoff send attempts; real
+          mapped claims. Phase 34 requires operator approval before external Mind handoff send; real
           Animoca Mind delivery remains disabled unless explicitly enabled in server configuration.
         </p>
         <nav style={styles.nav}>
@@ -160,8 +192,22 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
         <div style={styles.success}>
           {pageData.handoffFlash.duplicate_skipped
             ? "An active Mind handoff already exists for this digest — showing existing handoff."
-            : "Mind handoff payload created."}
+            : "Payload created, pending operator review."}
         </div>
+      ) : null}
+
+      {pageData.reviewFlash?.kind === "success" ? (
+        <div style={styles.success}>
+          {pageData.reviewFlash.action === "approve"
+            ? "Handoff payload approved. Send to test sink is now available."
+            : pageData.reviewFlash.action === "reject"
+              ? "Handoff payload rejected."
+              : "Changes requested for handoff payload."}
+        </div>
+      ) : null}
+
+      {pageData.reviewFlash?.kind === "error" ? (
+        <div style={styles.error}>{pageData.reviewFlash.message}</div>
       ) : null}
 
       {pageData.handoffFlash?.kind === "error" ? (
@@ -320,9 +366,10 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
 
           <h3 style={{ fontSize: "0.9375rem", marginTop: "1.5rem" }}>External Mind handoff</h3>
           <p style={styles.note}>
-            Creates a durable privacy-safe payload for future external Mind integration. Phase 32
-            supports safe test-sink send only by default; no real Animoca Mind call is made unless
-            external send is explicitly enabled in server configuration.
+            Creates a durable privacy-safe payload for future external Mind integration. Phase 34
+            requires operator review before send. Phase 32 supports safe test-sink send only by
+            default; no real Animoca Mind call is made unless external send is explicitly enabled in
+            server configuration.
           </p>
 
           {pageData.handoffsConfigured ? (
@@ -340,15 +387,82 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                   <div style={styles.detailValue}>
                     Destination: {pageData.selectedDigestHandoff.destination} · Payload version:{" "}
                     {pageData.selectedDigestHandoff.payload_version} · Status:{" "}
-                    {pageData.selectedDigestHandoff.status} · Created:{" "}
+                    {pageData.selectedDigestHandoff.status} · Review:{" "}
+                    {formatReviewStatus(pageData.selectedDigestHandoff.review_status)} · Created:{" "}
                     {formatTimestamp(pageData.selectedDigestHandoff.created_at)}
+                    {pageData.selectedDigestHandoff.approved_at
+                      ? ` · Approved: ${formatTimestamp(pageData.selectedDigestHandoff.approved_at)}`
+                      : ""}
                     {pageData.selectedDigestHandoff.sent_at
                       ? ` · Sent: ${formatTimestamp(pageData.selectedDigestHandoff.sent_at)}`
                       : ""}
                   </div>
 
+                  {pageData.selectedDigestHandoff.status !== "sent" &&
+                  (pageData.selectedDigestHandoff.review_status === "pending_review" ||
+                    pageData.selectedDigestHandoff.review_status === "changes_requested") ? (
+                    <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <form action={REVIEW_HANDOFF_PATH} method="post">
+                        <input
+                          type="hidden"
+                          name="handoff_id"
+                          value={pageData.selectedDigestHandoff.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="digest_id"
+                          value={pageData.selectedDigest.id}
+                        />
+                        <input type="hidden" name="review_action" value="approve" />
+                        <button type="submit" style={styles.button}>
+                          Approve payload
+                        </button>
+                      </form>
+                      <form action={REVIEW_HANDOFF_PATH} method="post">
+                        <input
+                          type="hidden"
+                          name="handoff_id"
+                          value={pageData.selectedDigestHandoff.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="digest_id"
+                          value={pageData.selectedDigest.id}
+                        />
+                        <input type="hidden" name="review_action" value="reject" />
+                        <button type="submit" style={styles.buttonDanger}>
+                          Reject payload
+                        </button>
+                      </form>
+                      <form action={REVIEW_HANDOFF_PATH} method="post">
+                        <input
+                          type="hidden"
+                          name="handoff_id"
+                          value={pageData.selectedDigestHandoff.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="digest_id"
+                          value={pageData.selectedDigest.id}
+                        />
+                        <input type="hidden" name="review_action" value="request_changes" />
+                        <button type="submit" style={styles.buttonSecondary}>
+                          Request changes
+                        </button>
+                      </form>
+                    </div>
+                  ) : null}
+
+                  {pageData.selectedDigestHandoff.review_status === "rejected" ? (
+                    <p style={{ ...styles.note, marginTop: "0.75rem" }}>
+                      This handoff was rejected and cannot be sent until a new payload is created and
+                      approved.
+                    </p>
+                  ) : null}
+
                   {pageData.selectedDigestHandoff.status === "ready" &&
-                  pageData.selectedDigestHandoff.destination === "test_sink" ? (
+                  pageData.selectedDigestHandoff.destination === "test_sink" &&
+                  pageData.selectedDigestHandoff.review_status === "approved" ? (
                     <form action={SEND_HANDOFF_PATH} method="post" style={{ marginTop: "0.75rem" }}>
                       <input
                         type="hidden"
@@ -364,6 +478,20 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                         Send to test sink
                       </button>
                     </form>
+                  ) : null}
+
+                  {pageData.selectedDigestHandoff.status === "ready" &&
+                  pageData.selectedDigestHandoff.destination === "test_sink" &&
+                  pageData.selectedDigestHandoff.review_status !== "approved" ? (
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <button type="button" disabled style={styles.buttonDisabled}>
+                        Send to test sink
+                      </button>
+                      <p style={{ ...styles.note, marginTop: "0.35rem", marginBottom: 0 }}>
+                        Send is disabled until an operator approves this payload (
+                        {formatReviewStatus(pageData.selectedDigestHandoff.review_status)}).
+                      </p>
+                    </div>
                   ) : null}
 
                   {pageData.selectedDigestHandoff.send_result_json ? (

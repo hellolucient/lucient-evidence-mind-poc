@@ -129,6 +129,21 @@ export async function sendExternalMindHandoff(
     };
   }
 
+  if (handoff.review_status !== "approved") {
+    await recordBlockedSendOutcome({
+      handoff,
+      audit,
+      error: "not_approved",
+      statusBefore,
+    });
+
+    return {
+      ok: false,
+      error: "not_approved",
+      message: externalMindHandoffSendErrorMessage("not_approved"),
+    };
+  }
+
   if (!handoff.payload_json) {
     await recordBlockedSendOutcome({
       handoff,

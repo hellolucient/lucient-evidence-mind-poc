@@ -23,7 +23,13 @@ vi.mock("@/lib/watch/external-mind-handoff-send-audit", () => ({
   recordExternalMindHandoffSendOutcome: (...args: unknown[]) =>
     mockRecordExternalMindHandoffSendOutcome(...args),
   mapSendErrorToEventResult: (error: string) =>
-    error === "already_sent" ? "already_sent" : error === "handoff_not_ready" ? "invalid_status" : "failed",
+    error === "already_sent"
+      ? "already_sent"
+      : error === "handoff_not_ready"
+        ? "invalid_status"
+        : error === "not_approved"
+          ? "not_approved"
+          : "failed",
   mapSendErrorToEventType: (error: string) =>
     error === "already_sent" ? "send_already_sent" : "send_blocked",
   buildPrivacySafeMetadata: () => null,
@@ -72,7 +78,7 @@ const payload = {
   referenced_review_items: [],
   generated_at: "2026-05-31T12:00:00.000Z",
   source_system: "lucient_evidence_mind",
-  phase: "33",
+  phase: "34",
 };
 
 const readyHandoff = {
@@ -84,6 +90,7 @@ const readyHandoff = {
   payload_version: "mind_digest_payload_v1",
   payload_json: payload,
   status: "ready",
+  review_status: "approved",
   created_at: "2026-05-31T12:00:00.000Z",
   updated_at: "2026-05-31T12:00:00.000Z",
   sent_at: null,
@@ -175,6 +182,39 @@ describe("external-mind-handoff-send", () => {
     expect(result.ok).toBe(false);
     expect(mockRecordExternalMindHandoffSendAttempted).toHaveBeenCalledOnce();
     expect(mockRecordExternalMindHandoffSendOutcome).toHaveBeenCalledOnce();
+  });
+
+  it("refuses pending_review handoff and writes not_approved audit events", async () => {
+    mockGetExternalMindHandoffById.mockResolvedValueOnce({
+      handoff: { ...readyHandoff, review_status: "pending_review" },
+    });
+
+    const result = await sendExternalMindHandoff("handoff-uuid-001", operatorAccess);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("not_approved");
+    }
+    expect(mockRecordExternalMindHandoffSendAttempted).toHaveBeenCalledOnce();
+    expect(mockRecordExternalMindHandoffSendOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "send_blocked",
+        result: "not_approved",
+      })
+    );
+  });
+
+  it("refuses rejected handoff and writes not_approved audit events", async () => {
+    mockGetExternalMindHandoffById.mockResolvedValueOnce({
+      handoff: { ...readyHandoff, review_status: "rejected" },
+    });
+
+    const result = await sendExternalMindHandoff("handoff-uuid-001", operatorAccess);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("not_approved");
+    }
   });
 
   it("marks test_sink handoff sent and writes attempted/succeeded audit events", async () => {

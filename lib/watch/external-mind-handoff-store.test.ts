@@ -97,12 +97,21 @@ const handoffRow = {
   payload_version: "mind_digest_payload_v1",
   payload_json: payload,
   status: "ready",
+  review_status: "pending_review",
   created_at: "2026-05-31T12:00:00.000Z",
   updated_at: "2026-05-31T12:00:00.000Z",
   sent_at: null,
   error_message: null,
   send_attempted_at: null,
   send_result_json: null,
+  reviewed_at: null,
+  reviewed_by_actor_type: null,
+  reviewed_by_actor_email: null,
+  review_note: null,
+  approved_at: null,
+  approved_by_actor_type: null,
+  approved_by_actor_email: null,
+  approval_note: null,
 };
 
 function setupSupabaseMocks() {
@@ -160,6 +169,11 @@ describe("external-mind-handoff-store", () => {
 
     expect(result.ok).toBe(true);
     expect(mockInsert).toHaveBeenCalled();
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        review_status: "pending_review",
+      })
+    );
   });
 
   it("lists handoffs scoped to operator workspaces", async () => {

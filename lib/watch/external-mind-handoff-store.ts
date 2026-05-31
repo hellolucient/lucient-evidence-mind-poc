@@ -5,13 +5,16 @@ import {
 } from "@/engine/watchlist/supabase-client";
 import {
   ACTIVE_EXTERNAL_MIND_HANDOFF_STATUSES,
+  DEFAULT_EXTERNAL_MIND_HANDOFF_REVIEW_STATUS,
   DEFAULT_MIND_DIGEST_HANDOFF_DESTINATION,
   DEFAULT_MIND_DIGEST_HANDOFF_TYPE,
   MIND_DIGEST_HANDOFF_PAYLOAD_VERSION,
   isSupportedExternalMindHandoffDestination,
+  isSupportedExternalMindHandoffReviewStatus,
   isSupportedExternalMindHandoffStatus,
   isSupportedExternalMindHandoffType,
   type ExternalMindHandoffDestination,
+  type ExternalMindHandoffReviewStatus,
   type ExternalMindHandoffStatus,
   type ExternalMindHandoffType,
 } from "@/lib/review/external-mind-handoff-constants";
@@ -35,6 +38,15 @@ export type ExternalMindHandoffRow = {
   error_message: string | null;
   send_attempted_at: string | null;
   send_result_json: PrivacySafeExternalMindHandoffSendResult | null;
+  review_status: string;
+  reviewed_at: string | null;
+  reviewed_by_actor_type: string | null;
+  reviewed_by_actor_email: string | null;
+  review_note: string | null;
+  approved_at: string | null;
+  approved_by_actor_type: string | null;
+  approved_by_actor_email: string | null;
+  approval_note: string | null;
 };
 
 export type PrivacySafeExternalMindHandoff = {
@@ -50,6 +62,15 @@ export type PrivacySafeExternalMindHandoff = {
   sent_at: string | null;
   send_attempted_at: string | null;
   send_result_json: PrivacySafeExternalMindHandoffSendResult | null;
+  review_status: ExternalMindHandoffReviewStatus;
+  reviewed_at: string | null;
+  reviewed_by_actor_type: string | null;
+  reviewed_by_actor_email: string | null;
+  review_note: string | null;
+  approved_at: string | null;
+  approved_by_actor_type: string | null;
+  approved_by_actor_email: string | null;
+  approval_note: string | null;
 };
 
 export type PrivacySafeExternalMindHandoffWithPayload = PrivacySafeExternalMindHandoff & {
@@ -92,6 +113,22 @@ export type ExternalMindHandoffSendRecordInput = {
   error_message?: string | null;
 };
 
+export type ExternalMindHandoffReviewUpdateInput = {
+  review_status: ExternalMindHandoffReviewStatus;
+  reviewed_at?: string | null;
+  reviewed_by_actor_type?: string | null;
+  reviewed_by_actor_email?: string | null;
+  review_note?: string | null;
+  approved_at?: string | null;
+  approved_by_actor_type?: string | null;
+  approved_by_actor_email?: string | null;
+  approval_note?: string | null;
+};
+
+export type ExternalMindHandoffReviewUpdateResult =
+  | { ok: true; handoff: PrivacySafeExternalMindHandoffWithPayload }
+  | { ok: false; error: string };
+
 export type ExternalMindHandoffSendRecordResult =
   | { ok: true; handoff: PrivacySafeExternalMindHandoffWithPayload }
   | { ok: false; error: string };
@@ -118,6 +155,11 @@ export const HANDOFF_DISPLAY_FIELDS = [
   "sent_at",
   "send_attempted_at",
   "send_result_json",
+  "review_status",
+  "reviewed_at",
+  "reviewed_by_actor_type",
+  "approved_at",
+  "approved_by_actor_type",
 ] as const;
 
 function isMissingTableError(error: { code?: string; message?: string }): boolean {
@@ -184,6 +226,17 @@ export function toPrivacySafeExternalMindHandoff(
     sent_at: row.sent_at,
     send_attempted_at: row.send_attempted_at,
     send_result_json: row.send_result_json,
+    review_status: isSupportedExternalMindHandoffReviewStatus(row.review_status)
+      ? row.review_status
+      : DEFAULT_EXTERNAL_MIND_HANDOFF_REVIEW_STATUS,
+    reviewed_at: row.reviewed_at,
+    reviewed_by_actor_type: row.reviewed_by_actor_type,
+    reviewed_by_actor_email: row.reviewed_by_actor_email,
+    review_note: row.review_note,
+    approved_at: row.approved_at,
+    approved_by_actor_type: row.approved_by_actor_type,
+    approved_by_actor_email: row.approved_by_actor_email,
+    approval_note: row.approval_note,
   };
 }
 
@@ -278,6 +331,7 @@ export async function createExternalMindHandoff(
         payload_version: input.payload_version.trim(),
         payload_json: input.payload_json,
         status,
+        review_status: DEFAULT_EXTERNAL_MIND_HANDOFF_REVIEW_STATUS,
       })
       .select("*")
       .single();
@@ -307,7 +361,7 @@ export async function listExternalMindHandoffs(
     const client = createSupabaseServerClient();
     const scopedFilters = applyAccessToListFilters(filters, access);
     let query = client.from(EXTERNAL_MIND_HANDOFFS_TABLE).select(
-      "id, workspace_id, digest_id, handoff_type, destination, payload_version, status, created_at, updated_at, sent_at, send_attempted_at, send_result_json"
+      "id, workspace_id, digest_id, handoff_type, destination, payload_version, status, created_at, updated_at, sent_at, send_attempted_at, send_result_json, review_status, reviewed_at, reviewed_by_actor_type, approved_at, approved_by_actor_type"
     );
 
     if (scopedFilters.workspace_ids) {
@@ -506,6 +560,65 @@ export async function recordExternalMindHandoffSendAttempt(
         send_attempted_at: input.send_attempted_at,
         send_result_json: input.send_result_json,
         error_message: input.error_message ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", handoffId)
+      .select("*")
+      .single();
+
+    if (error) {
+      return { ok: false, error: normalizeStoreError(error) };
+    }
+
+    return {
+      ok: true,
+      handoff: toPrivacySafeExternalMindHandoffWithPayload(data as ExternalMindHandoffRow),
+    };
+  } catch (error) {
+    return { ok: false, error: normalizeStoreError(error) };
+  }
+}
+
+export async function updateExternalMindHandoffReview(
+  handoffId: string,
+  access: ReviewQueueAccessContext,
+  input: ExternalMindHandoffReviewUpdateInput
+): Promise<ExternalMindHandoffReviewUpdateResult> {
+  const lookup = await getExternalMindHandoffById(handoffId, access);
+  if (lookup.error === "forbidden") {
+    return { ok: false, error: "forbidden" };
+  }
+
+  if (!lookup.handoff) {
+    return { ok: false, error: lookup.error ?? "handoff_not_found" };
+  }
+
+  if (lookup.handoff.status === "sent" || lookup.handoff.status === "archived") {
+    return { ok: false, error: "handoff_not_reviewable" };
+  }
+
+  if (!isSupportedExternalMindHandoffReviewStatus(input.review_status)) {
+    return { ok: false, error: "unsupported_review_status" };
+  }
+
+  if (!isExternalMindHandoffPersistenceConfigured()) {
+    return { ok: false, error: "supabase_not_configured" };
+  }
+
+  try {
+    const client = createSupabaseServerClient();
+    const { data, error } = await client
+      .from(EXTERNAL_MIND_HANDOFFS_TABLE)
+      .update({
+        review_status: input.review_status,
+        reviewed_at: input.reviewed_at ?? null,
+        reviewed_by_actor_type: input.reviewed_by_actor_type ?? null,
+        reviewed_by_actor_email: input.reviewed_by_actor_email ?? null,
+        review_note: input.review_note ?? null,
+        approved_at: input.approved_at ?? null,
+        approved_by_actor_type: input.approved_by_actor_type ?? null,
+        approved_by_actor_email: input.approved_by_actor_email ?? null,
+        approval_note: input.approval_note ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", handoffId)

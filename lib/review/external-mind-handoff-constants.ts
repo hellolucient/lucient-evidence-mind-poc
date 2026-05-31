@@ -34,6 +34,40 @@ export const ACTIVE_EXTERNAL_MIND_HANDOFF_STATUSES: ExternalMindHandoffStatus[] 
   "ready",
 ];
 
+export const EXTERNAL_MIND_HANDOFF_REVIEW_STATUSES = [
+  "pending_review",
+  "approved",
+  "rejected",
+  "changes_requested",
+] as const;
+
+export type ExternalMindHandoffReviewStatus =
+  (typeof EXTERNAL_MIND_HANDOFF_REVIEW_STATUSES)[number];
+
+export const DEFAULT_EXTERNAL_MIND_HANDOFF_REVIEW_STATUS: ExternalMindHandoffReviewStatus =
+  "pending_review";
+
+export const EXTERNAL_MIND_HANDOFF_REVIEW_ACTOR_TYPES = [
+  "supabase_operator",
+  "break_glass",
+  "system",
+] as const;
+
+export type ExternalMindHandoffReviewActorType =
+  (typeof EXTERNAL_MIND_HANDOFF_REVIEW_ACTOR_TYPES)[number];
+
+export function isSupportedExternalMindHandoffReviewStatus(
+  value: string
+): value is ExternalMindHandoffReviewStatus {
+  return (EXTERNAL_MIND_HANDOFF_REVIEW_STATUSES as readonly string[]).includes(value);
+}
+
+export function isSupportedExternalMindHandoffReviewActorType(
+  value: string
+): value is ExternalMindHandoffReviewActorType {
+  return (EXTERNAL_MIND_HANDOFF_REVIEW_ACTOR_TYPES as readonly string[]).includes(value);
+}
+
 export function isSupportedExternalMindHandoffType(
   value: string
 ): value is ExternalMindHandoffType {

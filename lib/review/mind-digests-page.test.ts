@@ -7,6 +7,7 @@ const mockGenerateDemoEvidenceMindDigest = vi.fn();
 const mockCreateMindHandoffFromDigest = vi.fn();
 const mockGetLatestHandoffForDigest = vi.fn();
 const mockSendExternalMindHandoff = vi.fn();
+const mockReviewExternalMindHandoff = vi.fn();
 const mockIsExternalMindHandoffPersistenceConfigured = vi.fn();
 const mockIsExternalMindHandoffSendEventPersistenceConfigured = vi.fn();
 const mockListExternalMindHandoffSendEventsForHandoff = vi.fn();
@@ -17,6 +18,14 @@ vi.mock("@/lib/watch/external-mind-handoff-send-event-store", () => ({
   listExternalMindHandoffSendEventsForHandoff: (...args: unknown[]) =>
     mockListExternalMindHandoffSendEventsForHandoff(...args),
 }));
+
+vi.mock("@/lib/watch/external-mind-handoff-review", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/watch/external-mind-handoff-review")>();
+  return {
+    ...actual,
+    reviewExternalMindHandoff: (...args: unknown[]) => mockReviewExternalMindHandoff(...args),
+  };
+});
 
 vi.mock("@/lib/watch/external-mind-handoff-send", () => ({
   sendExternalMindHandoff: (...args: unknown[]) => mockSendExternalMindHandoff(...args),
@@ -60,6 +69,7 @@ import {
   buildMindDigestsPageData,
   processDemoDigestGenerationSubmission,
   processMindHandoffCreationSubmission,
+  processMindHandoffReviewSubmission,
   processMindHandoffSendSubmission,
 } from "@/lib/review/mind-digests-page";
 
@@ -114,6 +124,7 @@ beforeEach(() => {
     id: "handoff-uuid-001",
     status: "sent",
     destination: "test_sink",
+    review_status: "approved",
   });
   mockListEvidenceMindDigests.mockResolvedValue({ digests: [digestRow] });
   mockGetEvidenceMindDigestById.mockResolvedValue({ digest: digestRow });
@@ -140,6 +151,11 @@ beforeEach(() => {
     ok: true,
     handoff: { id: "handoff-uuid-001", status: "sent" },
     sendResult: { result: "test_sink_sent" },
+  });
+  mockReviewExternalMindHandoff.mockResolvedValue({
+    ok: true,
+    handoff: { id: "handoff-uuid-001", review_status: "approved" },
+    action: "approve",
   });
 });
 
@@ -184,5 +200,18 @@ describe("mind-digests-page", () => {
     expect(submission.result.ok).toBe(true);
     expect(submission.redirectPath).toContain("send_ok=1");
     expect(submission.redirectPath).toContain("send_result=test_sink_sent");
+  });
+
+  it("redirects after successful handoff approval submission", async () => {
+    const submission = await processMindHandoffReviewSubmission(
+      operatorAccess,
+      "handoff-uuid-001",
+      "approve",
+      "digest-uuid-001"
+    );
+
+    expect(submission.result.ok).toBe(true);
+    expect(submission.redirectPath).toContain("review_ok=1");
+    expect(submission.redirectPath).toContain("review_action=approve");
   });
 });

@@ -86,6 +86,8 @@ export function externalMindHandoffSendErrorMessage(error: string): string {
       return "Required handoff fields are missing.";
     case "handoff_not_ready":
       return "Only ready handoffs can be sent.";
+    case "not_approved":
+      return "This handoff must be approved by an operator before it can be sent.";
     case "already_sent":
       return "This handoff has already been sent.";
     case "unsupported_handoff_destination":
