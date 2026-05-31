@@ -3,7 +3,7 @@
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For detailed deliverables and validation notes per completed phase, see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md).
 
 **Current phase marker (production):** `27`  
-**Strategic status:** Internal alpha — Phase 27 claim-to-watchlist mapping implemented; pending production validation. Phase 26 durable client claim registry production-validated.
+**Strategic status:** Internal alpha validated — Phase 27 claim-to-watchlist mapping production-validated; next near-term step is Phase 28 (evidence change brief generator).
 
 ---
 
@@ -11,8 +11,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
-| **Completed** | 1–26 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry |
-| **Near-term** | 27 | Implemented (pending validation) | Claim-to-watchlist mapping |
+| **Completed** | 1–27 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry, claim-to-watchlist mapping |
 | **Medium-term** | 28 | Planned | Evidence change brief generator |
 | **Mind integration** | 29–31 | Planned | Mind digest, client dashboard requirements, reporting/export |
 
@@ -44,12 +43,12 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **24** | **Operator audit trail for review queue actions** | **PASS / Done** |
 | **25** | **Operator notes and review decision rationale** | **PASS / Done** |
 | **26** | **Durable client claim registry** | **PASS / Done** |
+| **27** | **Claim-to-watchlist mapping** | **PASS / Done** |
 
 ### Forward phases (planned)
 
 | Phase | Name | Horizon | Status |
 |-------|------|---------|--------|
-| **27** | **Claim-to-watchlist mapping** | Near-term | Planned |
 | **28** | **Evidence change brief generator** | Medium-term | Planned |
 | **29** | **Mind digest / watchtower summary** | Mind integration | Planned |
 | **30** | **Client workspace dashboard planning** | Mind integration | Planned (requirements only) |
@@ -102,7 +101,11 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Production validation: manual client claim create/list/update | 26 | **PASS / Done** | Operator created and updated claims via `/client-claims` |
 | Production validation: review item linked durable claim | 26 | **PASS / Done** | Review detail panel resolves linked `client_claims` row when present |
 | Production validation: review queue regressions after Phase 26 | 26 | **PASS / Done** | Notes, audit trail, auth, break-glass, API protection, cron isolation unchanged |
-| Claim-to-watchlist mapping | 27 | Planned | Near-term |
+| Claim-to-watchlist mapping | 27 | **PASS / Done** | Durable `claim_family_profiles` + `client_claim_watchlist_mappings` + `/client-claims` mapping UI |
+| Production validation: Supabase claim mapping migration applied | 27 | **PASS / Done** | `claim_family_profiles` and `client_claim_watchlist_mappings` tables created |
+| Production validation: seeded magnesium claim family profile | 27 | **PASS / Done** | `magnesium_cortisol_stress` profile and demo mapping exist |
+| Production validation: `/client-claims` mapping UI and controlled dropdown | 27 | **PASS / Done** | Operators map claims via profile dropdown; mappings display with status/confidence |
+| Production validation: review queue regressions after Phase 27 | 27 | **PASS / Done** | Audit trail, notes, auth, break-glass, API protection, cron isolation unchanged |
 | Evidence change brief generator | 28 | Planned | Medium-term |
 | Mind digest / watchtower summary | 29 | Planned | Mind integration |
 | Client workspace dashboard planning | 30 | Planned | Requirements only |
@@ -110,7 +113,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 ---
 
-## Current System State After Phase 26
+## Current System State After Phase 27
 
 The POC is a validated **internal alpha** for evidence monitoring and operator review. Production-validated capabilities include:
 
@@ -140,8 +143,12 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Durable client claim registry (`client_claims`) | Working |
 | Internal client claims UI (`/client-claims`) | Working |
 | Review item detail linking to durable client claims | Working |
+| Controlled claim-family profile registry (`claim_family_profiles`) | Working |
+| Durable claim-to-watchlist mappings (`client_claim_watchlist_mappings`) | Working |
+| `/client-claims` mapping UI with controlled claim-family dropdown | Working |
+| Durable-first affected-claim resolution in watch handoff (with in-memory fallback) | Working |
 
-**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims at `/client-claims`.
+**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`.
 
 ---
 
@@ -150,9 +157,9 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Limitation | Notes |
 |------------|-------|
 | Operator membership is manually seeded | No self-service onboarding |
-| Client claim entry is manual and form-heavy | `/client-claims` allows too much free-text input; controlled values needed for `claim_family`, `claim_source_type`, `risk_level`, and status |
+| Client claim entry is manual and form-heavy | `/client-claims` claim-family mapping uses controlled profiles; other fields (`claim_source_type`, `risk_level`, status) still allow too much free-text input |
 | Client claims are a storage foundation only | Long-term workflow should not depend on one-by-one manual entry; claim extraction from source material is a future requirement (Phase 26.5 / Phase 32 planning) |
-| In-memory claim mapper still used for watch handoff | Durable registry exists; Phase 27 connects mapping with durable-first lookup and in-memory fallback |
+| In-memory claim mapper retained as fallback | Durable mapping lookup preferred in async handoff path; sync path and empty-mapping fallback still use in-memory demo mapper |
 | Watchlist configuration is developer-driven | Not yet client-operable |
 | Review queue has no note editing/deletion | Notes are append-only internal review notes |
 | No Mind digest or operating feed | Watchtower output is not yet Mind-readable at scale |
@@ -172,7 +179,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 2. **Client claim ingestion at scale** — durable registry exists, but claims are entered manually; future phases should extract claims from spa menus, product descriptions, labels, websites, marketing copy, and similar source material with operator review before registry insertion (planned as Phase 26.5 or Phase 32).
 3. **Watchlist operability** — claim-family watchlists remain developer-configured; clients cannot yet manage monitored topics.
 4. **Review governance workflow** — operator notes and status audit trail are in place; note editing/deletion and richer decision rationale fields remain future work.
-5. **Claim-to-evidence linkage** — Phase 27 adds durable claim-to-watchlist mappings; Phase 28 brief generator is next.
+5. **Claim-to-evidence linkage** — durable claim-to-watchlist mappings validated in Phase 27; Phase 28 brief generator is next.
 6. **Structured evidence briefs** — no generator for operator- or client-ready change summaries.
 7. **Mind digest / feed** — no consolidated watchtower summary for Mind consumption.
 8. **Client dashboard definition** — requirements for client-facing UX are undefined.
@@ -183,13 +190,13 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 
 ## Forward Roadmap — From Internal Alpha to Evidence Mind Operating System
 
-This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phase 27 is implemented pending production validation. Phases 28–31 are **planned, not started**. Phase 26 is complete and production-validated.
+This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phases 28–31 are **planned, not started**. Phases 26–27 are complete and production-validated.
 
-### Near-term build plan (Phase 27)
+### Completed near-term foundation (Phases 26–27)
 
 #### Phase 27 — Claim-to-Watchlist Mapping
 
-**Status:** Implemented (pending production validation)
+**Status:** PASS / Production validated
 
 **Goal:** Map client claims to evidence watchlists / claim families so evidence changes can identify affected client claims.
 
@@ -341,20 +348,62 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 
 ## Phase 27 — Claim-to-Watchlist Mapping
 
-**Status:** Implemented (pending production validation)
+**Status:** PASS / Production validated
 
-**Goal:** Create a durable mapping layer between client claims and evidence watchlists / claim families.
+**Purpose:** Create a durable mapping layer between client claims and evidence watchlists / claim families so the system can identify affected client claims when watchlists detect new evidence.
 
-**Deliverables:**
-- Supabase migration: `claim_family_profiles`, `client_claim_watchlist_mappings`
-- Controlled claim-family profile registry (seeded `magnesium_cortisol_stress`)
-- Store modules: `claim-family-profile-store.ts`, `client-claim-watchlist-mapping-store.ts`
-- `/client-claims` UI: mapping display, controlled dropdown, mapping status updates
-- Demo seed mapping for demo workspace magnesium claim
-- Async durable-first affected-claim resolution in review handoff with in-memory fallback
-- Tests for profiles, mappings, auth boundaries, and handoff integration
+### Implementation summary
 
-**Not yet production validated.**
+- Added controlled claim-family profile registry (`claim_family_profiles`)
+- Added durable claim-to-watchlist mapping table (`client_claim_watchlist_mappings`)
+- Added store modules for profile listing, mapping CRUD, and affected-claim resolution
+- Extended `/client-claims` UI with mapping display, controlled claim-family dropdown, and mapping status updates
+- Seeded `magnesium_cortisol_stress` profile and demo mapping for `demo-claim-magnesium-stress-001`
+- Added async durable-first affected-claim resolution in review handoff with in-memory fallback
+- Updated phase marker to `27`
+
+### Production validation (completed)
+
+- Phase 27 migration was applied successfully.
+- New tables exist: `public.claim_family_profiles`, `public.client_claim_watchlist_mappings`.
+- Seeded `magnesium_cortisol_stress` profile and demo mapping exist for `demo-workspace-spa-menu`.
+- Operator logged in and accessed `/client-claims`.
+- `/client-claims` shows existing claim-to-watchlist mappings with status and confidence.
+- Operators map claims using controlled claim-family dropdown (not free-text family IDs).
+- Mapping status updates (active/paused/archived) work via the internal UI.
+- Durable mapping resolves affected client claims by `claim_family` in async watch handoff path.
+- Missing durable mapping falls back safely to in-memory demo mapper without breaking handoff.
+- Existing Phase 24 audit trail, Phase 25 notes, and Phase 26 client claims still work.
+- Supabase operator login, break-glass access, review APIs, and `/api/watch/cron` protection unchanged.
+- No secrets, tokens, service-role keys, user UUIDs, raw internal payloads, or private metadata exposed.
+
+### Files / areas changed
+
+| Area | Change |
+|------|--------|
+| Supabase migration | `20260531140000_create_claim_mappings.sql` |
+| Profile store | `lib/watch/claim-family-profile-store.ts` |
+| Mapping store | `lib/watch/client-claim-watchlist-mapping-store.ts` |
+| Affected-claim resolver | `lib/watch/affected-client-claims-resolver.ts` |
+| Mapping constants | `lib/review/claim-mapping-constants.ts` |
+| Claims page/helpers | `lib/review/client-claims-page.ts` |
+| Internal UI | `app/client-claims/client-claims-view.tsx` |
+| Form routes | `app/client-claims/create-mapping/route.ts`, `update-mapping-status/route.ts` |
+| Watch handoff | `lib/watch/evidence-review-handoff.ts`, `evidence-review-item-store.ts` |
+| Phase marker | `lib/watch/watch-phase.ts` → `27` |
+| Tests | `claim-family-profile-store.test.ts`, `client-claim-watchlist-mapping-store.test.ts`, `affected-client-claims-resolver.test.ts`, mapping route/page tests |
+
+### Tests / build
+
+- `npm test` passed: 217/217
+- `npm run build` passed
+
+### Remaining limitations
+
+- Claim create form still allows free-text for some fields (`claim_source_type`, `risk_level`, etc.); only mapping uses controlled claim-family profiles.
+- Mapping create does not auto-populate `watchlist_id` from profile `default_watchlist_id`.
+- Sync handoff path still uses in-memory mapper; async cron persistence path uses durable-first lookup.
+- Phase 28 evidence change brief generator not started.
 
 ---
 
@@ -430,7 +479,7 @@ During Phase 25 production validation, magic-link operator login exposed a PKCE/
 - No note editing/deletion yet.
 - Notes are internal review notes only.
 - Audit write for `note_added` remains best-effort.
-- Phase 27+ has not started.
+- Phase 28+ has not started.
 
 ---
 
@@ -956,7 +1005,8 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | Phase 26 | Record production validation as phase gate | Confirms manual claim registry works alongside review queue, auth, and cron isolation |
 | Phase 26 | Defer controlled claim-form UX to Phase 26.5 planning | Production validation showed too much free-text input for family/source/risk/status |
 | Phase 26 | Defer source-material claim extraction to Phase 26.5 / Phase 32 planning | Registry foundation only; long-term workflow must not rely on one-by-one manual entry |
-| Strategic | Near-term plan: Phase 27 (claim-to-watchlist mapping) | Durable mapping bridge from evidence changes to affected client claims |
+| Phase 27 | Claim-to-watchlist mapping + controlled claim-family profiles | Durable bridge from evidence changes to affected client claims |
+| Phase 27 | Record production validation as phase gate | Confirms mapping UI, durable resolution, and review queue regressions |
 | Strategic | Medium-term plan: Phase 28 (evidence change briefs) | Evidence-to-claim intelligence layer |
 | Strategic | Mind integration plan: Phases 29–31 (digest + dashboard planning + export) | Animoca Mind operating system outputs |
 
@@ -964,17 +1014,14 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 27 — Production validation**
+**Phase 28 — Evidence Change Brief Generator**
 
-Validate the claim-to-watchlist mapping layer in production:
+Resume implementation with the smallest intelligence increment after validated claim-to-watchlist mapping:
 
-1. Apply Phase 27 Supabase migration (`20260531140000_create_claim_mappings.sql`).
-2. Confirm seeded `magnesium_cortisol_stress` profile and demo mapping exist.
-3. Verify `/client-claims` shows mappings and controlled claim-family dropdown.
-4. Confirm operator workspace scoping, break-glass, audit, notes, and cron isolation unchanged.
-5. Run regression tests for review queue, auth, and mapping boundaries.
-
-Do not start Phase 28 (evidence change brief generator) until Phase 27 is production validated.
+1. When a watchlist detects meaningful evidence change, generate a structured brief (what changed, why it matters, affected claims, risk implication, suggested safer wording).
+2. Use durable Phase 27 mappings to identify affected client claims.
+3. Preserve workspace scoping, break-glass path, audit trail, notes, client claims UI, API protection, and cron isolation.
+4. Add tests for brief generation boundaries, privacy-safe output, and review-queue/watch regressions.
 
 **Planning only (do not implement yet):** Phase 26.5 controlled claim-form values; Phase 32 source-material claim extraction with operator review.
 
@@ -1000,3 +1047,4 @@ Do not start Phase 28 (evidence change brief generator) until Phase 27 is produc
 | 2026-05-31 | Phase 26 implemented; durable client claim registry, `/client-claims` UI, review-item claim linking (pending production validation) |
 | 2026-05-31 | Phase 26 marked PASS / Production validated; manual claim registry, review-item linking, and controlled-value/extraction design notes recorded |
 | 2026-05-31 | Phase 27 implemented; claim family profiles, durable claim-to-watchlist mappings, `/client-claims` mapping UI, async handoff integration (pending production validation) |
+| 2026-05-31 | Phase 27 marked PASS / Production validated; mapping migration, controlled dropdown, durable resolution, and review queue regressions confirmed |
