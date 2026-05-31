@@ -4,9 +4,8 @@
 
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–29, see the summary there and the detailed validation records below.
 
-**Current phase marker (production):** `33`  
-**Current phase marker (code):** `34`  
-**Strategic status:** Internal alpha validated — Phases 1–33 production-validated; **Phase 34 (Operator Review of External Mind Payloads Before Send) implemented — not production validated.**
+**Current phase marker (production):** `34`  
+**Strategic status:** Internal alpha validated — Phases 1–34 production-validated; **Phase 35 (External Mind Delivery Readiness Checklist / Preflight Validation) planned — not started.**
 
 ### Recent phase status (quick reference)
 
@@ -22,7 +21,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **31** | External Mind handoff / Animoca Mind payload | **PASS / Production validated** |
 | **32** | External Mind send stub / disabled-by-default integration | **PASS / Production validated** |
 | **33** | External Mind send audit trail / operator send log | **PASS / Production validated** |
-| **34** | Operator review of external Mind payloads before send | **Implemented — not production validated** |
+| **34** | Operator review of external Mind payloads before send | **PASS / Production validated** |
 
 ---
 
@@ -30,8 +29,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
-| **Completed** | 1–33 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry, claim-to-watchlist mapping, evidence change briefs, Mind digests, scheduled digest generation, external Mind handoff payloads, disabled-by-default send stub, send audit trail |
-| **Mind integration** | 34 | Implemented (not production validated) | Operator review of external Mind payloads before send |
+| **Completed** | 1–34 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry, claim-to-watchlist mapping, evidence change briefs, Mind digests, scheduled digest generation, external Mind handoff payloads, disabled-by-default send stub, send audit trail, operator handoff review/approval |
+| **Mind integration** | 35 | Planned (not started) | External Mind delivery readiness checklist / preflight validation |
 
 ---
 
@@ -68,12 +67,13 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **31** | **External Mind handoff / Animoca Mind payload** | **PASS / Done** |
 | **32** | **External Mind send stub / disabled-by-default integration** | **PASS / Done** |
 | **33** | **External Mind send audit trail / operator send log** | **PASS / Done** |
+| **34** | **Operator review of external Mind payloads before send** | **PASS / Done** |
 
 ### Forward phases (planned)
 
 | Phase | Name | Horizon | Status |
 |-------|------|---------|--------|
-| **34** | **Operator review of external Mind payloads before send** | Mind integration | Implemented (not production validated) |
+| **35** | **External Mind delivery readiness checklist / preflight validation** | Mind integration | Planned |
 
 ---
 
@@ -158,11 +158,14 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Production validation: two-step handoff + test-sink send flow | 33 | **PASS / Done** | Create payload then send to test sink with durable audit events |
 | Production validation: send attempted and succeeded events recorded | 33 | **PASS / Done** | Privacy-safe event metadata with status before/after and actor/access mode |
 | Production validation: review queue regressions after Phase 33 | 33 | **PASS / Done** | Handoff/send flow, digests, review queue, client claims, evidence briefs, auth, break-glass, both cron endpoints unchanged |
-| Operator review of external Mind payloads before send | 34 | Planned | Mind integration |
+| Operator review of external Mind payloads before send | 34 | **PASS / Done** | Review/approval fields, approve/reject/request-changes actions, send gating, blocked-send audit |
+| Production validation: Supabase review fields migration applied | 34 | **PASS / Done** | `external_mind_handoffs` review/approval columns added |
+| Production validation: pending review blocks send; approval enables test-sink send | 34 | **PASS / Done** | Two-step create → approve → send flow with durable send events |
+| Production validation: review queue regressions after Phase 34 | 34 | **PASS / Done** | Handoff/send flow, digests, review queue, client claims, evidence briefs, auth, break-glass, both cron endpoints unchanged |
 
 ---
 
-## Current System State After Phase 33
+## Current System State After Phase 34
 
 The POC is a validated **internal alpha** for evidence monitoring and operator review. Production-validated capabilities include:
 
@@ -222,8 +225,11 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Durable external Mind handoff send audit events (`external_mind_handoff_send_events`) | Working |
 | Send helper audit logging for every handoff send attempt | Working |
 | `/mind-digests` handoff send history section | Working |
+| Operator review/approval for external Mind handoffs (`review_status`, approve/reject/request-changes) | Working |
+| Send gating: only approved handoffs can be sent to test sink | Working |
+| Blocked-send audit events for non-approved handoffs (`not_approved`) | Working |
 
-**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, view or generate internal Mind digests at `/mind-digests`, create privacy-safe external Mind handoff payloads, and review durable send audit history for handoff send attempts at `/mind-digests`. Phase 33 adds send event logging only; real external Animoca Mind delivery remains disabled unless future server configuration explicitly enables it.
+**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, view or generate internal Mind digests at `/mind-digests`, create privacy-safe external Mind handoff payloads, review and approve payloads before send, and review durable send audit history for handoff send attempts at `/mind-digests`. Phase 34 adds operator approval gating only; real external Animoca Mind delivery remains disabled unless future server configuration explicitly enables it.
 
 ---
 
@@ -241,6 +247,7 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | External Mind handoffs are payload-only (Phase 31) | Creates durable `mind_digest_payload_v1` packages; no external send, notifications, or LLM narrative |
 | External Mind send is disabled by default (Phase 32) | Test-sink send marks handoffs `sent` locally; real Animoca Mind HTTP send requires explicit env enablement + endpoint/API key |
 | Send audit events are separate from handoff status (Phase 33) | Durable send history per attempt; still no real external Animoca delivery, notifications, or LLM narrative |
+| External Mind handoff send requires operator approval (Phase 34) | New handoffs start `pending_review`; only `approved` handoffs can send to test sink; no real Animoca delivery |
 | Mind digest generation is template-only | Manual demo action and scheduled cron; LLM enrichment planned for later phases |
 | No client-facing dashboard | Internal operator UI only |
 | No reporting or export layer | No claim-risk memos or monthly summaries |
@@ -261,7 +268,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 4. **Review governance workflow** — operator notes and status audit trail are in place; note editing/deletion and richer decision rationale fields remain future work.
 5. **Claim-to-evidence linkage** — durable claim-to-watchlist mappings validated in Phase 27.
 6. **Structured evidence briefs** — template-based brief generator validated in Phase 28; LLM enrichment and automatic watch-triggered generation remain future work.
-7. **Mind digest / feed** — internal durable Mind Digests, scheduled generation, external Mind handoff payloads, disabled-by-default send stub, and send audit trail validated in Phases 29–33; real external Animoca Mind delivery remains opt-in via env configuration; operator payload review before send remains future work (Phase 34).
+7. **Mind digest / feed** — internal durable Mind Digests, scheduled generation, external Mind handoff payloads, disabled-by-default send stub, send audit trail, and operator payload review before send validated in Phases 29–34; real external Animoca Mind delivery remains opt-in via env configuration (Phase 35+).
 8. **Client dashboard definition** — requirements for client-facing UX are undefined.
 9. **Reporting and export** — no exportable evidence reports or monitoring summaries.
 10. **Notifications** — no delivery layer for operator or client alerts.
@@ -270,7 +277,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 
 ## Forward Roadmap — From Internal Alpha to Evidence Mind Operating System
 
-This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phase 34 is **planned, not started**. Phases 26–33 are production-validated.
+This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phase 35 is **planned, not started**. Phases 26–34 are production-validated.
 
 ### Completed near-term foundation (Phases 26–30)
 
@@ -377,7 +384,28 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - No external Animoca Mind call is made in Phase 31
 - External send remains disabled/not implemented
 
-**Next recommended phase:** Phase 34 — Operator Review of External Mind Payloads Before Send (not started).
+**Next recommended phase:** Phase 35 — External Mind Delivery Readiness Checklist / Preflight Validation (not started).
+
+#### Phase 34 — Operator Review of External Mind Payloads Before Send
+
+**Status:** PASS / Production validated
+
+**Goal:** Add an operator approval step before any external Mind handoff can be sent.
+
+**Why:** Operators must review privacy-safe handoff payloads before test-sink or future external delivery.
+
+**Architecture note (Phase 34):** Phase 34 adds operator review/approval before external Mind handoff send. It still does **not** perform real Animoca delivery.
+
+**Implementation summary (Phase 34):**
+
+- Added operator review/approval fields for external Mind handoffs
+- Added pending review as the default state for new handoffs
+- Added approve/reject/request-changes actions
+- Added send gating so only approved handoffs can be sent
+- Added blocked-send audit behavior for non-approved handoffs
+- Preserved test-sink send behavior
+- Preserved disabled-by-default external send guard
+- No real Animoca Mind delivery is performed
 
 #### Phase 33 — External Mind Send Audit Trail / Operator Send Log
 
@@ -771,28 +799,67 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - It does not send notifications.
 - It does not use LLM-written narrative.
 - Real external Mind delivery remains a later phase.
-- Phase 34 operator review/approval implemented — not production validated yet.
+- Phase 34 operator review/approval production-validated.
 
 ---
 
 ## Phase 34 — Operator Review of External Mind Payloads Before Send
 
-**Status:** Implemented — not production validated
+**Status:** PASS / Production validated
 
 **Purpose:** Add an operator approval step before any external Mind handoff can be sent — without real Animoca Mind delivery, notifications, or LLM-written narrative.
 
 ### Implementation summary
 
-- Added review/approval fields to `external_mind_handoffs` (`review_status`, review/approval actor metadata, optional notes)
-- New handoffs start as `review_status = pending_review`; existing sent/unsent handoffs are backfilled safely
-- Added approve, reject, and request-changes operator actions on `/mind-digests`
-- Gated Phase 32 send helper: send requires `status = ready` and `review_status = approved`
-- Blocked sends write `send_blocked` events with result `not_approved`
-- Added `/mind-handoffs/review` route and review flash messaging in the Mind digests UI
-- Preserved Phase 31 handoff creation, Phase 32 test-sink send, Phase 33 send audit trail, and disabled-by-default external send guard
-- Updated code phase marker to `34`
+- Added operator review/approval fields for external Mind handoffs
+- Added pending review as the default state for new handoffs
+- Added approve/reject/request-changes actions
+- Added send gating so only approved handoffs can be sent
+- Added blocked-send audit behavior for non-approved handoffs
+- Preserved test-sink send behavior
+- Preserved disabled-by-default external send guard
+- Updated phase marker to `34`
 
 **Architecture note:** Phase 34 adds operator review/approval before external Mind handoff send. It still does not perform real Animoca delivery.
+
+### Production validation (completed)
+
+- Phase 34 migration was applied successfully.
+- `public.external_mind_handoffs` now supports review/approval fields.
+- A previously sent handoff was archived to allow a fresh handoff to be generated for the same digest.
+- A new handoff payload was created successfully.
+- New handoff started as `status = ready` and `review_status = pending_review`.
+- Send to test sink was disabled while the handoff was pending review.
+- Operator approval was completed successfully.
+- After approval, `review_status = approved`.
+- `approved_at` was populated.
+- `approved_by_actor_type = supabase_operator`.
+- Send to test sink became available after approval.
+- Approved test-sink send completed successfully.
+- Handoff moved from `ready` to `sent`.
+- `sent_at` was populated.
+- `send_attempted_at` was populated.
+- `send_result_json.result = test_sink_sent`.
+- `send_result_json.test_sink_only = true`.
+- `error_message` remained null.
+- Send audit events were recorded in `public.external_mind_handoff_send_events`.
+- Send attempt event was recorded.
+- Send success event was recorded.
+- Send success event recorded `result = test_sink_sent`.
+- Send success event recorded `status_before = ready` and `status_after = sent`.
+- Send event metadata is privacy-safe and does not include service-role keys, API keys, access tokens, magic-link data, `CRON_SECRET`, `INTERNAL_REVIEW_ACCESS_TOKEN`, `EXTERNAL_MIND_API_KEY`, or private env vars.
+- `/review-items` remains working.
+- `/client-claims` remains working.
+- `/evidence-briefs` remains working.
+- `/mind-digests` remains working.
+- `/api/watch/cron` remains protected.
+- `/api/mind-digests/run-due` remains protected.
+
+### Notes
+
+- In the current implementation, approval populates approval metadata fields.
+- `reviewed_at` and `reviewed_by_actor_type` may remain null when the operator approves directly. This is acceptable for Phase 34 because the approval gate is functioning correctly.
+- The `send_attempted` audit event may have `result = null`; the final result is recorded on the `send_succeeded` event. This is acceptable.
 
 ### Files / areas changed
 
@@ -819,11 +886,12 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 
 ### Remaining limitations
 
-- Phase 34 adds operator review/approval only.
+- Phase 34 adds approval gating only.
 - It does not perform real Animoca Mind delivery.
 - It does not send notifications.
 - It does not use LLM-written narrative.
-- Production validation has not been completed.
+- Real external Mind delivery remains a later phase.
+- Phase 35 has not started.
 
 ---
 
@@ -1648,6 +1716,9 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | Phase 33 | External Mind send audit trail + operator send log | Durable send events separate from handoff status |
 | Phase 33 | Record production validation as phase gate | **PASS / Done** — two-step handoff/send flow, send events, privacy-safe metadata, and regressions confirmed |
 | Strategic | Mind integration plan: Phase 34 operator payload review | Pre-send operator review before external Mind delivery |
+| Phase 34 | Operator review/approval before external Mind handoff send | Review fields, approve/reject/request-changes, send gating, blocked-send audit |
+| Phase 34 | Record production validation as phase gate | **PASS / Done** — pending review blocks send, approval enables test-sink send, send events, privacy-safe metadata, and regressions confirmed |
+| Strategic | Mind integration plan: Phase 35 delivery readiness checklist | Preflight validation before real external Mind delivery |
 | 2026-05-31 | Phase 33 implemented; send events table, send helper audit wiring, mind-digests send history (pending production validation) |
 | 2026-05-31 | Phase 33 marked PASS / Production validated; two-step handoff/send flow, send events, privacy-safe metadata, and regressions confirmed |
 | 2026-05-31 | Phase 32 implemented; send config, test-sink send, send metadata migration, `/mind-handoffs/send`, mind-digests send UI (pending production validation) |
@@ -1657,15 +1728,14 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 34 — Operator Review of External Mind Payloads Before Send (production validation)**
+**Phase 35 — External Mind Delivery Readiness Checklist / Preflight Validation**
 
-Phase 34 is implemented in code but not production validated. Next step:
+Phase 34 is production-validated. Next build step:
 
-1. Apply Phase 34 Supabase migration in production.
-2. Validate operator approve/reject/request-changes flow on `/mind-digests`.
-3. Confirm pending_review handoffs cannot send and approved handoffs can send to test sink.
-4. Confirm blocked sends write `send_blocked` / `not_approved` audit events.
-5. Re-run regression checks for Phases 1–33.
+1. Define a preflight checklist for real external Mind delivery readiness (config, payload, approval, audit).
+2. Preserve Phase 34 approval gating and Phase 32 disabled-by-default external send guard.
+3. Keep test-sink send as the default safe path until real external delivery is explicitly enabled and preflight passes.
+4. Plan reporting/export work after delivery readiness validation.
 
 ---
 
@@ -1699,12 +1769,14 @@ Phase 34 is implemented in code but not production validated. Next step:
 | 2026-05-31 | Phase 32 marked PASS / Production validated; test-sink send, send metadata, resend guard, disabled external send, and regressions confirmed |
 | 2026-05-31 | Phase 33 implemented; send events table, send helper audit wiring, mind-digests send history (pending production validation) |
 | 2026-05-31 | Phase 33 marked PASS / Production validated; two-step handoff/send flow, send events, privacy-safe metadata, and regressions confirmed |
+| 2026-05-31 | Phase 34 implemented; review/approval fields, send gating, `/mind-handoffs/review`, mind-digests review UI (pending production validation) |
+| 2026-05-31 | Phase 34 marked PASS / Production validated; pending review blocks send, approval enables test-sink send, send events, and regressions confirmed |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 33 production validation (2026-05-31).
+**Last sync:** after Phase 34 production validation (2026-05-31).
 
 | Doc | Role after sync |
 |-----|-----------------|
@@ -1715,4 +1787,4 @@ Phase 34 is implemented in code but not production validated. Next step:
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 34 — Operator Review of External Mind Payloads Before Send (not started).
+**Next build step:** Phase 35 — External Mind Delivery Readiness Checklist / Preflight Validation (not started).
