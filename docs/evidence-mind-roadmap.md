@@ -5,7 +5,7 @@
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–29, see the summary there and the detailed validation records below.
 
 **Current phase marker (production):** `30`  
-**Strategic status:** Internal alpha validated — Phases 1–29 production-validated; **Phase 30 (Scheduled Digest Generation) implemented — pending production validation.**
+**Strategic status:** Internal alpha validated — Phases 1–30 production-validated.
 
 ### Recent phase status (quick reference)
 
@@ -17,7 +17,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **27** | Claim-to-watchlist mapping | **PASS / Production validated** |
 | **28** | Evidence change brief generator | **PASS / Production validated** |
 | **29** | Mind digest / watchtower summary | **PASS / Production validated** |
-| **30** | Scheduled digest generation | **Implemented — pending production validation** |
+| **30** | Scheduled digest generation | **PASS / Production validated** |
 
 ---
 
@@ -25,9 +25,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
-| **Completed** | 1–29 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry, claim-to-watchlist mapping, evidence change briefs, Mind digests |
-| **Mind integration** | 30 | Implemented (pending validation) | Scheduled internal Mind digest generation |
-| **Mind integration** | 31 | Planned | Client dashboard planning, reporting/export, external Mind handoff |
+| **Completed** | 1–30 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry, claim-to-watchlist mapping, evidence change briefs, Mind digests, scheduled digest generation |
+| **Mind integration** | 31 | Planned | External Mind handoff / Animoca Mind payload, reporting/export |
 
 ---
 
@@ -60,13 +59,13 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **27** | **Claim-to-watchlist mapping** | **PASS / Done** |
 | **28** | **Evidence change brief generator** | **PASS / Done** |
 | **29** | **Mind digest / watchtower summary** | **PASS / Done** |
+| **30** | **Scheduled digest generation** | **PASS / Done** |
 
 ### Forward phases (planned)
 
 | Phase | Name | Horizon | Status |
 |-------|------|---------|--------|
-| **30** | **Scheduled digest generation** | Mind integration | Implemented (pending validation) |
-| **31** | **Reporting and export layer** | Mind integration | Planned |
+| **31** | **External Mind handoff / Animoca Mind payload** | Mind integration | Planned |
 
 ---
 
@@ -130,8 +129,12 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Production validation: demo Mind digest generation | 29 | **PASS / Done** | Digest and item snapshots persisted from stored watchtower activity |
 | Production validation: duplicate prevention for active digests | 29 | **PASS / Done** | Second generation for same workspace + period shows existing digest |
 | Production validation: review queue regressions after Phase 29 | 29 | **PASS / Done** | Audit trail, notes, client claims, mappings, evidence briefs, auth, break-glass, cron isolation unchanged |
-| Scheduled digest generation | 30 | Implemented | Protected `/api/mind-digests/run-due` + Vercel weekly cron + Phase 29 generator reuse |
-| Reporting and export layer | 31 | Planned | Mind integration |
+| Scheduled digest generation | 30 | **PASS / Done** | Protected `/api/mind-digests/run-due` + Vercel weekly cron + Phase 29 generator reuse |
+| Production validation: Vercel cron for scheduled digests | 30 | **PASS / Done** | `/api/mind-digests/run-due` cron entry present alongside `/api/watch/cron` |
+| Production validation: scheduled digest endpoint auth | 30 | **PASS / Done** | Open/unauthenticated requests rejected; authorized bearer accepted |
+| Production validation: duplicate skip on scheduled run | 30 | **PASS / Done** | Existing active digest for workspace + period skipped, not duplicated |
+| Production validation: review queue regressions after Phase 30 | 30 | **PASS / Done** | Mind digests UI, review queue, client claims, evidence briefs, watch cron unchanged |
+| External Mind handoff / Animoca Mind payload | 31 | Planned | Mind integration |
 
 ---
 
@@ -181,8 +184,8 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Deterministic/template-based watchtower digest generator | Working |
 | Demo digest generation (last 7 days, manual trigger) | Working |
 | Duplicate prevention for active digests (same workspace + period) | Working |
-| Scheduled Mind digest generation (`/api/mind-digests/run-due`, `CRON_SECRET`) | Working (Phase 30 — pending production validation) |
-| Digest generation source tracking (`manual` / `scheduled`) | Working (Phase 30 — pending production validation) |
+| Scheduled Mind digest generation (`/api/mind-digests/run-due`, `CRON_SECRET`) | Working |
+| Digest generation source tracking (`manual` / `scheduled`) | Working |
 
 **Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, and view or generate internal Mind digests at `/mind-digests`. Phase 29 digests are internal-only; they do not call an external Animoca Mind.
 
@@ -219,7 +222,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 4. **Review governance workflow** — operator notes and status audit trail are in place; note editing/deletion and richer decision rationale fields remain future work.
 5. **Claim-to-evidence linkage** — durable claim-to-watchlist mappings validated in Phase 27.
 6. **Structured evidence briefs** — template-based brief generator validated in Phase 28; LLM enrichment and automatic watch-triggered generation remain future work.
-7. **Mind digest / feed** — internal durable Mind Digests validated in Phase 29; external Animoca Mind handoff and scheduled generation remain future work (Phases 30–31).
+7. **Mind digest / feed** — internal durable Mind Digests and scheduled generation validated in Phases 29–30; external Animoca Mind handoff remains future work (Phase 31).
 8. **Client dashboard definition** — requirements for client-facing UX are undefined.
 9. **Reporting and export** — no exportable evidence reports or monitoring summaries.
 10. **Notifications** — no delivery layer for operator or client alerts.
@@ -228,9 +231,9 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 
 ## Forward Roadmap — From Internal Alpha to Evidence Mind Operating System
 
-This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phases 30–31 are **planned, not started**. Phases 26–29 are complete and production-validated.
+This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phase 31 is **planned, not started**. Phases 26–30 are complete and production-validated.
 
-### Completed near-term foundation (Phases 26–29)
+### Completed near-term foundation (Phases 26–30)
 
 #### Phase 27 — Claim-to-Watchlist Mapping
 
@@ -299,34 +302,29 @@ This section defines the proposed build sequence from the current internal alpha
 
 ---
 
-### Strategic Mind integration build plan (Phases 30–31)
-
-Mind-facing outputs and client product definition — without overbuilding UI prematurely.
-
 #### Phase 30 — Scheduled Digest Generation
 
-**Status:** Implemented — pending production validation
+**Status:** PASS / Production validated
 
 **Goal:** Automatically generate workspace Mind digests on a schedule (e.g. weekly), replacing manual demo-only triggers.
 
 **Why:** Operators should receive periodic watchtower summaries without clicking generate each time.
 
-**Architecture note (Phase 30):** Phase 30 schedules **internal** digest generation only via `/api/mind-digests/run-due` protected by `CRON_SECRET`. It reuses the Phase 29 deterministic generator and duplicate prevention. It does **not** call an external Animoca Mind and does **not** use LLM-generated narrative. External Mind handoff remains Phase 31 or later.
+**Architecture note (Phase 30):** Phase 30 schedules **internal** digest generation only via `/api/mind-digests/run-due` protected by `CRON_SECRET`. It reuses the Phase 29 deterministic generator and duplicate prevention. It does **not** call an external Animoca Mind and does **not** use LLM-generated narrative. External Mind handoff is Phase 31.
 
-**Implementation summary (Phase 30):**
+---
 
-- Added protected scheduled endpoint `/api/mind-digests/run-due`
-- Added scheduler module reusing `generateEvidenceMindDigestForWorkspace`
-- Added `generation_source` column (`manual` / `scheduled`) on `evidence_mind_digests`
-- Added Vercel weekly cron entry (`0 22 * * 0`) alongside existing watch cron
-- Updated `/mind-digests` UI to show digest generation source
-- Updated phase marker to `30`
+### Strategic Mind integration build plan (Phase 31)
 
-#### Phase 31 — Reporting and Export Layer
+Mind-facing outputs and client product definition — without overbuilding UI prematurely.
 
-**Goal:** Create exportable evidence reports, claim-risk memos, and monthly monitoring summaries. Define client-facing dashboard requirements separately from the internal operator UI (do not build a polished client dashboard yet).
+#### Phase 31 — External Mind Handoff / Animoca Mind Payload
 
-**Why:** This is likely the format hotel groups, spa brands, and wellness companies will actually value.
+**Goal:** Define and implement the external Animoca Mind handoff payload from internal Evidence Mind digests and watchtower outputs — without exposing private client wording or secrets.
+
+**Why:** This connects the internal watchtower to the Animoca Evidence Mind operating feed.
+
+Reporting, export, and client dashboard planning may follow within or after Phase 31.
 
 ---
 
@@ -389,6 +387,79 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - No claim editing/deletion yet; status updates only.
 - In-memory `client-claim-mapper.ts` retained as fallback; durable mapping lookup preferred in async handoff path.
 - Phase 29 Mind digest production-validated.
+
+---
+
+- Phase 29 Mind digest production-validated.
+
+---
+
+## Phase 30 — Scheduled Digest Generation
+
+**Status:** PASS / Production validated
+
+**Purpose:** Automatically generate internal Evidence Mind Digests for configured workspaces on a protected schedule, reusing Phase 29 deterministic generation and duplicate prevention — without calling an external Animoca Mind or exposing secrets.
+
+### Implementation summary
+
+- Added protected scheduled digest endpoint (`/api/mind-digests/run-due`)
+- Added Vercel cron wiring for scheduled digest generation
+- Added scheduler module reusing `generateEvidenceMindDigestForWorkspace`
+- Added `generation_source` column (`manual` / `scheduled`) on `evidence_mind_digests`
+- Reused Phase 29 digest generation and duplicate prevention logic
+- Updated `/mind-digests` UI to show digest generation source
+- Preserved existing review queue, client claims, mappings, evidence briefs, notes, audit, auth, break-glass, and watch cron behavior
+- Updated phase marker to `30`
+
+**Architecture note:** Phase 30 schedules internal digest generation only. It does not call an external Animoca Mind and does not use LLM-written narrative.
+
+### Production validation (completed)
+
+- Vercel cron entry exists for `/api/mind-digests/run-due`.
+- Existing Vercel cron entry for `/api/watch/cron` remains present.
+- `/api/mind-digests/run-due` rejects unauthenticated/open browser requests without authorized cron credentials.
+- `/api/mind-digests/run-due` accepts valid authorized Terminal request.
+- Authorized endpoint returned expected JSON.
+- Scheduled digest generation uses the Phase 29 deterministic digest generator.
+- Duplicate active digest prevention remains working: existing active digest for the same workspace and period is skipped instead of duplicated.
+- Supabase validation confirms only one active digest exists for the May 25–May 31, 2026 period.
+- Older duplicate test digest was archived and does not block validation.
+- Endpoint response is privacy-safe and does not expose secrets.
+- `/mind-digests` remains working.
+- `/review-items` remains working.
+- `/client-claims` remains working.
+- `/evidence-briefs` remains working.
+- `/api/watch/cron` remains protected by `CRON_SECRET`.
+
+### Files / areas changed
+
+| Area | Change |
+|------|--------|
+| Supabase migration | `20260531200000_add_evidence_mind_digests_generation_source.sql` |
+| Scheduled endpoint | `app/api/mind-digests/run-due/route.ts` |
+| Cron orchestration | `lib/mind-digest-cron.ts` |
+| Scheduler | `lib/watch/evidence-mind-digest-scheduler.ts` |
+| Generator reuse | `lib/watch/evidence-mind-digest-generator.ts` |
+| Digest store | `lib/watch/evidence-mind-digest-store.ts` |
+| Digest constants | `lib/review/evidence-mind-digest-constants.ts` |
+| Internal UI | `app/mind-digests/mind-digests-view.tsx` |
+| Vercel cron | `vercel.json` |
+| Phase marker | `lib/watch/watch-phase.ts` → `30` |
+| Tests | `mind-digest-cron.test.ts`, `evidence-mind-digest-scheduler.test.ts`, `run-due/route.test.ts` |
+
+### Tests / build
+
+- `npm test` passed: 281/281
+- `npm run build` passed
+
+### Remaining limitations
+
+- Phase 30 schedules internal digest generation only.
+- It does not call an external Animoca Mind.
+- It does not use LLM-written narrative.
+- It does not send email/Slack/client notifications.
+- Real scheduled execution will occur on the Vercel cron schedule; production validation used manual authorized invocation of the same protected endpoint.
+- Phase 31 has not started.
 
 ---
 
@@ -461,12 +532,10 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 ### Remaining limitations
 
 - Digest generation is template-only; no LLM generation yet.
-- Digest generation is manually triggered; not yet automatically scheduled.
+- Manual demo generation remains available alongside scheduled internal generation (Phase 30).
 - Phase 29 does not call an external Animoca Mind.
-- External Mind handoff remains a later phase.
-- Scheduled digest generation remains a later phase.
+- External Mind handoff remains Phase 31.
 - Duplicate prevention only blocks active `draft`/`ready_for_review` digests for the same workspace and period boundaries.
-- Phase 30 has not started.
 
 ---
 
@@ -536,7 +605,7 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Brief generation is manually triggered; not yet automatically triggered by watch/cron evidence changes.
 - Duplicate prevention only blocks active `draft`/`ready_for_review` briefs for the same workspace and claim family.
 - Safer wording is limited/static where available.
-- Phase 30 has not started.
+- Phase 30 scheduled digest production-validated.
 
 ---
 
@@ -673,7 +742,7 @@ During Phase 25 production validation, magic-link operator login exposed a PKCE/
 - No note editing/deletion yet.
 - Notes are internal review notes only.
 - Audit write for `note_added` remains best-effort.
-- Phase 30 has not started.
+- Phase 30 scheduled digest production-validated.
 
 ---
 
@@ -1204,24 +1273,19 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 | Phase 28 | Evidence change brief generator + `/evidence-briefs` UI | Durable operator-facing briefs from claim-family evidence changes |
 | Phase 28 | Record production validation as phase gate | Confirms brief generation, snapshots, duplicate prevention, and review queue regressions |
 | Phase 29 | Internal Mind digest + `/mind-digests` UI | Durable watchtower operational summary from stored data |
-| Phase 29 | Record production validation as phase gate | **PASS / Done** — digest generation, snapshots, duplicate prevention, and regressions confirmed |
-| Strategic | Mind integration plan: Phases 30–31 (scheduled digest + dashboard planning + external handoff) | Animoca Mind operating system outputs |
+| Phase 30 | Scheduled digest generation + `/api/mind-digests/run-due` | Protected internal scheduled Mind digest generation |
+| Phase 30 | Record production validation as phase gate | **PASS / Done** — cron auth, duplicate skip, privacy-safe response, and regressions confirmed |
+| Strategic | Mind integration plan: Phase 31 external Mind handoff | Animoca Mind operating system outputs |
 
 ---
 
 ## Next Recommended Step
 
-**Phase 30 — Production validation**
+**Phase 31 — External Mind Handoff / Animoca Mind Payload**
 
-Validate Phase 30 in production before starting Phase 31:
+Plan and implement the external Animoca Mind handoff from internal digests and watchtower outputs (not started).
 
-1. Apply migration `20260531200000_add_evidence_mind_digests_generation_source.sql` in Supabase.
-2. Deploy app changes and confirm Vercel cron includes `/api/mind-digests/run-due`.
-3. Manual smoke test: `curl -H "Authorization: Bearer $CRON_SECRET" …/api/mind-digests/run-due`.
-4. Confirm digest row with `generation_source = scheduled` when generated; confirm duplicate skip when active digest exists.
-5. Regression: manual `/mind-digests` generation, review queue, client claims, evidence briefs, audit, notes, auth, break-glass, `/api/watch/cron`.
-
-**After validation:** Phase 31 — reporting/export and external Mind handoff planning (not started).
+**Planning only (do not implement yet):** Phase 26.5 controlled claim-form values; Phase 32 source-material claim extraction with operator review; reporting/export and client dashboard requirements.
 
 ---
 
@@ -1249,12 +1313,13 @@ Validate Phase 30 in production before starting Phase 31:
 | 2026-05-31 | Phase 29 implemented; Mind digests, digest item snapshots, `/mind-digests` UI, deterministic generator, demo digest action (pending production validation) |
 | 2026-05-31 | Phase 29 marked PASS / Production validated; digest generation, item snapshots, duplicate prevention fix, and review queue regressions confirmed |
 | 2026-05-31 | Phase 30 implemented; scheduled `/api/mind-digests/run-due`, generation source tracking, Vercel cron, Phase 29 generator reuse (pending production validation) |
+| 2026-05-31 | Phase 30 marked PASS / Production validated; cron auth, duplicate skip, privacy-safe endpoint response, and regressions confirmed |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 30 implementation (2026-05-31).
+**Last sync:** after Phase 30 production validation (2026-05-31).
 
 | Doc | Role after sync |
 |-----|-----------------|
@@ -1265,4 +1330,4 @@ Validate Phase 30 in production before starting Phase 31:
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 30 production validation, then Phase 31 planning.
+**Next build step:** Phase 31 — External Mind Handoff / Animoca Mind Payload.
