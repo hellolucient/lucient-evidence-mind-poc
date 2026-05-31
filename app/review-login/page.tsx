@@ -1,6 +1,9 @@
 import { ReviewLoginForm } from "./review-login-form";
 import { reviewLoginErrorMessage } from "@/lib/supabase/auth-callback";
-import { reviewLoginSendErrorMessage } from "@/lib/supabase/auth-callback-diagnostics";
+import {
+  reviewLoginSendErrorMessage,
+  reviewLoginSendSuccessMessage,
+} from "@/lib/supabase/auth-callback-diagnostics";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +26,16 @@ function readParam(
 export default async function ReviewLoginPage({ searchParams }: ReviewLoginPageProps) {
   const params = await searchParams;
   const errorParam = readParam(params, "error");
+  const sentParam = readParam(params, "sent");
   const authError = reviewLoginErrorMessage(errorParam);
   const sendErrorMessage = reviewLoginSendErrorMessage(errorParam);
+  const sendSuccessMessage = reviewLoginSendSuccessMessage(sentParam);
 
   return (
-    <ReviewLoginForm authError={authError} sendErrorMessage={sendErrorMessage} />
+    <ReviewLoginForm
+      authError={authError}
+      sendErrorMessage={sendErrorMessage}
+      sendSuccessMessage={sendSuccessMessage}
+    />
   );
 }

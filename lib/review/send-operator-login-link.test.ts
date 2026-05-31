@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockValidateApprovedOperatorEmail = vi.fn();
 const mockSignInWithOtp = vi.fn();
-const mockCreateSupabaseAuthServerClient = vi.fn();
+const mockCreateSupabaseAuthImplicitSendClient = vi.fn();
 const mockIsSupabaseAuthConfigured = vi.fn();
 const mockLogOperatorLoginDiagnostic = vi.fn();
 
@@ -11,10 +11,13 @@ vi.mock("@/lib/review/operator-login-eligibility", () => ({
     mockValidateApprovedOperatorEmail(...args),
 }));
 
+vi.mock("@/lib/supabase/auth-implicit-send-client", () => ({
+  createSupabaseAuthImplicitSendClient: (...args: unknown[]) =>
+    mockCreateSupabaseAuthImplicitSendClient(...args),
+}));
+
 vi.mock("@/lib/supabase/auth-server", () => ({
   isSupabaseAuthConfigured: (...args: unknown[]) => mockIsSupabaseAuthConfigured(...args),
-  createSupabaseAuthServerClient: (...args: unknown[]) =>
-    mockCreateSupabaseAuthServerClient(...args),
 }));
 
 vi.mock("@/lib/review/operator-login-diagnostics", async (importOriginal) => {
@@ -35,7 +38,7 @@ beforeEach(() => {
   mockIsSupabaseAuthConfigured.mockReturnValue(true);
   mockValidateApprovedOperatorEmail.mockResolvedValue({ ok: true, userId: "user-123" });
   mockSignInWithOtp.mockResolvedValue({ error: null });
-  mockCreateSupabaseAuthServerClient.mockResolvedValue({
+  mockCreateSupabaseAuthImplicitSendClient.mockReturnValue({
     auth: {
       signInWithOtp: mockSignInWithOtp,
     },

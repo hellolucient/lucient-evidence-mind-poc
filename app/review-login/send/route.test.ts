@@ -1,17 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSendApprovedOperatorLoginLink = vi.fn();
-const mockAuthClient = { auth: {} };
-const mockCreateSupabaseAuthRouteHandlerClient = vi.fn();
 
 vi.mock("@/lib/review/send-operator-login-link", () => ({
   sendApprovedOperatorLoginLink: (...args: unknown[]) =>
     mockSendApprovedOperatorLoginLink(...args),
-}));
-
-vi.mock("@/lib/supabase/auth-route-handler", () => ({
-  createSupabaseAuthRouteHandlerClient: (...args: unknown[]) =>
-    mockCreateSupabaseAuthRouteHandlerClient(...args),
 }));
 
 import { POST } from "@/app/review-login/send/route";
@@ -19,7 +12,6 @@ import { POST } from "@/app/review-login/send/route";
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://example.com");
-  mockCreateSupabaseAuthRouteHandlerClient.mockResolvedValue(mockAuthClient);
   mockSendApprovedOperatorLoginLink.mockResolvedValue({
     ok: true,
     message: "Check your email for the internal review queue login link.",
@@ -38,11 +30,9 @@ describe("POST /review-login/send", () => {
 
     const response = await POST(request);
 
-    expect(mockCreateSupabaseAuthRouteHandlerClient).toHaveBeenCalledTimes(1);
     expect(mockSendApprovedOperatorLoginLink).toHaveBeenCalledWith({
       email: "operator@example.com",
       siteOrigin: "https://example.com",
-      authClient: mockAuthClient,
     });
     expect(response.headers.get("location")).toBe("https://example.com/review-login?sent=1");
   });
