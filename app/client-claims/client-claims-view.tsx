@@ -125,6 +125,8 @@ export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/client-claims">Client claims</a>
+          {" · "}
+          <a href="/evidence-briefs">Evidence briefs</a>
         </nav>
       </header>
 

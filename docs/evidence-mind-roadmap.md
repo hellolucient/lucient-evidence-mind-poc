@@ -4,8 +4,8 @@
 
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–27, see the summary there and the detailed validation records below.
 
-**Current phase marker (production):** `27`  
-**Strategic status:** Internal alpha validated — Phases 1–27 production-validated; **Phase 28 (Evidence Change Brief Generator) is next and not started.**
+**Current phase marker (production):** `28`  
+**Strategic status:** Internal alpha validated — Phases 1–27 production-validated; **Phase 28 (Evidence Change Brief Generator) implemented — pending production validation.**
 
 ### Recent phase status (quick reference)
 
@@ -15,7 +15,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **25** | Operator notes and review decision rationale | **PASS / Production validated** |
 | **26** | Durable client claim registry | **PASS / Production validated** |
 | **27** | Claim-to-watchlist mapping | **PASS / Production validated** |
-| **28** | Evidence change brief generator | **Planned — next** |
+| **28** | Evidence change brief generator | **Implemented — pending production validation** |
 
 ---
 
@@ -24,7 +24,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
 | **Completed** | 1–27 | PASS / Done | Evidence engine, watchtower, review queue, operator auth, audit trail, operator notes, client claim registry, claim-to-watchlist mapping |
-| **Medium-term** | 28 | Planned | Evidence change brief generator |
+| **Medium-term** | 28 | Implemented (pending validation) | Evidence change brief generator |
 | **Mind integration** | 29–31 | Planned | Mind digest, client dashboard requirements, reporting/export |
 
 ---
@@ -241,6 +241,8 @@ Evidence change brief generator after validated claim-to-watchlist mapping.
 
 #### Phase 28 — Evidence Change Brief Generator
 
+**Status:** Implemented — pending production validation
+
 **Goal:** When a watchlist detects meaningful evidence change, generate a structured brief:
 
 - what changed
@@ -253,6 +255,23 @@ Evidence change brief generator after validated claim-to-watchlist mapping.
 - recommended operator action
 
 **Why:** This is where Evidence Mind becomes useful to operators and clients.
+
+### Implementation summary (Phase 28)
+
+- Added durable brief storage (`evidence_change_briefs`)
+- Added affected claim snapshot table (`evidence_change_brief_claims`)
+- Added store modules for brief CRUD, claim snapshots, and privacy-safe shaping
+- Added deterministic/template-based brief generator (no LLM required)
+- Added internal UI at `/evidence-briefs` with list, detail panel, and affected claim snapshots
+- Added demo generation action: **Generate demo magnesium brief** (uses Phase 27 durable mappings)
+- Duplicate prevention: skips generation when an active brief (`draft` or `ready_for_review`) already exists for the same workspace + claim family
+- Updated phase marker to `28`
+
+**Limitations (Phase 28):**
+
+- Brief generation is template-based only; no LLM integration yet
+- No automatic brief generation on watch/cron evidence change (manual demo button only)
+- Duplicate prevention is limited to active-status briefs per workspace + claim family
 
 ---
 
@@ -354,7 +373,7 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Future requirement: claim extraction from spa menus, product descriptions, labels, websites, marketing copy, and similar source material, with operator review before registry insertion (plan as Phase 26.5 or Phase 32).
 - No claim editing/deletion yet; status updates only.
 - In-memory `client-claim-mapper.ts` retained as fallback; durable mapping lookup preferred in async handoff path.
-- Phase 28 evidence change brief generator not started.
+- Phase 28 evidence change brief generator implemented — pending production validation.
 
 ---
 
@@ -415,7 +434,7 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Claim create form still allows free-text for some fields (`claim_source_type`, `risk_level`, etc.); only mapping uses controlled claim-family profiles.
 - Mapping create does not auto-populate `watchlist_id` from profile `default_watchlist_id`.
 - Sync handoff path still uses in-memory mapper; async cron persistence path uses durable-first lookup.
-- Phase 28 evidence change brief generator not started.
+- Phase 28 evidence change brief generator implemented — pending production validation.
 
 ---
 
@@ -1026,14 +1045,17 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 28 — Evidence Change Brief Generator**
+**Phase 28 — Production validation**
 
-Resume implementation with the smallest intelligence increment after validated claim-to-watchlist mapping:
+Validate Phase 28 in production before starting Phase 29:
 
-1. When a watchlist detects meaningful evidence change, generate a structured brief (what changed, why it matters, affected claims, risk implication, suggested safer wording).
-2. Use durable Phase 27 mappings to identify affected client claims.
-3. Preserve workspace scoping, break-glass path, audit trail, notes, client claims UI, API protection, and cron isolation.
-4. Add tests for brief generation boundaries, privacy-safe output, and review-queue/watch regressions.
+1. Apply migration `20260531160000_create_evidence_change_briefs.sql` in Supabase.
+2. Operator login → `/evidence-briefs` → generate demo magnesium brief.
+3. Confirm brief row in `evidence_change_briefs` and snapshots in `evidence_change_brief_claims`.
+4. Confirm workspace scoping, break-glass access, and duplicate skip behavior.
+5. Regression: review queue, client claims, audit trail, notes, mappings, cron protection.
+
+**After validation:** Phase 29 — Mind Digest / Watchtower Summary (not started).
 
 **Planning only (do not implement yet):** Phase 26.5 controlled claim-form values; Phase 32 source-material claim extraction with operator review.
 
@@ -1060,13 +1082,13 @@ Resume implementation with the smallest intelligence increment after validated c
 | 2026-05-31 | Phase 26 marked PASS / Production validated; manual claim registry, review-item linking, and controlled-value/extraction design notes recorded |
 | 2026-05-31 | Phase 27 implemented; claim family profiles, durable claim-to-watchlist mappings, `/client-claims` mapping UI, async handoff integration (pending production validation) |
 | 2026-05-31 | Phase 27 marked PASS / Production validated; mapping migration, controlled dropdown, durable resolution, and review queue regressions confirmed |
-| 2026-05-31 | Documentation sync after Phase 27 — roadmap confirmed canonical; `DEVELOPMENT_PHASES.md`, README files, handoff/review-queue docs updated or marked historical |
+| 2026-05-31 | Phase 28 implemented; evidence change briefs, claim snapshots, `/evidence-briefs` UI, deterministic generator, demo magnesium brief action (pending production validation) |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 27 production validation (2026-05-31).
+**Last sync:** after Phase 28 implementation (2026-05-31).
 
 | Doc | Role after sync |
 |-----|-----------------|
@@ -1077,4 +1099,4 @@ Resume implementation with the smallest intelligence increment after validated c
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 28 — Evidence Change Brief Generator (not started).
+**Next build step:** Phase 28 production validation, then Phase 29 — Mind Digest / Watchtower Summary.

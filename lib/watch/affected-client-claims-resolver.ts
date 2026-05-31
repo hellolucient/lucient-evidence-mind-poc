@@ -16,6 +16,7 @@ export type AffectedClientClaimRef = {
   claim_source_label: string | null;
   risk_level: string | null;
   status: string;
+  mapping_confidence: string | null;
 };
 
 function isMissingTableError(error: { code?: string; message?: string }): boolean {
@@ -75,7 +76,8 @@ export function isAffectedClientClaimResolutionConfigured(): boolean {
 }
 
 export async function resolveAffectedClientClaimsByClaimFamily(
-  claimFamily: string
+  claimFamily: string,
+  workspaceId?: string
 ): Promise<{ claims: AffectedClientClaimRef[]; error?: string }> {
   if (!claimFamily.trim()) {
     return { claims: [] };
@@ -87,11 +89,17 @@ export async function resolveAffectedClientClaimsByClaimFamily(
 
   try {
     const client = createSupabaseServerClient();
-    const { data: mappings, error: mappingError } = await client
+    let mappingQuery = client
       .from(CLIENT_CLAIM_WATCHLIST_MAPPINGS_TABLE)
-      .select("workspace_id, client_claim_id, claim_family")
+      .select("workspace_id, client_claim_id, claim_family, mapping_confidence")
       .eq("claim_family", claimFamily.trim())
       .eq("mapping_status", "active");
+
+    if (workspaceId?.trim()) {
+      mappingQuery = mappingQuery.eq("workspace_id", workspaceId.trim());
+    }
+
+    const { data: mappings, error: mappingError } = await mappingQuery;
 
     if (mappingError) {
       return { claims: [], error: normalizeStoreError(mappingError) };
@@ -128,6 +136,7 @@ export async function resolveAffectedClientClaimsByClaimFamily(
           claim_source_label: claimRow.claim_source_label,
           risk_level: claimRow.risk_level,
           status: claimRow.status,
+          mapping_confidence: mapping.mapping_confidence ?? null,
         });
       }
     }
