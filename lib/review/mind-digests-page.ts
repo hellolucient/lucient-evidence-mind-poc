@@ -8,6 +8,15 @@ import {
   generateDemoEvidenceMindDigest,
 } from "@/lib/watch/evidence-mind-digest-generator";
 import {
+  createMindHandoffFromDigest,
+  getLatestHandoffForDigest,
+  mindHandoffCreationErrorMessage,
+} from "@/lib/watch/external-mind-handoff-creator";
+import type { PrivacySafeExternalMindHandoffWithPayload } from "@/lib/watch/external-mind-handoff-store";
+import {
+  isExternalMindHandoffPersistenceConfigured,
+} from "@/lib/watch/external-mind-handoff-store";
+import {
   getEvidenceMindDigestById,
   isEvidenceMindDigestPersistenceConfigured,
   listEvidenceMindDigestItemsForDigest,
@@ -23,18 +32,25 @@ export type MindDigestsGenerateFlash =
   | { kind: "success"; duplicate_skipped?: boolean }
   | { kind: "error"; error: string; message: string };
 
+export type MindDigestsHandoffFlash =
+  | { kind: "success"; duplicate_skipped?: boolean }
+  | { kind: "error"; error: string; message: string };
+
 export type MindDigestsPageData = {
   configured: boolean;
+  handoffsConfigured: boolean;
   filters: MindDigestsPageFilters;
   digests: PrivacySafeEvidenceMindDigest[];
   selectedDigest: PrivacySafeEvidenceMindDigest | null;
   selectedDigestItems: PrivacySafeEvidenceMindDigestItem[];
+  selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null;
   defaultWorkspaceId: string;
   listError: string | null;
   listErrorMessage: string | null;
   detailError: string | null;
   detailErrorMessage: string | null;
   generateFlash: MindDigestsGenerateFlash | null;
+  handoffFlash: MindDigestsHandoffFlash | null;
   statusOptions: readonly string[];
 };
 
@@ -86,6 +102,27 @@ export function parseMindDigestsGenerateFlash(
   return null;
 }
 
+export function parseMindDigestsHandoffFlash(
+  params: Record<string, string | string[] | undefined>
+): MindDigestsHandoffFlash | null {
+  if (readParam(params, "handoff_ok")) {
+    return readParam(params, "handoff_duplicate_skipped")
+      ? { kind: "success", duplicate_skipped: true }
+      : { kind: "success" };
+  }
+
+  const error = readParam(params, "handoff_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message: readParam(params, "handoff_message") ?? mindHandoffCreationErrorMessage(error),
+    };
+  }
+
+  return null;
+}
+
 export function mindDigestsErrorMessage(error: string): string {
   switch (error) {
     case "supabase_not_configured":
@@ -98,6 +135,10 @@ export function mindDigestsErrorMessage(error: string): string {
       return "You do not have access to digests in this workspace.";
     case "digest_not_found":
       return "Evidence Mind digest not found.";
+    case "external_mind_handoffs_table_missing":
+      return "The external_mind_handoffs table is missing. Apply the Phase 31 migration in Supabase.";
+    case "handoff_not_found":
+      return "External Mind handoff not found.";
     default:
       return `Server error: ${error}`;
   }
@@ -109,6 +150,7 @@ export async function buildMindDigestsPageData(
 ): Promise<MindDigestsPageData> {
   const filters = parseMindDigestsPageFilters(params);
   const configured = isEvidenceMindDigestPersistenceConfigured();
+  const handoffsConfigured = isExternalMindHandoffPersistenceConfigured();
   const defaultWorkspaceId =
     access.mode === "operator"
       ? (access.workspaceIds[0] ?? DEMO_WORKSPACE_ID)
@@ -117,16 +159,19 @@ export async function buildMindDigestsPageData(
   if (!configured) {
     return {
       configured: false,
+      handoffsConfigured: false,
       filters,
       digests: [],
       selectedDigest: null,
       selectedDigestItems: [],
+      selectedDigestHandoff: null,
       defaultWorkspaceId,
       listError: "supabase_not_configured",
       listErrorMessage: mindDigestsErrorMessage("supabase_not_configured"),
       detailError: null,
       detailErrorMessage: null,
       generateFlash: parseMindDigestsGenerateFlash(params),
+      handoffFlash: parseMindDigestsHandoffFlash(params),
       statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
     };
   }
@@ -136,6 +181,7 @@ export async function buildMindDigestsPageData(
 
   let selectedDigest: PrivacySafeEvidenceMindDigest | null = null;
   let selectedDigestItems: PrivacySafeEvidenceMindDigestItem[] = [];
+  let selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null = null;
   let detailError: string | null = null;
 
   if (selectedDigestId) {
@@ -149,6 +195,10 @@ export async function buildMindDigestsPageData(
       if (itemsResult.error && itemsResult.error !== "forbidden") {
         detailError = itemsResult.error;
       }
+
+      if (handoffsConfigured) {
+        selectedDigestHandoff = await getLatestHandoffForDigest(selectedDigestId, access);
+      }
     } else if (digestResult.error) {
       detailError = digestResult.error;
     }
@@ -156,16 +206,19 @@ export async function buildMindDigestsPageData(
 
   return {
     configured: true,
+    handoffsConfigured,
     filters,
     digests: listResult.digests,
     selectedDigest,
     selectedDigestItems,
+    selectedDigestHandoff,
     defaultWorkspaceId,
     listError: listResult.error ?? null,
     listErrorMessage: listResult.error ? mindDigestsErrorMessage(listResult.error) : null,
     detailError,
     detailErrorMessage: detailError ? mindDigestsErrorMessage(detailError) : null,
     generateFlash: parseMindDigestsGenerateFlash(params),
+    handoffFlash: parseMindDigestsHandoffFlash(params),
     statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
   };
 }
@@ -197,6 +250,37 @@ export async function processDemoDigestGenerationSubmission(
 
   return {
     redirectPath: `/mind-digests?digest_id=${encodeURIComponent(result.digest.id)}&generate_ok=1`,
+    result,
+  };
+}
+
+export type MindHandoffCreationSubmissionResult = {
+  redirectPath: string;
+  result: Awaited<ReturnType<typeof createMindHandoffFromDigest>>;
+};
+
+export async function processMindHandoffCreationSubmission(
+  access: ReviewQueueAccessContext,
+  digestId: string
+): Promise<MindHandoffCreationSubmissionResult> {
+  const result = await createMindHandoffFromDigest(digestId, access);
+
+  if (!result.ok) {
+    return {
+      redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&handoff_error=${encodeURIComponent(result.error)}&handoff_message=${encodeURIComponent(result.message)}`,
+      result,
+    };
+  }
+
+  if (result.duplicate_skipped) {
+    return {
+      redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&handoff_ok=1&handoff_duplicate_skipped=1`,
+      result,
+    };
+  }
+
+  return {
+    redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&handoff_ok=1`,
     result,
   };
 }

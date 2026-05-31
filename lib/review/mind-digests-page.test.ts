@@ -4,6 +4,23 @@ const mockListEvidenceMindDigests = vi.fn();
 const mockGetEvidenceMindDigestById = vi.fn();
 const mockListEvidenceMindDigestItemsForDigest = vi.fn();
 const mockGenerateDemoEvidenceMindDigest = vi.fn();
+const mockCreateMindHandoffFromDigest = vi.fn();
+const mockGetLatestHandoffForDigest = vi.fn();
+const mockIsExternalMindHandoffPersistenceConfigured = vi.fn();
+
+vi.mock("@/lib/watch/external-mind-handoff-store", () => ({
+  isExternalMindHandoffPersistenceConfigured: (...args: unknown[]) =>
+    mockIsExternalMindHandoffPersistenceConfigured(...args),
+}));
+
+vi.mock("@/lib/watch/external-mind-handoff-creator", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/watch/external-mind-handoff-creator")>();
+  return {
+    ...actual,
+    createMindHandoffFromDigest: (...args: unknown[]) => mockCreateMindHandoffFromDigest(...args),
+    getLatestHandoffForDigest: (...args: unknown[]) => mockGetLatestHandoffForDigest(...args),
+  };
+});
 const mockIsEvidenceMindDigestPersistenceConfigured = vi.fn();
 
 vi.mock("@/lib/watch/evidence-mind-digest-store", () => ({
@@ -27,6 +44,7 @@ vi.mock("@/lib/watch/evidence-mind-digest-generator", async (importOriginal) => 
 import {
   buildMindDigestsPageData,
   processDemoDigestGenerationSubmission,
+  processMindHandoffCreationSubmission,
 } from "@/lib/review/mind-digests-page";
 
 const operatorAccess = {
@@ -60,6 +78,8 @@ const digestRow = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockIsEvidenceMindDigestPersistenceConfigured.mockReturnValue(true);
+  mockIsExternalMindHandoffPersistenceConfigured.mockReturnValue(true);
+  mockGetLatestHandoffForDigest.mockResolvedValue(null);
   mockListEvidenceMindDigests.mockResolvedValue({ digests: [digestRow] });
   mockGetEvidenceMindDigestById.mockResolvedValue({ digest: digestRow });
   mockListEvidenceMindDigestItemsForDigest.mockResolvedValue({
@@ -80,6 +100,7 @@ beforeEach(() => {
     ],
   });
   mockGenerateDemoEvidenceMindDigest.mockResolvedValue({ ok: true, digest: digestRow });
+  mockCreateMindHandoffFromDigest.mockResolvedValue({ ok: true, handoff: { id: "handoff-uuid-001" } });
 });
 
 describe("mind-digests-page", () => {
@@ -92,6 +113,14 @@ describe("mind-digests-page", () => {
     expect(pageData.selectedDigest?.recommended_focus).toBeTruthy();
     expect(pageData.selectedDigestItems).toHaveLength(1);
     expect(pageData.selectedDigestItems[0].item_type).toBe("evidence_brief");
+    expect(pageData.handoffsConfigured).toBe(true);
+  });
+
+  it("redirects after successful handoff creation submission", async () => {
+    const submission = await processMindHandoffCreationSubmission(operatorAccess, "digest-uuid-001");
+
+    expect(submission.result.ok).toBe(true);
+    expect(submission.redirectPath).toContain("handoff_ok=1");
   });
 
   it("redirects after successful demo generation", async () => {

@@ -4,6 +4,7 @@ import type { MindDigestsPageData } from "@/lib/review/mind-digests-page";
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const GENERATE_DEMO_PATH = "/mind-digests/generate-demo";
+const CREATE_HANDOFF_PATH = "/mind-digests/create-handoff";
 
 const styles = {
   page: {
@@ -84,6 +85,17 @@ const styles = {
     color: "#64748b",
     marginBottom: "0.75rem",
   } as const,
+  codePreview: {
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    padding: "0.75rem",
+    fontSize: "0.75rem",
+    overflowX: "auto" as const,
+    whiteSpace: "pre-wrap" as const,
+    wordBreak: "break-word" as const,
+    marginTop: "0.5rem",
+  } as const,
 };
 
 type MindDigestsViewProps = {
@@ -123,8 +135,8 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
         <h1 style={{ marginTop: 0, marginBottom: "0.35rem" }}>Mind digests</h1>
         <p style={{ margin: 0, color: "#475569", fontSize: "0.9375rem" }}>
           Internal watchtower summaries built from stored evidence alerts, review items, briefs, and
-          mapped claims. Phase 30 can generate digests on a schedule via{" "}
-          <code>/api/mind-digests/run-due</code>; this does not call an external Animoca Mind.
+          mapped claims. Phase 31 packages digests into privacy-safe external Mind handoff payloads;
+          external send remains disabled by default.
         </p>
         <nav style={styles.nav}>
           <a href="/review-items">Review queue</a>
@@ -141,6 +153,18 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
 
       {!pageData.configured && pageData.listErrorMessage ? (
         <div style={styles.error}>{pageData.listErrorMessage}</div>
+      ) : null}
+
+      {pageData.handoffFlash?.kind === "success" ? (
+        <div style={styles.success}>
+          {pageData.handoffFlash.duplicate_skipped
+            ? "An active Mind handoff already exists for this digest — showing existing handoff."
+            : "Mind handoff payload created."}
+        </div>
+      ) : null}
+
+      {pageData.handoffFlash?.kind === "error" ? (
+        <div style={styles.error}>{pageData.handoffFlash.message}</div>
       ) : null}
 
       {pageData.generateFlash?.kind === "success" ? (
@@ -279,6 +303,47 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                 ))}
               </tbody>
             </table>
+          )}
+
+          <h3 style={{ fontSize: "0.9375rem", marginTop: "1.5rem" }}>External Mind handoff</h3>
+          <p style={styles.note}>
+            Creates a durable privacy-safe payload for future external Mind integration. No external
+            network call is made in Phase 31.
+          </p>
+
+          {pageData.handoffsConfigured ? (
+            <>
+              <form action={CREATE_HANDOFF_PATH} method="post">
+                <input type="hidden" name="digest_id" value={pageData.selectedDigest.id} />
+                <button type="submit" style={styles.button}>
+                  Create Mind handoff payload
+                </button>
+              </form>
+
+              {pageData.selectedDigestHandoff ? (
+                <div style={{ marginTop: "1rem" }}>
+                  <div style={styles.detailLabel}>Latest handoff</div>
+                  <div style={styles.detailValue}>
+                    Destination: {pageData.selectedDigestHandoff.destination} · Payload version:{" "}
+                    {pageData.selectedDigestHandoff.payload_version} · Status:{" "}
+                    {pageData.selectedDigestHandoff.status} · Created:{" "}
+                    {formatTimestamp(pageData.selectedDigestHandoff.created_at)}
+                  </div>
+                  <div style={styles.detailLabel}>Payload preview</div>
+                  <pre style={styles.codePreview}>
+                    {JSON.stringify(pageData.selectedDigestHandoff.payload_json, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <p style={{ ...styles.note, marginTop: "0.75rem" }}>
+                  No Mind handoff payload exists for this digest yet.
+                </p>
+              )}
+            </>
+          ) : (
+            <p style={{ ...styles.note, marginTop: "0.75rem" }}>
+              External Mind handoff storage is not configured.
+            </p>
           )}
         </section>
       ) : null}
