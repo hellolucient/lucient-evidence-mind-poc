@@ -12,7 +12,9 @@ const mockIsExternalMindHandoffPersistenceConfigured = vi.fn();
 const mockIsExternalMindHandoffSendEventPersistenceConfigured = vi.fn();
 const mockListExternalMindHandoffSendEventsForHandoff = vi.fn();
 const mockIsWatchtowerNarrativePersistenceConfigured = vi.fn();
+const mockIsWatchtowerNarrativeDiffPersistenceConfigured = vi.fn();
 const mockGetLatestWatchtowerNarrativeForDigest = vi.fn();
+const mockGetLatestWatchtowerNarrativeDiffForNarrative = vi.fn();
 const mockGenerateWatchtowerNarrativeFromDigest = vi.fn();
 
 vi.mock("@/lib/watch/external-mind-handoff-send-event-store", () => ({
@@ -62,6 +64,13 @@ vi.mock("@/lib/watch/evidence-mind-digest-store", () => ({
 vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-store", () => ({
   isWatchtowerNarrativePersistenceConfigured: (...args: unknown[]) =>
     mockIsWatchtowerNarrativePersistenceConfigured(...args),
+}));
+
+vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-diff-store", () => ({
+  isWatchtowerNarrativeDiffPersistenceConfigured: (...args: unknown[]) =>
+    mockIsWatchtowerNarrativeDiffPersistenceConfigured(...args),
+  getLatestWatchtowerNarrativeDiffForNarrative: (...args: unknown[]) =>
+    mockGetLatestWatchtowerNarrativeDiffForNarrative(...args),
 }));
 
 vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-generator", async (importOriginal) => {
@@ -128,12 +137,37 @@ beforeEach(() => {
   mockIsExternalMindHandoffPersistenceConfigured.mockReturnValue(true);
   mockIsExternalMindHandoffSendEventPersistenceConfigured.mockReturnValue(true);
   mockIsWatchtowerNarrativePersistenceConfigured.mockReturnValue(true);
+  mockIsWatchtowerNarrativeDiffPersistenceConfigured.mockReturnValue(true);
   mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValue({
     id: "narrative-uuid-001",
     title: "Watchtower Narrative — Evidence Mind Digest",
     risk_posture: "monitor",
     summary_text: "Summary",
     generated_at: "2026-05-31T12:30:00.000Z",
+  });
+  mockGetLatestWatchtowerNarrativeDiffForNarrative.mockResolvedValue({
+    diff: {
+      id: "diff-uuid-001",
+      workspace_id: "demo-workspace-spa-menu",
+      current_narrative_id: "narrative-uuid-001",
+      previous_narrative_id: "narrative-uuid-000",
+      current_digest_id: "digest-uuid-001",
+      previous_digest_id: "digest-uuid-000",
+      comparison_scope: "workspace_digest_sequence",
+      diff_version: "watchtower_narrative_diff_v1",
+      interpretation_change_level: "medium",
+      risk_posture_change: "decreased",
+      operator_focus_change: "changed",
+      recommended_action_change: "changed",
+      urgency_change: "unchanged",
+      change_signals: ["risk_posture_decreased", "recommended_action_changed"],
+      deterministic_summary: "Risk posture decreased and recommended action changed.",
+      comparison_method: "deterministic_template",
+      metadata_json: { internal_only: true },
+      compared_at: "2026-06-07T12:00:00.000Z",
+      created_at: "2026-06-07T12:00:00.000Z",
+      updated_at: "2026-06-07T12:00:00.000Z",
+    },
   });
   mockGenerateWatchtowerNarrativeFromDigest.mockResolvedValue({
     ok: true,
@@ -204,7 +238,20 @@ describe("mind-digests-page", () => {
     expect(pageData.selectedDigestItems[0].item_type).toBe("evidence_brief");
     expect(pageData.handoffsConfigured).toBe(true);
     expect(pageData.narrativesConfigured).toBe(true);
+    expect(pageData.diffsConfigured).toBe(true);
     expect(pageData.selectedDigestNarrative?.title).toContain("Watchtower Narrative");
+    expect(pageData.selectedDigestWatchtowerNarrativeDiff?.deterministic_summary).toContain(
+      "Risk posture decreased"
+    );
+    expect(pageData.selectedDigestWatchtowerNarrativeDiff).not.toHaveProperty("metadata_json");
+    expect(mockGetLatestWatchtowerNarrativeDiffForNarrative).toHaveBeenCalledWith(
+      {
+        current_narrative_id: "narrative-uuid-001",
+        comparison_scope: "workspace_digest_sequence",
+        diff_version: "watchtower_narrative_diff_v1",
+      },
+      operatorAccess
+    );
     expect(pageData.sendEventsConfigured).toBe(true);
     expect(pageData.selectedDigestHandoffSendEvents).toHaveLength(1);
     expect(pageData.selectedDigestHandoffSendEvents[0].event_type).toBe("send_succeeded");
@@ -248,6 +295,25 @@ describe("mind-digests-page", () => {
     expect(submission.result.ok).toBe(true);
     expect(submission.redirectPath).toContain("review_ok=1");
     expect(submission.redirectPath).toContain("review_action=approve");
+  });
+
+  it("loads page data without diff when no narrative exists", async () => {
+    mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValue(null);
+
+    const pageData = await buildMindDigestsPageData({ digest_id: "digest-uuid-001" }, operatorAccess);
+
+    expect(pageData.selectedDigestNarrative).toBeNull();
+    expect(pageData.selectedDigestWatchtowerNarrativeDiff).toBeNull();
+    expect(mockGetLatestWatchtowerNarrativeDiffForNarrative).not.toHaveBeenCalled();
+  });
+
+  it("loads page data with null diff when narrative has no stored diff", async () => {
+    mockGetLatestWatchtowerNarrativeDiffForNarrative.mockResolvedValue({ diff: null });
+
+    const pageData = await buildMindDigestsPageData({ digest_id: "digest-uuid-001" }, operatorAccess);
+
+    expect(pageData.selectedDigestNarrative?.id).toBe("narrative-uuid-001");
+    expect(pageData.selectedDigestWatchtowerNarrativeDiff).toBeNull();
   });
 
   it("redirects after successful watchtower narrative submission", async () => {

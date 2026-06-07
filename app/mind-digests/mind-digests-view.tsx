@@ -1,5 +1,9 @@
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import type { MindDigestsPageData } from "@/lib/review/mind-digests-page";
+import {
+  formatWatchtowerNarrativeDiffLabel,
+  formatWatchtowerNarrativeDiffSignalLabel,
+} from "@/lib/review/mind-digests-view-ui";
 
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
@@ -125,6 +129,21 @@ const styles = {
     whiteSpace: "pre-wrap" as const,
     wordBreak: "break-word" as const,
     marginTop: "0.5rem",
+  } as const,
+  chipList: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: "0.35rem",
+    marginTop: "0.25rem",
+  } as const,
+  chip: {
+    display: "inline-block",
+    padding: "0.2rem 0.5rem",
+    borderRadius: "999px",
+    background: "#f1f5f9",
+    border: "1px solid #e2e8f0",
+    fontSize: "0.75rem",
+    color: "#334155",
   } as const,
 };
 
@@ -441,6 +460,92 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                       </div>
                     </>
                   ) : null}
+
+                  <h4 style={{ fontSize: "0.875rem", marginTop: "1.25rem" }}>
+                    Watchtower Narrative Diff
+                  </h4>
+                  {pageData.diffsConfigured ? (
+                    pageData.selectedDigestWatchtowerNarrativeDiff ? (
+                      <div style={{ marginTop: "0.5rem" }}>
+                        <div style={styles.detailLabel}>Deterministic summary</div>
+                        <div style={styles.detailValue}>
+                          {pageData.selectedDigestWatchtowerNarrativeDiff.deterministic_summary}
+                        </div>
+
+                        <div style={styles.detailLabel}>Interpretation change level</div>
+                        <div style={styles.detailValue}>
+                          {formatWatchtowerNarrativeDiffLabel(
+                            pageData.selectedDigestWatchtowerNarrativeDiff.interpretation_change_level
+                          )}
+                        </div>
+
+                        <div style={styles.detailLabel}>Risk posture change</div>
+                        <div style={styles.detailValue}>
+                          {formatWatchtowerNarrativeDiffLabel(
+                            pageData.selectedDigestWatchtowerNarrativeDiff.risk_posture_change
+                          )}
+                        </div>
+
+                        <div style={styles.detailLabel}>Urgency change</div>
+                        <div style={styles.detailValue}>
+                          {formatWatchtowerNarrativeDiffLabel(
+                            pageData.selectedDigestWatchtowerNarrativeDiff.urgency_change
+                          )}
+                        </div>
+
+                        <div style={styles.detailLabel}>Operator focus change</div>
+                        <div style={styles.detailValue}>
+                          {formatWatchtowerNarrativeDiffLabel(
+                            pageData.selectedDigestWatchtowerNarrativeDiff.operator_focus_change
+                          )}
+                        </div>
+
+                        <div style={styles.detailLabel}>Recommended action change</div>
+                        <div style={styles.detailValue}>
+                          {formatWatchtowerNarrativeDiffLabel(
+                            pageData.selectedDigestWatchtowerNarrativeDiff.recommended_action_change
+                          )}
+                        </div>
+
+                        <div style={styles.detailLabel}>Change signals</div>
+                        {pageData.selectedDigestWatchtowerNarrativeDiff.change_signals.length ===
+                        0 ? (
+                          <div style={styles.detailValue}>No change signals recorded.</div>
+                        ) : (
+                          <div style={styles.chipList}>
+                            {pageData.selectedDigestWatchtowerNarrativeDiff.change_signals.map(
+                              (signal) => (
+                                <span key={signal} style={styles.chip}>
+                                  {formatWatchtowerNarrativeDiffSignalLabel(signal)}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        )}
+
+                        <div style={styles.detailLabel}>Previous narrative</div>
+                        <div style={styles.detailValue}>
+                          {pageData.selectedDigestWatchtowerNarrativeDiff.previous_narrative_id ??
+                            "This is the first narrative in the current workspace sequence."}
+                        </div>
+
+                        <div style={styles.detailLabel}>Compared at</div>
+                        <div style={styles.detailValue}>
+                          {formatTimestamp(
+                            pageData.selectedDigestWatchtowerNarrativeDiff.compared_at
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ ...styles.note, marginTop: "0.5rem" }}>
+                        No diff has been stored for this narrative yet.
+                      </p>
+                    )
+                  ) : (
+                    <p style={{ ...styles.note, marginTop: "0.5rem" }}>
+                      Watchtower narrative diff storage is not configured.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p style={{ ...styles.note, marginTop: "0.75rem" }}>

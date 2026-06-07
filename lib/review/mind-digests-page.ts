@@ -36,9 +36,21 @@ import {
   watchtowerNarrativeGenerationErrorMessage,
 } from "@/lib/watch/evidence-mind-watchtower-narrative-generator";
 import {
+  DEFAULT_WATCHTOWER_NARRATIVE_COMPARISON_SCOPE,
+  DEFAULT_WATCHTOWER_NARRATIVE_DIFF_VERSION,
+} from "@/lib/watch/evidence-mind-watchtower-narrative-diff-constants";
+import {
+  getLatestWatchtowerNarrativeDiffForNarrative,
+  isWatchtowerNarrativeDiffPersistenceConfigured,
+} from "@/lib/watch/evidence-mind-watchtower-narrative-diff-store";
+import {
   isWatchtowerNarrativePersistenceConfigured,
   type PrivacySafeWatchtowerNarrative,
 } from "@/lib/watch/evidence-mind-watchtower-narrative-store";
+import {
+  shapeMindDigestsWatchtowerNarrativeDiffView,
+  type MindDigestsWatchtowerNarrativeDiffView,
+} from "@/lib/review/mind-digests-view-ui";
 import {
   getEvidenceMindDigestById,
   isEvidenceMindDigestPersistenceConfigured,
@@ -75,6 +87,7 @@ export type MindDigestsPageData = {
   configured: boolean;
   handoffsConfigured: boolean;
   narrativesConfigured: boolean;
+  diffsConfigured: boolean;
   filters: MindDigestsPageFilters;
   digests: PrivacySafeEvidenceMindDigest[];
   selectedDigest: PrivacySafeEvidenceMindDigest | null;
@@ -82,6 +95,7 @@ export type MindDigestsPageData = {
   selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null;
   selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[];
   selectedDigestNarrative: PrivacySafeWatchtowerNarrative | null;
+  selectedDigestWatchtowerNarrativeDiff: MindDigestsWatchtowerNarrativeDiffView | null;
   sendEventsConfigured: boolean;
   defaultWorkspaceId: string;
   listError: string | null;
@@ -252,6 +266,8 @@ export function mindDigestsErrorMessage(error: string): string {
       return "External Mind handoff not found.";
     case "evidence_mind_watchtower_narratives_table_missing":
       return "The evidence_mind_watchtower_narratives table is missing. Apply the Phase 35 migration in Supabase.";
+    case "evidence_mind_watchtower_narrative_diffs_table_missing":
+      return "The evidence_mind_watchtower_narrative_diffs table is missing. Apply the Phase 36 migration in Supabase.";
     default:
       return `Server error: ${error}`;
   }
@@ -265,6 +281,7 @@ export async function buildMindDigestsPageData(
   const configured = isEvidenceMindDigestPersistenceConfigured();
   const handoffsConfigured = isExternalMindHandoffPersistenceConfigured();
   const narrativesConfigured = isWatchtowerNarrativePersistenceConfigured();
+  const diffsConfigured = isWatchtowerNarrativeDiffPersistenceConfigured();
   const sendEventsConfigured = isExternalMindHandoffSendEventPersistenceConfigured();
   const defaultWorkspaceId =
     access.mode === "operator"
@@ -276,6 +293,7 @@ export async function buildMindDigestsPageData(
       configured: false,
       handoffsConfigured: false,
       narrativesConfigured: false,
+      diffsConfigured: false,
       filters,
       digests: [],
       selectedDigest: null,
@@ -283,6 +301,7 @@ export async function buildMindDigestsPageData(
       selectedDigestHandoff: null,
       selectedDigestHandoffSendEvents: [],
       selectedDigestNarrative: null,
+      selectedDigestWatchtowerNarrativeDiff: null,
       sendEventsConfigured: false,
       defaultWorkspaceId,
       listError: "supabase_not_configured",
@@ -306,6 +325,7 @@ export async function buildMindDigestsPageData(
   let selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null = null;
   let selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[] = [];
   let selectedDigestNarrative: PrivacySafeWatchtowerNarrative | null = null;
+  let selectedDigestWatchtowerNarrativeDiff: MindDigestsWatchtowerNarrativeDiffView | null = null;
   let detailError: string | null = null;
 
   if (selectedDigestId) {
@@ -339,6 +359,27 @@ export async function buildMindDigestsPageData(
           selectedDigestId,
           access
         );
+
+        if (selectedDigestNarrative && diffsConfigured) {
+          const diffResult = await getLatestWatchtowerNarrativeDiffForNarrative(
+            {
+              current_narrative_id: selectedDigestNarrative.id,
+              comparison_scope: DEFAULT_WATCHTOWER_NARRATIVE_COMPARISON_SCOPE,
+              diff_version: DEFAULT_WATCHTOWER_NARRATIVE_DIFF_VERSION,
+            },
+            access
+          );
+
+          if (diffResult.diff) {
+            selectedDigestWatchtowerNarrativeDiff = shapeMindDigestsWatchtowerNarrativeDiffView(
+              diffResult.diff
+            );
+          }
+
+          if (diffResult.error && diffResult.error !== "forbidden") {
+            detailError = detailError ?? diffResult.error;
+          }
+        }
       }
     } else if (digestResult.error) {
       detailError = digestResult.error;
@@ -349,6 +390,7 @@ export async function buildMindDigestsPageData(
     configured: true,
     handoffsConfigured,
     narrativesConfigured,
+    diffsConfigured,
     filters,
     digests: listResult.digests,
     selectedDigest,
@@ -356,6 +398,7 @@ export async function buildMindDigestsPageData(
     selectedDigestHandoff,
     selectedDigestHandoffSendEvents,
     selectedDigestNarrative,
+    selectedDigestWatchtowerNarrativeDiff,
     sendEventsConfigured,
     defaultWorkspaceId,
     listError: listResult.error ?? null,
