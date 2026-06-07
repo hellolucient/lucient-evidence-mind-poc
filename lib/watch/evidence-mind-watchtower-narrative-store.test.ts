@@ -11,6 +11,8 @@ const mockCreateSupabaseServerClient = vi.fn();
 
 const queryBuilder = {
   eq: vi.fn(),
+  neq: vi.fn(),
+  lt: vi.fn(),
   order: vi.fn(),
   limit: vi.fn(),
   maybeSingle: mockMaybeSingle,
@@ -26,6 +28,7 @@ vi.mock("@/engine/watchlist/supabase-client", () => ({
 
 import {
   createWatchtowerNarrative,
+  findPreviousWatchtowerNarrativeInWorkspace,
   findWatchtowerNarrativeForDigest,
   isPrivacySafeWatchtowerNarrativePayload,
   toPrivacySafeWatchtowerNarrative,
@@ -68,8 +71,26 @@ const narrativeRow = {
   updated_at: "2026-05-31T12:30:00.000Z",
 };
 
+const previousNarrativeRow = {
+  ...narrativeRow,
+  id: "narrative-uuid-previous",
+  digest_id: "digest-uuid-previous",
+  generated_at: "2026-05-30T12:30:00.000Z",
+  created_at: "2026-05-30T12:30:00.000Z",
+};
+
+const previousLookupInput = {
+  workspace_id: "demo-workspace-spa-menu",
+  current_narrative_id: "narrative-uuid-current",
+  narrative_type: "digest_interpretation" as const,
+  narrative_version: "watchtower_narrative_v1",
+  generated_at: "2026-05-31T12:30:00.000Z",
+};
+
 function setupSupabaseMocks() {
   queryBuilder.eq.mockReturnValue(queryBuilder);
+  queryBuilder.neq.mockReturnValue(queryBuilder);
+  queryBuilder.lt.mockReturnValue(queryBuilder);
   queryBuilder.order.mockReturnValue(queryBuilder);
   queryBuilder.limit.mockReturnValue(queryBuilder);
   queryBuilder.select.mockReturnValue(queryBuilder);
@@ -200,5 +221,77 @@ describe("evidence-mind-watchtower-narrative-store", () => {
     expect(isPrivacySafeWatchtowerNarrativePayload(listSafe as unknown as Record<string, unknown>)).toBe(
       true
     );
+  });
+
+  describe("findPreviousWatchtowerNarrativeInWorkspace", () => {
+    it("returns the prior narrative in the same workspace", async () => {
+      mockMaybeSingle.mockResolvedValueOnce({ data: previousNarrativeRow, error: null });
+
+      const result = await findPreviousWatchtowerNarrativeInWorkspace(
+        previousLookupInput,
+        operatorAccess
+      );
+
+      expect(result.narrative?.id).toBe("narrative-uuid-previous");
+      expect(queryBuilder.eq).toHaveBeenCalledWith("workspace_id", "demo-workspace-spa-menu");
+      expect(queryBuilder.eq).toHaveBeenCalledWith("narrative_type", "digest_interpretation");
+      expect(queryBuilder.eq).toHaveBeenCalledWith("narrative_version", "watchtower_narrative_v1");
+      expect(queryBuilder.neq).toHaveBeenCalledWith("id", "narrative-uuid-current");
+      expect(queryBuilder.lt).toHaveBeenCalledWith("generated_at", "2026-05-31T12:30:00.000Z");
+      expect(queryBuilder.order).toHaveBeenCalledWith("generated_at", { ascending: false });
+      expect(queryBuilder.order).toHaveBeenCalledWith("created_at", { ascending: false });
+      expect(queryBuilder.limit).toHaveBeenCalledWith(1);
+    });
+
+    it("returns null when no prior narrative exists", async () => {
+      mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+      const result = await findPreviousWatchtowerNarrativeInWorkspace(
+        previousLookupInput,
+        operatorAccess
+      );
+
+      expect(result.narrative).toBeNull();
+      expect(result.error).toBeUndefined();
+    });
+
+    it("does not return narratives from inaccessible workspaces", async () => {
+      const result = await findPreviousWatchtowerNarrativeInWorkspace(
+        previousLookupInput,
+        otherWorkspaceAccess
+      );
+
+      expect(result.narrative).toBeNull();
+      expect(result.error).toBe("forbidden");
+      expect(mockSelect).not.toHaveBeenCalled();
+    });
+
+    it("returns forbidden when a matched row belongs to a different workspace", async () => {
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: {
+          ...previousNarrativeRow,
+          workspace_id: "other-workspace",
+        },
+        error: null,
+      });
+
+      const result = await findPreviousWatchtowerNarrativeInWorkspace(
+        previousLookupInput,
+        operatorAccess
+      );
+
+      expect(result.narrative).toBeNull();
+      expect(result.error).toBe("forbidden");
+    });
+
+    it("scopes lookup to workspace, narrative type, and narrative version", async () => {
+      mockMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+      await findPreviousWatchtowerNarrativeInWorkspace(previousLookupInput, operatorAccess);
+
+      expect(queryBuilder.eq).toHaveBeenCalledWith("workspace_id", "demo-workspace-spa-menu");
+      expect(queryBuilder.eq).toHaveBeenCalledWith("narrative_type", "digest_interpretation");
+      expect(queryBuilder.eq).toHaveBeenCalledWith("narrative_version", "watchtower_narrative_v1");
+    });
   });
 });

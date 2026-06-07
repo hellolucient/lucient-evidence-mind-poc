@@ -91,6 +91,14 @@ export type WatchtowerNarrativeLookupResult = {
   error?: string;
 };
 
+export type FindPreviousWatchtowerNarrativeInput = {
+  workspace_id: string;
+  current_narrative_id: string;
+  narrative_type: WatchtowerNarrativeType;
+  narrative_version: string;
+  generated_at: string;
+};
+
 export const NARRATIVE_PRIVATE_FIELDS = [
   "source_counts_json",
   "referenced_entities_json",
@@ -327,6 +335,69 @@ export async function findWatchtowerNarrativeForDigest(
     }
 
     const narrative = toPrivacySafeWatchtowerNarrative(data as WatchtowerNarrativeRow);
+    if (!canAccessReviewItemWorkspace(access, narrative.workspace_id)) {
+      return { narrative: null, error: "forbidden" };
+    }
+
+    return { narrative };
+  } catch (error) {
+    return { narrative: null, error: normalizeStoreError(error) };
+  }
+}
+
+export async function findPreviousWatchtowerNarrativeInWorkspace(
+  input: FindPreviousWatchtowerNarrativeInput,
+  access: ReviewQueueAccessContext
+): Promise<WatchtowerNarrativeLookupResult> {
+  if (
+    !input.workspace_id.trim() ||
+    !input.current_narrative_id.trim() ||
+    !input.narrative_version.trim() ||
+    !input.generated_at.trim()
+  ) {
+    return { narrative: null, error: "required_fields_missing" };
+  }
+
+  if (!isSupportedWatchtowerNarrativeType(input.narrative_type)) {
+    return { narrative: null, error: "unsupported_narrative_type" };
+  }
+
+  if (!canAccessReviewItemWorkspace(access, input.workspace_id)) {
+    return { narrative: null, error: "forbidden" };
+  }
+
+  if (!isWatchtowerNarrativePersistenceConfigured()) {
+    return { narrative: null, error: "supabase_not_configured" };
+  }
+
+  try {
+    const client = createSupabaseServerClient();
+    const { data, error } = await client
+      .from(EVIDENCE_MIND_WATCHTOWER_NARRATIVES_TABLE)
+      .select("*")
+      .eq("workspace_id", input.workspace_id.trim())
+      .eq("narrative_type", input.narrative_type)
+      .eq("narrative_version", input.narrative_version.trim())
+      .neq("id", input.current_narrative_id.trim())
+      .lt("generated_at", input.generated_at)
+      .order("generated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return { narrative: null, error: normalizeStoreError(error) };
+    }
+
+    if (!data) {
+      return { narrative: null };
+    }
+
+    const narrative = toPrivacySafeWatchtowerNarrative(data as WatchtowerNarrativeRow);
+    if (narrative.workspace_id !== input.workspace_id.trim()) {
+      return { narrative: null, error: "forbidden" };
+    }
+
     if (!canAccessReviewItemWorkspace(access, narrative.workspace_id)) {
       return { narrative: null, error: "forbidden" };
     }
