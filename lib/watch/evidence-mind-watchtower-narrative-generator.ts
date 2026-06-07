@@ -9,6 +9,10 @@ import {
 } from "@/lib/review/evidence-mind-watchtower-narrative-constants";
 import type { ReviewQueueAccessContext } from "@/lib/operator-auth";
 import {
+  generateAndStoreWatchtowerNarrativeDiffForNarrative,
+  watchtowerNarrativeDiffGenerationErrorMessage,
+} from "@/lib/watch/evidence-mind-watchtower-narrative-diff-generator";
+import {
   createWatchtowerNarrative,
   findWatchtowerNarrativeForDigest,
   type PrivacySafeWatchtowerNarrative,
@@ -26,8 +30,24 @@ export type GeneratedWatchtowerNarrativeContent = Omit<
   "workspace_id" | "digest_id" | "claim_family"
 >;
 
+export type WatchtowerNarrativeDiffGenerationSummary = {
+  diff_id: string;
+  duplicate_skipped?: boolean;
+};
+
+export type WatchtowerNarrativeDiffWarning = {
+  error: string;
+  message: string;
+};
+
 export type WatchtowerNarrativeGenerationResult =
-  | { ok: true; narrative: PrivacySafeWatchtowerNarrative; duplicate_skipped?: boolean }
+  | {
+      ok: true;
+      narrative: PrivacySafeWatchtowerNarrative;
+      duplicate_skipped?: boolean;
+      watchtower_narrative_diff_result?: WatchtowerNarrativeDiffGenerationSummary;
+      diff_warning?: WatchtowerNarrativeDiffWarning;
+    }
   | { ok: false; error: string; message: string };
 
 const FORBIDDEN_NARRATIVE_KEY_FRAGMENTS = [
@@ -441,7 +461,30 @@ export async function generateWatchtowerNarrativeFromDigest(
     };
   }
 
-  return { ok: true, narrative: createResult.narrative };
+  const diffResult = await generateAndStoreWatchtowerNarrativeDiffForNarrative({
+    currentNarrative: createResult.narrative,
+    access,
+  });
+
+  if (!diffResult.ok) {
+    return {
+      ok: true,
+      narrative: createResult.narrative,
+      diff_warning: {
+        error: diffResult.error,
+        message: watchtowerNarrativeDiffGenerationErrorMessage(diffResult.error),
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    narrative: createResult.narrative,
+    watchtower_narrative_diff_result: {
+      diff_id: diffResult.diff.id,
+      ...(diffResult.duplicate_skipped ? { duplicate_skipped: true } : {}),
+    },
+  };
 }
 
 export async function getLatestWatchtowerNarrativeForDigest(
