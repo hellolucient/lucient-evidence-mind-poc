@@ -159,7 +159,7 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 
 ## What this POC does not include
 
-Client-facing dashboard, evidence change brief generator (Phase 28 — next), PDF handling, webhooks, non-PubMed regulatory sources, or real client data.
+Client-facing dashboard, watchtower narrative history / diff layer (Phase 36 — next; Phase 35 production validated), PDF handling, webhooks, non-PubMed regulatory sources, or real client data. Evidence change briefs are implemented and validated (Phase 28).
 
 **Historical note (Phases 11–13):** early docs described Supabase as watchlist-only. Since Phases 14–27, Supabase also stores review items, audit events, notes, client claims, and claim mappings. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
 

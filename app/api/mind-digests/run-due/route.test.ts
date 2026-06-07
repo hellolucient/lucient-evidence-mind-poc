@@ -11,6 +11,7 @@ vi.mock("@/lib/mind-digest-cron", () => ({
 }));
 
 import { GET } from "@/app/api/mind-digests/run-due/route";
+import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -20,7 +21,7 @@ describe("GET /api/mind-digests/run-due", () => {
   beforeEach(() => {
     mockBuildMindDigestCronResponse.mockResolvedValue({
       ok: true,
-      phase: "30",
+      phase: CURRENT_WATCH_PHASE,
       route: "/api/mind-digests/run-due",
       trigger: "manual_authorized",
       workspace_count: 1,

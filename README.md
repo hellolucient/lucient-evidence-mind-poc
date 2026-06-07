@@ -292,7 +292,7 @@ Use the curl examples above with your Vercel URL and API key. PubMed mode requir
 - Full evidence search, PDF handling, or final claim substantiation
 - Webhooks or client-facing alert delivery
 - Non-PubMed regulatory source integration
-- Evidence Change Brief Generator (Phase 28 — next)
+- Watchtower narrative history / diff layer (Phase 36 — next; Phase 35 production validated)
 - Real client data — demo workspace IDs and synthetic queries only
 
 PubMed retrieval and Phase 7 appraisal are **conservative and automated only** — not proof that a claim is supported.

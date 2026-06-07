@@ -85,7 +85,7 @@ const payload = {
   referenced_review_items: [],
   generated_at: "2026-05-31T12:00:00.000Z",
   source_system: "lucient_evidence_mind",
-  phase: "31",
+  phase: "35",
 };
 
 const handoffRow = {

@@ -4,6 +4,7 @@ import {
   authorizeMindDigestCronRequest,
   buildMindDigestCronResponse,
 } from "@/lib/mind-digest-cron";
+import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 
 export const runtime = "nodejs";
 
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
       {
         ok: false,
         error: "mind_digest_cron_failed",
-        phase: "30",
+        phase: CURRENT_WATCH_PHASE,
         route: "/api/mind-digests/run-due",
         message: error instanceof Error ? error.message : "Scheduled digest generation failed.",
       },
