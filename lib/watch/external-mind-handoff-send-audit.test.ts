@@ -12,6 +12,8 @@ describe("external-mind-handoff-send-audit", () => {
     expect(mapSendErrorToEventType("handoff_not_ready")).toBe("send_blocked");
     expect(mapSendErrorToEventType("not_approved")).toBe("send_blocked");
     expect(mapSendErrorToEventType("send_disabled")).toBe("send_blocked");
+    expect(mapSendErrorToEventType("external_dry_run_ok")).toBe("send_blocked");
+    expect(mapSendErrorToEventType("external_config_invalid")).toBe("send_blocked");
     expect(mapSendErrorToEventType("missing_config")).toBe("send_failed");
 
     expect(mapSendErrorToEventResult("already_sent")).toBe("already_sent");
@@ -20,12 +22,52 @@ describe("external-mind-handoff-send-audit", () => {
     expect(mapSendErrorToEventResult("forbidden")).toBe("unauthorized");
     expect(mapSendErrorToEventResult("send_disabled")).toBe("send_disabled");
     expect(mapSendErrorToEventResult("missing_config")).toBe("missing_config");
+    expect(mapSendErrorToEventResult("external_dry_run_ok")).toBe("external_dry_run_ok");
+    expect(mapSendErrorToEventResult("external_config_invalid")).toBe("external_config_invalid");
   });
 
   it("builds privacy-safe metadata without secrets", () => {
     expect(buildPrivacySafeMetadata({ transportKind: "sent", httpStatus: 202 })).toEqual({
       transport_kind: "sent",
       http_status: 202,
+    });
+  });
+
+  it("includes transport metadata fields for dry-run and live outcomes", () => {
+    expect(
+      buildPrivacySafeMetadata({
+        transportKind: "blocked",
+        transportMetadata: {
+          transport_mode: "dry_run",
+          dry_run_only: true,
+          endpoint_host: "mind.example.com",
+        },
+      })
+    ).toEqual({
+      transport_kind: "blocked",
+      transport_mode: "dry_run",
+      dry_run_only: true,
+      endpoint_host: "mind.example.com",
+    });
+
+    expect(
+      buildPrivacySafeMetadata({
+        transportKind: "failed",
+        transportMetadata: {
+          transport_mode: "live",
+          error_class: "http",
+          http_status: 503,
+          endpoint_host: "mind.example.com",
+          timeout_ms: 15000,
+        },
+      })
+    ).toEqual({
+      transport_kind: "failed",
+      transport_mode: "live",
+      error_class: "http",
+      http_status: 503,
+      endpoint_host: "mind.example.com",
+      timeout_ms: 15000,
     });
   });
 });

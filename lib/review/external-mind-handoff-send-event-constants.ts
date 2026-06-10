@@ -20,6 +20,8 @@ export const EXTERNAL_MIND_HANDOFF_SEND_EVENT_RESULTS = [
   "external_sent",
   "external_send_failed",
   "not_approved",
+  "external_dry_run_ok",
+  "external_config_invalid",
 ] as const;
 
 export type ExternalMindHandoffSendEventResult =

@@ -14,7 +14,10 @@ import {
   recordExternalMindHandoffSendOutcome,
   type ExternalMindHandoffSendAuditContext,
 } from "@/lib/watch/external-mind-handoff-send-audit";
-import { executeExternalMindHandoffTransport } from "@/lib/watch/external-mind-handoff-sender";
+import {
+  executeExternalMindHandoffTransport,
+  type ExternalMindHandoffTransportOutcome,
+} from "@/lib/watch/external-mind-handoff-sender";
 import {
   getExternalMindHandoffById,
   recordExternalMindHandoffSendAttempt,
@@ -51,6 +54,45 @@ function mapTransportResultToEventResult(
   }
 
   return result as ExternalMindHandoffSendEventResult;
+}
+
+function resolveBlockedTransportError(transport: Extract<
+  ExternalMindHandoffTransportOutcome,
+  { kind: "blocked" }
+>): string {
+  if (transport.sendResult.result === "external_dry_run_ok") {
+    return "external_dry_run_ok";
+  }
+
+  if (transport.sendResult.result === "external_config_invalid") {
+    return "external_config_invalid";
+  }
+
+  return transport.error;
+}
+
+function resolveBlockedTransportMessage(transport: Extract<
+  ExternalMindHandoffTransportOutcome,
+  { kind: "blocked" }
+>): string {
+  if (transport.errorMessage) {
+    return transport.errorMessage;
+  }
+
+  return externalMindHandoffSendErrorMessage(resolveBlockedTransportError(transport));
+}
+
+function buildTransportAuditMetadata(
+  transport: ExternalMindHandoffTransportOutcome
+): Record<string, unknown> | null {
+  return buildPrivacySafeMetadata({
+    transportKind: transport.kind,
+    httpStatus:
+      "sendResult" in transport && typeof transport.sendResult.http_status === "number"
+        ? transport.sendResult.http_status
+        : undefined,
+    transportMetadata: "metadata" in transport ? (transport.metadata ?? null) : null,
+  });
 }
 
 async function recordBlockedSendOutcome(input: {
@@ -184,6 +226,9 @@ export async function sendExternalMindHandoff(
   });
 
   if (transport.kind === "blocked") {
+    const blockedError = resolveBlockedTransportError(transport);
+    const blockedMessage = resolveBlockedTransportMessage(transport);
+
     const recordResult = await recordExternalMindHandoffSendAttempt(
       handoff.id,
       access,
@@ -202,9 +247,9 @@ export async function sendExternalMindHandoff(
       result: mapTransportResultToEventResult(transport.sendResult.result),
       statusBefore,
       statusAfter: "ready",
-      errorMessage: transport.error,
+      errorMessage: blockedError,
       attemptedAt: transport.sendResult.timestamp,
-      metadata: buildPrivacySafeMetadata({ transportKind: transport.kind }),
+      metadata: buildTransportAuditMetadata(transport),
     });
 
     if (!recordResult.ok) {
@@ -218,8 +263,8 @@ export async function sendExternalMindHandoff(
 
     return {
       ok: false,
-      error: transport.error,
-      message: externalMindHandoffSendErrorMessage(transport.error),
+      error: blockedError,
+      message: blockedMessage,
       sendResult: transport.sendResult,
     };
   }
@@ -241,10 +286,7 @@ export async function sendExternalMindHandoff(
       statusAfter: "failed",
       errorMessage: transport.errorMessage,
       attemptedAt: transport.sendResult.timestamp,
-      metadata: buildPrivacySafeMetadata({
-        transportKind: transport.kind,
-        httpStatus: transport.sendResult.http_status,
-      }),
+      metadata: buildTransportAuditMetadata(transport),
     });
 
     if (!recordResult.ok) {
@@ -322,10 +364,7 @@ export async function sendExternalMindHandoff(
     statusBefore,
     statusAfter: "sent",
     attemptedAt: transport.sendResult.timestamp,
-    metadata: buildPrivacySafeMetadata({
-      transportKind: transport.kind,
-      httpStatus: transport.sendResult.http_status,
-    }),
+    metadata: buildTransportAuditMetadata(transport),
   });
 
   return {

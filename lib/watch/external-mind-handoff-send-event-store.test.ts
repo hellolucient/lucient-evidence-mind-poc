@@ -120,6 +120,28 @@ describe("external-mind-handoff-send-event-store", () => {
     expect(mockInsert).toHaveBeenCalled();
   });
 
+  it("accepts Phase 38C dry-run and config-invalid audit results", async () => {
+    for (const resultCode of ["external_dry_run_ok", "external_config_invalid"] as const) {
+      const result = await insertExternalMindHandoffSendEvent({
+        workspace_id: "demo-workspace-spa-menu",
+        handoff_id: "handoff-uuid-001",
+        event_type: "send_blocked",
+        destination: "animoca_mind",
+        actor_type: "supabase_operator",
+        access_mode: "supabase_operator",
+        result: resultCode,
+        status_before: "ready",
+        status_after: "ready",
+        metadata: {
+          transport_mode: resultCode === "external_dry_run_ok" ? "dry_run" : "blocked",
+          endpoint_host: "mind.example.com",
+        },
+      });
+
+      expect(result.ok).toBe(true);
+    }
+  });
+
   it("rejects metadata containing sensitive env values", async () => {
     process.env.EXTERNAL_MIND_API_KEY = "secret-key-value";
 

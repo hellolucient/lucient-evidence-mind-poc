@@ -7,6 +7,7 @@ import type {
 } from "@/lib/review/external-mind-handoff-send-event-constants";
 import { sanitizeOperatorEmail } from "@/lib/review/review-queue-auth-status";
 import type { PrivacySafeExternalMindHandoffWithPayload } from "@/lib/watch/external-mind-handoff-store";
+import type { ExternalMindHandoffTransportMetadata } from "@/lib/watch/external-mind-handoff-sender";
 import {
   insertExternalMindHandoffSendEvent,
   type PrivacySafeExternalMindHandoffSendEvent,
@@ -48,9 +49,10 @@ function buildActorEmail(
   return sanitizeOperatorEmail(operatorEmail);
 }
 
-function buildPrivacySafeMetadata(input: {
+export function buildPrivacySafeMetadata(input: {
   transportKind?: string;
   httpStatus?: number;
+  transportMetadata?: ExternalMindHandoffTransportMetadata | null;
 }): Record<string, unknown> | null {
   const metadata: Record<string, unknown> = {};
 
@@ -60,6 +62,31 @@ function buildPrivacySafeMetadata(input: {
 
   if (typeof input.httpStatus === "number") {
     metadata.http_status = input.httpStatus;
+  }
+
+  const transport = input.transportMetadata;
+  if (transport?.transport_mode) {
+    metadata.transport_mode = transport.transport_mode;
+  }
+
+  if (transport?.error_class) {
+    metadata.error_class = transport.error_class;
+  }
+
+  if (transport?.endpoint_host) {
+    metadata.endpoint_host = transport.endpoint_host;
+  }
+
+  if (typeof transport?.timeout_ms === "number") {
+    metadata.timeout_ms = transport.timeout_ms;
+  }
+
+  if (transport?.dry_run_only === true) {
+    metadata.dry_run_only = true;
+  }
+
+  if (typeof transport?.http_status === "number" && !("http_status" in metadata)) {
+    metadata.http_status = transport.http_status;
   }
 
   return Object.keys(metadata).length > 0 ? metadata : null;
@@ -164,6 +191,10 @@ export function mapSendErrorToEventResult(error: string): ExternalMindHandoffSen
       return "send_disabled";
     case "missing_config":
       return "missing_config";
+    case "external_dry_run_ok":
+      return "external_dry_run_ok";
+    case "external_config_invalid":
+      return "external_config_invalid";
     case "external_send_failed":
       return "external_send_failed";
     default:
@@ -178,6 +209,8 @@ export function mapSendErrorToEventType(
     case "already_sent":
       return "send_already_sent";
     case "send_disabled":
+    case "external_dry_run_ok":
+    case "external_config_invalid":
     case "handoff_not_ready":
     case "not_approved":
     case "forbidden":
@@ -186,5 +219,3 @@ export function mapSendErrorToEventType(
       return "send_failed";
   }
 }
-
-export { buildPrivacySafeMetadata };

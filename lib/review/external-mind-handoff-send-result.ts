@@ -8,6 +8,8 @@ export const EXTERNAL_MIND_HANDOFF_SEND_RESULTS = [
   "handoff_not_ready",
   "external_send_failed",
   "external_sent",
+  "external_dry_run_ok",
+  "external_config_invalid",
 ] as const;
 
 export type ExternalMindHandoffSendResultCode =
@@ -96,6 +98,10 @@ export function externalMindHandoffSendErrorMessage(error: string): string {
       return "External Mind send is disabled. Test sink sends are available for ready test_sink handoffs.";
     case "missing_config":
       return "External Mind send is enabled but endpoint or API key configuration is missing.";
+    case "external_dry_run_ok":
+      return "External Mind dry-run passed. No payload was sent. Set EXTERNAL_MIND_LIVE_SEND=true for live delivery.";
+    case "external_config_invalid":
+      return "External Mind send configuration is invalid. No payload was sent.";
     case "external_send_failed":
       return "External Mind send failed. The handoff was not marked as sent.";
     case "send_result_not_privacy_safe":
