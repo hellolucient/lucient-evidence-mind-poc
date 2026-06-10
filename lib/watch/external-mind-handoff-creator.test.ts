@@ -43,7 +43,28 @@ vi.mock("@/lib/watch/external-mind-handoff-sender", () => ({
     mockSendExternalMindHandoffIfEnabled(...args),
 }));
 
-import { createMindHandoffFromDigest } from "@/lib/watch/external-mind-handoff-creator";
+import {
+  createMindHandoffFromDigest,
+  validateExternalMindHandoffCreationDestination,
+} from "@/lib/watch/external-mind-handoff-creator";
+
+const originalEnv = { ...process.env };
+
+function clearExternalMindSendEnv(): void {
+  delete process.env.ENABLE_EXTERNAL_MIND_SEND;
+  delete process.env.EXTERNAL_MIND_LIVE_SEND;
+  delete process.env.EXTERNAL_MIND_ENDPOINT_URL;
+  delete process.env.EXTERNAL_MIND_API_KEY;
+  delete process.env.EXTERNAL_MIND_ENDPOINT_ALLOWLIST;
+}
+
+function setDryRunExternalMindEnv(): void {
+  clearExternalMindSendEnv();
+  process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+  process.env.EXTERNAL_MIND_ENDPOINT_URL = "https://example.test/mind";
+  process.env.EXTERNAL_MIND_API_KEY = "dummy";
+  process.env.EXTERNAL_MIND_LIVE_SEND = "false";
+}
 
 const operatorAccess = {
   authorized: true,
@@ -101,6 +122,8 @@ const handoff = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env = { ...originalEnv };
+  clearExternalMindSendEnv();
   mockFindActiveHandoffForDigest.mockResolvedValue({ handoff: null });
   mockGetEvidenceMindDigestById.mockResolvedValue({ digest });
   mockListEvidenceMindDigestItemsForDigest.mockResolvedValue({ items: [] });
@@ -272,5 +295,202 @@ describe("external-mind-handoff-creator", () => {
     const createCall = mockCreateExternalMindHandoff.mock.calls[0]?.[0];
     expect(createCall?.payload_json.watchtower_narrative_diff).toBeUndefined();
     expect(mockGenerateAndStoreWatchtowerNarrativeDiffForNarrative).not.toHaveBeenCalled();
+  });
+
+  it("creates test_sink when destination is omitted", async () => {
+    await createMindHandoffFromDigest("digest-uuid-001", operatorAccess);
+
+    expect(mockCreateExternalMindHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: "test_sink" }),
+      operatorAccess
+    );
+  });
+
+  it("creates test_sink when destination is explicit", async () => {
+    await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "test_sink",
+    });
+
+    expect(mockCreateExternalMindHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: "test_sink" }),
+      operatorAccess
+    );
+  });
+
+  it("rejects animoca_mind when external send is disabled", async () => {
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+    expect(mockCreateExternalMindHandoff).not.toHaveBeenCalled();
+  });
+
+  it("rejects animoca_mind when endpoint is missing", async () => {
+    process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+    process.env.EXTERNAL_MIND_API_KEY = "dummy";
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+  });
+
+  it("rejects animoca_mind when API key is missing", async () => {
+    process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+    process.env.EXTERNAL_MIND_ENDPOINT_URL = "https://example.test/mind";
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+  });
+
+  it("rejects animoca_mind when endpoint URL is invalid", async () => {
+    process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+    process.env.EXTERNAL_MIND_ENDPOINT_URL = "not-a-valid-url";
+    process.env.EXTERNAL_MIND_API_KEY = "dummy";
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+  });
+
+  it("rejects animoca_mind when endpoint uses http", async () => {
+    process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+    process.env.EXTERNAL_MIND_ENDPOINT_URL = "http://example.test/mind";
+    process.env.EXTERNAL_MIND_API_KEY = "dummy";
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+  });
+
+  it("rejects animoca_mind when allowlist does not match", async () => {
+    process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+    process.env.EXTERNAL_MIND_ENDPOINT_URL = "https://example.test/mind";
+    process.env.EXTERNAL_MIND_API_KEY = "dummy";
+    process.env.EXTERNAL_MIND_ENDPOINT_ALLOWLIST = "other.example.com";
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+  });
+
+  it("accepts animoca_mind in dry-run configuration", async () => {
+    setDryRunExternalMindEnv();
+
+    const animocaHandoff = {
+      ...handoff,
+      id: "handoff-uuid-animoca",
+      destination: "animoca_mind",
+      review_status: "pending_review",
+    };
+    mockCreateExternalMindHandoff.mockResolvedValueOnce({ ok: true, handoff: animocaHandoff });
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockCreateExternalMindHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: "animoca_mind",
+        status: "ready",
+        payload_json: expect.objectContaining({ destination: "animoca_mind" }),
+      }),
+      operatorAccess
+    );
+    if (result.ok) {
+      expect(result.handoff.destination).toBe("animoca_mind");
+      expect(result.handoff.status).toBe("ready");
+      expect(result.handoff.review_status).toBe("pending_review");
+    }
+  });
+
+  it("skips duplicate active animoca_mind handoff for same digest", async () => {
+    setDryRunExternalMindEnv();
+    const existingAnimoca = {
+      ...handoff,
+      id: "handoff-uuid-animoca",
+      destination: "animoca_mind",
+    };
+    mockFindActiveHandoffForDigest.mockResolvedValueOnce({ handoff: existingAnimoca });
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.duplicate_skipped).toBe(true);
+    }
+    expect(mockCreateExternalMindHandoff).not.toHaveBeenCalled();
+  });
+
+  it("allows test_sink and animoca_mind to coexist for the same digest", async () => {
+    setDryRunExternalMindEnv();
+    mockFindActiveHandoffForDigest.mockImplementation(
+      async (_digestId: string, destination: string) => {
+        if (destination === "test_sink") {
+          return { handoff };
+        }
+        return { handoff: null };
+      }
+    );
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "animoca_mind",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockCreateExternalMindHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: "animoca_mind" }),
+      operatorAccess
+    );
+  });
+
+  it("rejects internal_export with unsupported_handoff_destination_for_creation", async () => {
+    const validation = validateExternalMindHandoffCreationDestination("internal_export");
+    expect(validation.ok).toBe(false);
+    if (!validation.ok) {
+      expect(validation.error).toBe("unsupported_handoff_destination_for_creation");
+    }
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "internal_export",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("unsupported_handoff_destination_for_creation");
+    }
+    expect(mockCreateExternalMindHandoff).not.toHaveBeenCalled();
   });
 });

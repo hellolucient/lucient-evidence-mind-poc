@@ -5,6 +5,7 @@ import {
   describeExternalMindSendReadiness,
   getExternalMindSendConfig,
   getExternalMindSendTimeoutMs,
+  isExternalMindHandoffCreationReady,
   isExternalMindLiveSendEnabled,
   isExternalMindSendEnabled,
   isExternalMindSendFullyConfigured,
@@ -232,5 +233,24 @@ describe("external-mind-handoff-send-config", () => {
       containsSensitiveEnvValue("failed at https://user:pass@mind.example.com/ingest")
     ).toBe(true);
     expect(containsSensitiveEnvValue("host mind.example.com only")).toBe(false);
+  });
+
+  it("marks handoff creation ready in dry-run https configuration", () => {
+    clearExternalMindSendEnv();
+    process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+    process.env.EXTERNAL_MIND_ENDPOINT_URL = "https://example.test/mind";
+    process.env.EXTERNAL_MIND_API_KEY = "dummy";
+    process.env.EXTERNAL_MIND_LIVE_SEND = "false";
+
+    expect(isExternalMindHandoffCreationReady()).toBe(true);
+  });
+
+  it("rejects handoff creation for http endpoints", () => {
+    clearExternalMindSendEnv();
+    process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+    process.env.EXTERNAL_MIND_ENDPOINT_URL = "http://example.test/mind";
+    process.env.EXTERNAL_MIND_API_KEY = "dummy";
+
+    expect(isExternalMindHandoffCreationReady()).toBe(false);
   });
 });

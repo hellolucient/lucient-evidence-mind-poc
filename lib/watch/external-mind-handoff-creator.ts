@@ -2,6 +2,7 @@ import {
   DEFAULT_MIND_DIGEST_HANDOFF_DESTINATION,
   DEFAULT_MIND_DIGEST_HANDOFF_TYPE,
   MIND_DIGEST_HANDOFF_PAYLOAD_VERSION,
+  isSupportedExternalMindHandoffDestination,
   type ExternalMindHandoffDestination,
   type ExternalMindHandoffType,
 } from "@/lib/review/external-mind-handoff-constants";
@@ -10,6 +11,7 @@ import {
   buildMindDigestHandoffPayload,
   isPrivacySafeMindDigestHandoffPayload,
 } from "@/lib/watch/external-mind-handoff-payload-builder";
+import { isExternalMindHandoffCreationReady } from "@/lib/watch/external-mind-handoff-send-config";
 import { sendExternalMindHandoffIfEnabled } from "@/lib/watch/external-mind-handoff-sender";
 import {
   createExternalMindHandoff,
@@ -55,9 +57,57 @@ export function mindHandoffCreationErrorMessage(error: string): string {
       return "An active handoff already exists for this digest.";
     case "payload_not_privacy_safe":
       return "Generated handoff payload failed privacy validation.";
+    case "external_send_not_ready":
+      return "External Mind send is not configured for dry-run handoff creation. Enable external send and set a valid HTTPS endpoint and API key.";
+    case "unsupported_handoff_destination_for_creation":
+      return "That handoff destination is not supported for creation yet.";
+    case "invalid_handoff_destination":
+      return "The requested handoff destination is not valid.";
     default:
       return `Unable to create Mind handoff: ${error}`;
   }
+}
+
+export function validateExternalMindHandoffCreationDestination(
+  destination: ExternalMindHandoffDestination
+): { ok: true } | { ok: false; error: string; message: string } {
+  if (destination === "test_sink") {
+    return { ok: true };
+  }
+
+  if (destination === "internal_export") {
+    return {
+      ok: false,
+      error: "unsupported_handoff_destination_for_creation",
+      message: mindHandoffCreationErrorMessage("unsupported_handoff_destination_for_creation"),
+    };
+  }
+
+  if (destination === "animoca_mind") {
+    if (!isExternalMindHandoffCreationReady()) {
+      return {
+        ok: false,
+        error: "external_send_not_ready",
+        message: mindHandoffCreationErrorMessage("external_send_not_ready"),
+      };
+    }
+
+    return { ok: true };
+  }
+
+  if (!isSupportedExternalMindHandoffDestination(destination)) {
+    return {
+      ok: false,
+      error: "invalid_handoff_destination",
+      message: mindHandoffCreationErrorMessage("invalid_handoff_destination"),
+    };
+  }
+
+  return {
+    ok: false,
+    error: "invalid_handoff_destination",
+    message: mindHandoffCreationErrorMessage("invalid_handoff_destination"),
+  };
 }
 
 export async function createMindHandoffFromDigest(
@@ -68,6 +118,15 @@ export async function createMindHandoffFromDigest(
   const destination = options?.destination ?? DEFAULT_MIND_DIGEST_HANDOFF_DESTINATION;
   const handoffType = options?.handoffType ?? DEFAULT_MIND_DIGEST_HANDOFF_TYPE;
   const payloadVersion = MIND_DIGEST_HANDOFF_PAYLOAD_VERSION;
+
+  const destinationValidation = validateExternalMindHandoffCreationDestination(destination);
+  if (!destinationValidation.ok) {
+    return {
+      ok: false,
+      error: destinationValidation.error,
+      message: destinationValidation.message,
+    };
+  }
 
   const digestResult = await getEvidenceMindDigestById(digestId, access);
   if (digestResult.error === "forbidden") {

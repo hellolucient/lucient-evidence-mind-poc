@@ -209,3 +209,20 @@ export function containsSensitiveEnvValue(value: string): boolean {
 
   return false;
 }
+
+function isExternalMindEndpointHttps(): boolean {
+  const parsed = parseExternalMindEndpointUrl(getExternalMindEndpointUrl());
+  return parsed.valid && parsed.protocol === "https:";
+}
+
+/** Dry-run-ready external config required before creating animoca_mind handoffs. */
+export function isExternalMindHandoffCreationReady(): boolean {
+  const readiness = describeExternalMindSendReadiness();
+
+  return (
+    readiness.readyForExternalSend &&
+    readiness.endpointHostConfigured &&
+    readiness.endpointAllowed &&
+    isExternalMindEndpointHttps()
+  );
+}

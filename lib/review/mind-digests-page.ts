@@ -7,6 +7,7 @@ import {
   digestGenerationErrorMessage,
   generateDemoEvidenceMindDigest,
 } from "@/lib/watch/evidence-mind-digest-generator";
+import type { ExternalMindHandoffDestination } from "@/lib/review/external-mind-handoff-constants";
 import {
   createMindHandoffFromDigest,
   getLatestHandoffForDigest,
@@ -452,9 +453,14 @@ export type MindHandoffCreationSubmissionResult = {
 
 export async function processMindHandoffCreationSubmission(
   access: ReviewQueueAccessContext,
-  digestId: string
+  digestId: string,
+  destination?: ExternalMindHandoffDestination
 ): Promise<MindHandoffCreationSubmissionResult> {
-  const result = await createMindHandoffFromDigest(digestId, access);
+  const result = await createMindHandoffFromDigest(
+    digestId,
+    access,
+    destination ? { destination } : undefined
+  );
 
   if (!result.ok) {
     return {

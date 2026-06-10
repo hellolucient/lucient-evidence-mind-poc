@@ -262,6 +262,21 @@ describe("mind-digests-page", () => {
 
     expect(submission.result.ok).toBe(true);
     expect(submission.redirectPath).toContain("handoff_ok=1");
+    expect(mockCreateMindHandoffFromDigest).toHaveBeenCalledWith(
+      "digest-uuid-001",
+      operatorAccess,
+      undefined
+    );
+  });
+
+  it("forwards destination to createMindHandoffFromDigest when provided", async () => {
+    await processMindHandoffCreationSubmission(operatorAccess, "digest-uuid-001", "animoca_mind");
+
+    expect(mockCreateMindHandoffFromDigest).toHaveBeenCalledWith(
+      "digest-uuid-001",
+      operatorAccess,
+      { destination: "animoca_mind" }
+    );
   });
 
   it("redirects after successful demo generation", async () => {
