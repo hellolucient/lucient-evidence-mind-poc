@@ -2,7 +2,7 @@
 
 lucient Evidence Mind is evolving from a one-off evidence query and brief system into a persistent evidence-monitoring and claim-intelligence platform for wellness claims. The phases below track what has been built, what has been validated in production, and what comes next so future work stays aligned with the platform direction.
 
-> **For current phase status (Phases 21–36), see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** Production phase marker: **36**. Next proposed: **Phase 37 — External Mind Handoff Narrative Diff Section**. This file provides historical detail for Phases 1–20 and a concise summary for Phases 21–28. When there is a conflict, the roadmap wins.
+> **For current phase status (Phases 21–37), see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** Production phase marker: **37**. Next Mind integration phase to be planned. This file provides historical detail for Phases 1–20 and a concise summary for Phases 21–28. When there is a conflict, the roadmap wins.
 
 ---
 
@@ -514,5 +514,4 @@ Added controlled claim-family profiles, durable claim-to-watchlist mappings, map
 | **Phase 19** | Minimal internal review queue UI |
 | **Phase 20** | Simple internal route protection for `/review-items` |
 | **Phases 21–27** | Review API hardening, operator auth, audit trail, notes, client claims, claim-to-watchlist mapping — see [Phase 21–27 Summary Update](#phase-2127-summary-update) and [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) |
-| **Phases 28–36** | Evidence briefs, Mind digests, handoffs, test-sink send, send audit, operator approval, watchtower narratives, narrative diffs — see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) |
-| **Phase 37** | External Mind handoff narrative diff section (planned — next) |
+| **Phases 28–37** | Evidence briefs, Mind digests, handoffs, test-sink send, send audit, operator approval, watchtower narratives, narrative diffs, handoff narrative diff section — see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) |
