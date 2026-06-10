@@ -6,9 +6,9 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 
 > **For current phase status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** This index includes historical phase-specific guides; older docs may describe only the phase they were written for.
 
-## Current capabilities (Phases 1–37 production validated)
+## Current capabilities (Phases 1–37 production validated; Phase 38 dry-run guardrails validated)
 
-**Production phase marker:** `37`. **Next Mind integration phase to be planned.**
+**Production phase marker:** `37` (unchanged). **Phase 38 dry-run guardrails production-validated.** Live external HTTP delivery disabled by default; not live-validated.
 
 | Capability | Entry point / table |
 |------------|---------------------|
@@ -27,8 +27,10 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | Watchtower narratives (deterministic templates only) | `evidence_mind_watchtower_narratives`, `/mind-digests/generate-narrative` |
 | Watchtower narrative diffs (deterministic comparison only) | `evidence_mind_watchtower_narrative_diffs`, `/mind-digests` diff detail |
 | External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` and `watchtower_narrative_diff` when narrative/diff exist |
-| Operator approval before send | Phase 34 — test-sink send blocked until `approved` |
-| Test-sink send + send audit | Phase 32–33 — real Animoca delivery disabled by default |
+| Operator approval before send | Phase 34 — send blocked until `approved` |
+| Test-sink send + send audit | Default UI path — `test_sink` handoffs |
+| External Mind dry-run guardrails | Phase 38 — gated `animoca_mind` creation (backend); dry-run audit `external_dry_run_ok` |
+| Live external Animoca delivery | `ENABLE_EXTERNAL_MIND_SEND` + `EXTERNAL_MIND_LIVE_SEND`; not live-validated |
 
 **Validated production chain (Phases 29–37):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload (including `watchtower_narrative` and optional `watchtower_narrative_diff` when stored diff exists) → operator approval → test-sink send → send audit log.
 
@@ -37,7 +39,7 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | Doc | Purpose |
 |-----|---------|
 | [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) | **Canonical live roadmap** — phase status, validation, next step |
-| [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–35) |
+| [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–38) |
 | [MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md) | Handoff and durable claim mapping architecture |
 | [REVIEW_QUEUE_UI.md](./REVIEW_QUEUE_UI.md) | Review queue UI (Phase 19 origin; current-status note at top) |
 | [REVIEW_QUEUE_API.md](./REVIEW_QUEUE_API.md) | Review queue API (Phase 18 origin; current-status note at top) |
@@ -160,7 +162,7 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 
 ## What this POC does not include
 
-Client-facing dashboard, real external Animoca Mind delivery (Phase 38+ — to be planned; Phase 37 production validated), PDF handling, webhooks, non-PubMed regulatory sources, or real client data. Evidence change briefs are implemented and validated (Phase 28).
+Client-facing dashboard, live external Animoca Mind HTTP delivery (Phase 39 — controlled staging validation; Phase 38 dry-run guardrails validated), PDF handling, webhooks, non-PubMed regulatory sources, or real client data. Evidence change briefs are implemented and validated (Phase 28).
 
 **Historical note (Phases 11–13):** early docs described Supabase as watchlist-only. Since Phases 14–27, Supabase also stores review items, audit events, notes, client claims, and claim mappings. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
 

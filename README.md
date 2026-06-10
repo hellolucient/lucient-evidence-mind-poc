@@ -12,9 +12,9 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 
 **Use demo workspace IDs and synthetic queries only.** Do not send real client-private data.
 
-## Current capabilities (Phases 1–37 production validated)
+## Current capabilities (Phases 1–37 production validated; Phase 38 dry-run guardrails validated)
 
-Production-validated internal alpha — **production phase marker: 37**. **Next Mind integration phase to be planned.**
+Production-validated internal alpha — **production phase marker: 37** (unchanged until live external delivery is validated). **Phase 38 dry-run guardrails are production-validated.** Live external HTTP delivery is implemented but disabled by default and not yet live-validated.
 
 | Capability | Status |
 |------------|--------|
@@ -34,8 +34,10 @@ Production-validated internal alpha — **production phase marker: 37**. **Next 
 | Watchtower narratives (deterministic templates) | `evidence_mind_watchtower_narratives` — generate from `/mind-digests` |
 | Watchtower narrative diffs (deterministic comparison) | `evidence_mind_watchtower_narrative_diffs` — compare against prior digest narrative |
 | External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` and `watchtower_narrative_diff` when narrative/diff exist |
-| Operator approval before handoff send | Phase 34 — pending review blocks test-sink send until approved |
-| Test-sink send + send audit log | Disabled-by-default external send; real Animoca delivery not enabled |
+| Operator approval before handoff send | Phase 34 — pending review blocks send until approved |
+| Test-sink send + send audit log | Default operator path; `test_sink` handoffs via UI |
+| External Mind dry-run guardrails | Phase 38 — gated `animoca_mind` creation (backend only); dry-run send records `external_dry_run_ok` without external POST |
+| Live external Animoca delivery | Requires `ENABLE_EXTERNAL_MIND_SEND=true` **and** `EXTERNAL_MIND_LIVE_SEND=true`; **not live-validated** |
 
 **Validated production chain (Phases 29–37):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload (including `watchtower_narrative` and optional `watchtower_narrative_diff` when stored diff exists) → operator approval → test-sink send → send audit log.
 
@@ -82,8 +84,8 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) | Supabase durable watchlist store (Phase 11) |
 | [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md) | Vercel Cron scheduled monitoring (Phase 12) |
 | [docs/watch-run-logging-phase-13.md](./docs/watch-run-logging-phase-13.md) | Durable watch run logging (Phase 13) |
-| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 35 |
-| [docs/DEVELOPMENT_PHASES.md](./docs/DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–35) |
+| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 38 dry-run validation |
+| [docs/DEVELOPMENT_PHASES.md](./docs/DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–38) |
 | [docs/REVIEW_QUEUE_API.md](./docs/REVIEW_QUEUE_API.md) | Review queue API (Phase 18 origin; see current-status note) |
 | [docs/REVIEW_QUEUE_UI.md](./docs/REVIEW_QUEUE_UI.md) | Review queue UI (Phase 19 origin; see current-status note) |
 | [docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md) | Handoff and claim mapping architecture |
@@ -293,7 +295,7 @@ Use the curl examples above with your Vercel URL and API key. PubMed mode requir
 - Full evidence search, PDF handling, or final claim substantiation
 - Webhooks or client-facing alert delivery
 - Non-PubMed regulatory source integration
-- Watchtower narrative history / diff layer (Phase 36 — next; Phase 35 production validated)
+- Live external Animoca Mind HTTP delivery (Phase 39 — controlled validation against approved staging endpoint)
 - Real client data — demo workspace IDs and synthetic queries only
 
 PubMed retrieval and Phase 7 appraisal are **conservative and automated only** — not proof that a claim is supported.

@@ -5,7 +5,9 @@
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–29, see the summary there and the detailed validation records below.
 
 **Current phase marker (production):** `37`  
-**Strategic status:** Internal alpha validated — Phases 1–37 production-validated.
+**Strategic status:** Internal alpha validated — Phases 1–37 production-validated. **Phase 38 dry-run guardrails production-validated** (marker remains `37` until live external delivery is validated).
+
+> **Phase 38 summary:** Phase 38 added external Mind send config/readiness helpers, hardened dry-run/live transport, orchestration/audit semantics (`external_dry_run_ok`, `external_config_invalid`), and a gated backend path to create `animoca_mind` handoffs. **Dry-run guardrails are production-validated.** Live external HTTP delivery is implemented but **not live-validated** — it remains disabled unless both `ENABLE_EXTERNAL_MIND_SEND=true` and `EXTERNAL_MIND_LIVE_SEND=true`. Default operator UI still creates `test_sink` only; approval-before-send remains required; dry-run send does not POST externally.
 
 > **Phase 37 summary:** Phase 37 added an optional privacy-safe `watchtower_narrative_diff` section to external Mind handoff payloads when a stored diff exists. Payload version remains `mind_digest_payload_v1`. No diff recomputation during handoff creation. No `metadata_json`, `source_counts_json`, or `referenced_entities_json` exposure. Send, approval, test-sink, and disabled-by-default external send behavior unchanged.
 
@@ -27,6 +29,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **35** | Evidence Mind watchtower narrative / persistent interpretation layer | **PASS / Production validated** |
 | **36** | Watchtower narrative history / diff layer | **PASS / Production validated** |
 | **37** | External Mind handoff narrative diff section | **PASS / Production validated** |
+| **38** | External Mind dry-run guardrails + gated `animoca_mind` handoff creation | **PASS / Dry-run production validated** (live send not validated) |
 
 ---
 
@@ -35,7 +38,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
 | **Completed** | 1–37 | PASS / Done | Evidence engine through watchtower narratives and narrative diffs, Mind digests, external Mind handoffs with optional narrative diff section, disabled-by-default send stub, send audit trail, operator handoff review/approval |
-| **Mind integration** | 38+ | Planned | Real external Animoca Mind delivery (opt-in), claim extraction at scale, client dashboard |
+| **Mind integration** | 38 (dry-run) / 39+ | 38 dry-run **PASS**; live delivery planned | External send guardrails, gated `animoca_mind` creation, dry-run audit; controlled live validation against approved Animoca/staging endpoint (next) |
 
 ---
 
@@ -184,10 +187,16 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Production validation: handoff payload privacy for diff section | 37 | **PASS / Done** | No `metadata_json`, `source_counts_json`, or `referenced_entities_json` in payload_json |
 | Production validation: Phase 34 approval and Phase 32–33 send chain unchanged | 37 | **PASS / Done** | Send gating, test-sink default, external send disablement preserved |
 | Production validation: review queue regressions after Phase 37 | 37 | **PASS / Done** | Digests, handoff/send, review queue, client claims, evidence briefs, auth, break-glass, both cron endpoints unchanged |
+| External Mind send config / dry-run readiness helpers | 38A | **PASS / Done** | `describeExternalMindSendReadiness`, env-gated dry-run vs live model |
+| External Mind transport hardening (dry-run/live, timeout, errors) | 38B | **PASS / Done** | `executeExternalMindHandoffTransport`; no live POST in dry-run |
+| External Mind send orchestration / audit semantics | 38C | **PASS / Done** | `external_dry_run_ok`, `external_config_invalid`; Supabase migration applied |
+| Gated `animoca_mind` handoff creation (backend only) | 38D | **PASS / Done** | Optional `destination` on create-handoff route; UI still `test_sink` default |
+| Production validation: animoca_mind dry-run send | 38E | **PASS / Done** | Handoff `d9c2a14f-534b-4c46-b620-86d0637db0dd`; no external POST; audit `send_blocked` / `external_dry_run_ok` |
+| Production validation: live external HTTP delivery | 38 | **Not validated** | Awaits controlled test against approved Animoca/staging endpoint |
 
 ---
 
-## Current System State After Phase 37
+## Current System State After Phase 38 (marker remains `37`)
 
 The POC is a validated **internal alpha** for evidence monitoring and operator review. Production-validated capabilities include:
 
@@ -258,8 +267,14 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Deterministic narrative comparison against previous workspace digest narrative | Working |
 | `/mind-digests` watchtower narrative diff detail display | Working |
 | Optional `watchtower_narrative_diff` section in external Mind handoff payloads | Working |
+| External Mind dry-run readiness helpers (`ENABLE_EXTERNAL_MIND_SEND`, endpoint, API key, allowlist) | Working |
+| Gated `animoca_mind` handoff creation via backend route (dry-run-ready config required) | Working |
+| `animoca_mind` dry-run send (no external POST; handoff stays `ready`; audit `external_dry_run_ok`) | Working (production-validated) |
+| Live external HTTP delivery to Animoca endpoint | Implemented, **disabled by default**, **not live-validated** |
 
-**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, view or generate internal Mind digests at `/mind-digests`, generate evidence-constrained watchtower narratives from digests (deterministic templates only), view deterministic narrative diffs against the prior digest narrative when a diff record exists, create privacy-safe external Mind handoff payloads with optional `watchtower_narrative` when a narrative exists and optional `watchtower_narrative_diff` when a stored diff exists, review and approve payloads before send (Phase 34), and complete test-sink send with durable send audit history at `/mind-digests`. Real external Animoca Mind delivery remains disabled unless future server configuration explicitly enables it.
+**Production capability (Phase 38):** `test_sink` remains the default operator path. `animoca_mind` handoffs can be created only through the gated backend path (`POST /mind-digests/create-handoff` with `destination=animoca_mind`) when external send is dry-run-ready (`ENABLE_EXTERNAL_MIND_SEND=true`, valid HTTPS endpoint, API key, allowlist if configured). `EXTERNAL_MIND_LIVE_SEND` is **not** required for creation or dry-run send. Approval-before-send remains required. Dry-run send keeps handoff `status=ready`, sets `send_result_json.result=external_dry_run_ok`, and records audit `event_type=send_blocked` with `metadata.transport_mode=dry_run`. Invalid config yields `external_config_invalid`. Live send requires **both** `ENABLE_EXTERNAL_MIND_SEND=true` and `EXTERNAL_MIND_LIVE_SEND=true` and has not yet been validated against a real/staging Animoca endpoint.
+
+**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, view or generate internal Mind digests at `/mind-digests`, generate evidence-constrained watchtower narratives from digests (deterministic templates only), view deterministic narrative diffs against the prior digest narrative when a diff record exists, create privacy-safe external Mind handoff payloads with optional `watchtower_narrative` when a narrative exists and optional `watchtower_narrative_diff` when a stored diff exists, review and approve payloads before send (Phase 34), and complete test-sink send with durable send audit history at `/mind-digests`. Operators with dry-run-ready server config can create `animoca_mind` handoffs via the gated backend create route and validate dry-run send (no external POST). Live external Animoca Mind HTTP delivery remains disabled by default (`EXTERNAL_MIND_LIVE_SEND=false`) and is not yet live-validated.
 
 **Validated production chain (Phases 29–37):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload (including `watchtower_narrative` when present and optional `watchtower_narrative_diff` when stored diff exists) → operator approval → test-sink send → send audit log.
 
@@ -277,7 +292,9 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Review queue has no note editing/deletion | Notes are append-only internal review notes |
 | Mind digests are internal-only (Phase 29–30) | No external Animoca Mind call; scheduled generation is internal/template-based only |
 | External Mind handoffs are payload-only (Phase 31) | Creates durable `mind_digest_payload_v1` packages; no external send, notifications, or LLM narrative |
-| External Mind send is disabled by default (Phase 32) | Test-sink send marks handoffs `sent` locally; real Animoca Mind HTTP send requires explicit env enablement + endpoint/API key |
+| External Mind send is disabled by default (Phase 32) | Test-sink send marks handoffs `sent` locally; dry-run external send (Phase 38) does not POST; live HTTP send requires `ENABLE_EXTERNAL_MIND_SEND=true` **and** `EXTERNAL_MIND_LIVE_SEND=true` (not live-validated) |
+| `animoca_mind` handoff creation is backend-gated (Phase 38D) | UI still creates `test_sink` only; `animoca_mind` requires dry-run-ready config via create-handoff route |
+| Live external Animoca delivery not validated (Phase 38) | Transport/orchestration implemented; controlled live test against approved endpoint pending (Phase 39) |
 | Send audit events are separate from handoff status (Phase 33) | Durable send history per attempt; still no real external Animoca delivery, notifications, or LLM narrative |
 | External Mind handoff send requires operator approval (Phase 34) | New handoffs start `pending_review`; only `approved` handoffs can send to test sink; no real Animoca delivery |
 | Watchtower narratives are template-only (Phase 35) | Deterministic interpretation from digest snapshots; no LLM narrative; no external Mind call |
@@ -302,7 +319,7 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 4. **Review governance workflow** — operator notes and status audit trail are in place; note editing/deletion and richer decision rationale fields remain future work.
 5. **Claim-to-evidence linkage** — durable claim-to-watchlist mappings validated in Phase 27.
 6. **Structured evidence briefs** — template-based brief generator validated in Phase 28; LLM enrichment and automatic watch-triggered generation remain future work.
-7. **Mind digest / feed** — internal durable Mind Digests, scheduled generation, watchtower narratives, deterministic narrative diffs, external Mind handoff payloads (with optional `watchtower_narrative` and `watchtower_narrative_diff`), disabled-by-default send stub, send audit trail, and operator payload review before send validated in Phases 29–37; real external Animoca Mind delivery remains future work (Phase 38+).
+7. **Mind digest / feed** — internal durable Mind Digests, scheduled generation, watchtower narratives, deterministic narrative diffs, external Mind handoff payloads (with optional `watchtower_narrative` and `watchtower_narrative_diff`), disabled-by-default send stub, send audit trail, operator payload review before send, and **dry-run external send guardrails** validated in Phases 29–38; **controlled live external delivery** against an approved Animoca/staging endpoint remains the next step (Phase 39).
 8. **Client dashboard definition** — requirements for client-facing UX are undefined.
 9. **Reporting and export** — no exportable evidence reports or monitoring summaries.
 10. **Notifications** — no delivery layer for operator or client alerts.
@@ -311,7 +328,16 @@ Before Evidence Mind can operate as a client-facing evidence governance product 
 
 ## Forward Roadmap — From Internal Alpha to Evidence Mind Operating System
 
-This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phases 26–37 are production-validated. Next Mind integration phase to be planned.
+This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phases 26–37 are production-validated. **Phase 38 dry-run guardrails are production-validated; live external HTTP delivery remains disabled by default and awaits controlled validation.**
+
+**Next recommended phase — Phase 39 (or Phase 38F): Controlled live external delivery validation**
+
+1. Obtain an approved Animoca/staging endpoint.
+2. Set `EXTERNAL_MIND_ENDPOINT_ALLOWLIST` to the exact hostname.
+3. Set `EXTERNAL_MIND_LIVE_SEND=true` only for the validation window.
+4. Send one approved `animoca_mind` handoff via existing review + send routes.
+5. Verify `external_sent` audit result and downstream receipt.
+6. Immediately disable `EXTERNAL_MIND_LIVE_SEND` after the test unless production launch is approved.
 
 ### Completed near-term foundation (Phases 26–30)
 
@@ -418,7 +444,7 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - No external Animoca Mind call is made in Phase 31
 - External send remains disabled/not implemented
 
-**Next recommended phase:** Phase 38+ — real external Animoca Mind delivery (opt-in) and remaining Mind integration gaps (to be planned).
+**Next recommended phase (historical note at Phase 31 closeout):** Phase 38 — external send guardrails (now dry-run validated); Phase 39 — controlled live delivery validation.
 
 #### Phase 37 — External Mind Handoff Narrative Diff Section
 
@@ -1074,6 +1100,81 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - It does not send notifications.
 - Handoff payloads include `watchtower_narrative` only when a narrative already exists for the digest.
 - Narrative history/diff across time is implemented in Phase 36; handoff payload diff inclusion was added in Phase 37.
+
+---
+
+## Phase 38 — External Mind Dry-Run Guardrails + Gated `animoca_mind` Handoff Creation
+
+**Status:** PASS / Dry-run production validated (live external HTTP delivery **not** validated)
+
+**Purpose:** Add external Mind send configuration, hardened dry-run/live transport, orchestration/audit semantics, and a gated backend path to create `animoca_mind` handoffs for dry-run validation — without enabling live external delivery by default or exposing a UI destination picker.
+
+> **Phase 38 closeout:** Phase 38 dry-run guardrails are production validated. Live external HTTP delivery remains disabled by default and awaits controlled validation against an approved Animoca/staging endpoint. Production phase marker remains `37` until live delivery is validated or dry-run guardrails are explicitly accepted as the Phase 38 exit criteria.
+
+### Sub-phases
+
+| Sub-phase | Deliverable | Status |
+|-----------|-------------|--------|
+| **38A** | External send config / readiness helpers (`describeExternalMindSendReadiness`, dry-run vs live model) | PASS |
+| **38B** | Transport hardening — dry-run/live distinction, timeout/error classification, live POST headers | PASS |
+| **38C** | Orchestration/audit semantics — `external_dry_run_ok`, `external_config_invalid`; Supabase migration | PASS |
+| **38D** | Gated `animoca_mind` handoff creation via `POST /mind-digests/create-handoff` (`destination` form field) | PASS |
+| **38E** | Production dry-run validation + documentation closeout | PASS |
+
+### Production capability
+
+- `test_sink` remains the default operator path; UI creates `test_sink` only.
+- `animoca_mind` handoffs can be created only through the gated backend path when external send is dry-run-ready.
+- Creation requires `ENABLE_EXTERNAL_MIND_SEND=true`, valid HTTPS endpoint URL, API key, and allowlist match when configured. `EXTERNAL_MIND_LIVE_SEND` is **not** required.
+- Approval-before-send remains required (`review_status=approved` before send).
+- Dry-run send does **not** POST the payload externally.
+- Dry-run keeps handoff `status=ready` (not `sent`).
+- Dry-run produces `send_result_json.result=external_dry_run_ok` and audit `event_type=send_blocked` with `result=external_dry_run_ok`.
+- Invalid config produces `external_config_invalid`.
+- Live send requires **both** `ENABLE_EXTERNAL_MIND_SEND=true` and `EXTERNAL_MIND_LIVE_SEND=true`.
+- Live send has **not** been validated against a real/staging Animoca endpoint.
+
+### Production dry-run validation (completed)
+
+| Field | Observed value |
+|-------|----------------|
+| `digest_id` | `d739be0f-1399-49aa-ae7a-3b59aedbf0cf` |
+| `handoff_id` | `d9c2a14f-534b-4c46-b620-86d0637db0dd` |
+| `destination` | `animoca_mind` |
+| `payload_version` | `mind_digest_payload_v1` |
+| Handoff `status` (before/after dry-run) | `ready` → `ready` |
+| `review_status` | `approved` |
+| `sent_at` | `null` |
+| `send_result_json.result` | `external_dry_run_ok` |
+| Audit `event_type` | `send_blocked` |
+| Audit `result` | `external_dry_run_ok` |
+| Audit `status_before` / `status_after` | `ready` / `ready` |
+| Audit `metadata.transport_mode` | `dry_run` |
+| Audit `metadata.dry_run_only` | `true` |
+| Audit `metadata.endpoint_host` | `example.com` |
+| Env | `ENABLE_EXTERNAL_MIND_SEND=true`, `EXTERNAL_MIND_LIVE_SEND=false`, HTTPS endpoint + API key configured |
+| External POST | **None** (confirmed) |
+
+### Files / areas changed (Phases 38A–38D)
+
+| Area | Change |
+|------|--------|
+| Send config | `lib/watch/external-mind-handoff-send-config.ts` |
+| Transport | `lib/watch/external-mind-handoff-sender.ts` |
+| Orchestration / audit | `lib/watch/external-mind-handoff-send.ts`, `external-mind-handoff-send-audit.ts` |
+| Handoff creator gate | `lib/watch/external-mind-handoff-creator.ts` |
+| Create route | `app/mind-digests/create-handoff/route.ts` |
+| Supabase migration | `external_mind_handoff_send_events` result check (`external_dry_run_ok`, `external_config_invalid`) |
+| Tests | send-config, sender, send, creator, create-handoff route tests |
+
+### Remaining limitations
+
+- No UI destination picker or `animoca_mind` send button.
+- `internal_export` creation deferred.
+- Live external HTTP delivery not production-validated.
+- Production phase marker remains `37`.
+
+**Next recommended phase:** Phase 39 — controlled live external delivery validation against an approved Animoca/staging endpoint (see [Forward Roadmap](#forward-roadmap--from-internal-alpha-to-evidence-mind-operating-system)).
 
 ---
 
@@ -2023,13 +2124,18 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 38+ — Mind integration (to be planned)**
+**Phase 39 — Controlled live external delivery validation**
 
-Phase 37 is production-validated. Likely next directions (planning not started):
+Phase 38 dry-run guardrails are production-validated (marker remains `37`). Live external HTTP delivery is implemented but not live-validated. Recommended next step:
 
-1. Real external Animoca Mind HTTP delivery (opt-in via `ENABLE_EXTERNAL_MIND_SEND` + endpoint configuration).
-2. Client claim extraction from source material at scale (Phase 26.5 / Phase 32 planning).
-3. Client-facing dashboard definition and reporting/export layer.
+1. Obtain an approved Animoca/staging endpoint.
+2. Set `EXTERNAL_MIND_ENDPOINT_ALLOWLIST` to the exact hostname.
+3. Set `EXTERNAL_MIND_LIVE_SEND=true` only for the validation window (with `ENABLE_EXTERNAL_MIND_SEND=true`).
+4. Send one approved `animoca_mind` handoff via existing review + send routes.
+5. Verify `external_sent` audit result and downstream receipt.
+6. Immediately disable `EXTERNAL_MIND_LIVE_SEND` after the test unless production launch is approved.
+
+Other future directions: client claim extraction at scale; client-facing dashboard and reporting/export layer.
 
 ---
 
@@ -2071,12 +2177,15 @@ Phase 37 is production-validated. Likely next directions (planning not started):
 | 2026-06-10 | Phase 36 marked PASS / Production validated; diff generation chain, non-fatal failure, duplicate skip, UI display, handoff payloads unchanged, regressions confirmed |
 | 2026-06-10 | Phase 37 implemented (37A); handoff payload builder + creator wiring for optional `watchtower_narrative_diff` |
 | 2026-06-10 | Phase 37 marked PASS / Production validated; live handoff `9fe12503-a900-46ed-a38d-488a9857db09`, privacy-safe diff section, approval/send chain unchanged, regressions confirmed |
+| 2026-06-10 | Phase 38 implemented (38A–38D); external send config, transport, audit, gated `animoca_mind` creation |
+| 2026-06-10 | Phase 38 dry-run production validated; handoff `d9c2a14f-534b-4c46-b620-86d0637db0dd`, digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf`, no external POST |
+| 2026-06-10 | Phase 38E documentation closeout; marker remains `37`; live external delivery not validated |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 37 production validation (2026-06-10).
+**Last sync:** after Phase 38E dry-run production validation (2026-06-10).
 
 | Doc | Role after sync |
 |-----|-----------------|
@@ -2087,4 +2196,4 @@ Phase 37 is production-validated. Likely next directions (planning not started):
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 38+ — Mind integration (to be planned).
+**Next build step:** Phase 39 — controlled live external delivery validation against approved Animoca/staging endpoint.
