@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 import {
   buildMindDigestHandoffPayload,
   isPrivacySafeMindDigestHandoffPayload,
 } from "@/lib/watch/external-mind-handoff-payload-builder";
+import type { PrivacySafeWatchtowerNarrativeDiff } from "@/lib/watch/evidence-mind-watchtower-narrative-diff-store";
 import type { PrivacySafeWatchtowerNarrative } from "@/lib/watch/evidence-mind-watchtower-narrative-store";
 
 const digest = {
@@ -79,6 +81,29 @@ const narrative: PrivacySafeWatchtowerNarrative = {
   updated_at: "2026-05-31T12:30:00.000Z",
 };
 
+const narrativeDiff: PrivacySafeWatchtowerNarrativeDiff = {
+  id: "diff-uuid-001",
+  workspace_id: "demo-workspace-spa-menu",
+  current_narrative_id: "narrative-uuid-001",
+  previous_narrative_id: "narrative-uuid-000",
+  current_digest_id: "digest-uuid-001",
+  previous_digest_id: "digest-uuid-000",
+  comparison_scope: "workspace_digest_sequence",
+  diff_version: "watchtower_narrative_diff_v1",
+  interpretation_change_level: "medium",
+  risk_posture_change: "decreased",
+  operator_focus_change: "changed",
+  recommended_action_change: "changed",
+  urgency_change: "unchanged",
+  change_signals: ["risk_posture_decreased"],
+  deterministic_summary: "Risk posture decreased.",
+  comparison_method: "deterministic_template",
+  metadata_json: { internal_only: true },
+  compared_at: "2026-06-07T12:00:00.000Z",
+  created_at: "2026-06-07T12:00:00.000Z",
+  updated_at: "2026-06-07T12:00:00.000Z",
+};
+
 describe("external-mind-handoff-payload-builder", () => {
   it("builds a valid digest handoff payload", () => {
     const payload = buildMindDigestHandoffPayload(digest, items, {
@@ -94,7 +119,7 @@ describe("external-mind-handoff-payload-builder", () => {
     expect(payload.affected_client_claims).toContain("demo-claim-magnesium-stress-001");
     expect(payload.referenced_evidence_briefs).toHaveLength(1);
     expect(payload.source_system).toBe("lucient_evidence_mind");
-    expect(payload.phase).toBe("35");
+    expect(payload.phase).toBe("36");
   });
 
   it("includes watchtower narrative section when provided", () => {
@@ -128,5 +153,59 @@ describe("external-mind-handoff-payload-builder", () => {
     expect(serialized.toLowerCase()).not.toContain("service_role");
     expect(serialized.toLowerCase()).not.toContain("access_token");
     expect(serialized.toLowerCase()).not.toContain("operator_email");
+  });
+
+  it("includes watchtower_narrative_diff when supplied", () => {
+    const payload = buildMindDigestHandoffPayload(digest, items, {
+      watchtowerNarrativeDiff: narrativeDiff,
+    });
+
+    expect(payload.watchtower_narrative_diff?.diff_id).toBe("diff-uuid-001");
+    expect(payload.watchtower_narrative_diff?.diff_version).toBe("watchtower_narrative_diff_v1");
+    expect(payload.watchtower_narrative_diff?.comparison_scope).toBe("workspace_digest_sequence");
+    expect(payload.watchtower_narrative_diff?.interpretation_change_level).toBe("medium");
+    expect(payload.watchtower_narrative_diff?.risk_posture_change).toBe("decreased");
+    expect(payload.watchtower_narrative_diff?.operator_focus_change).toBe("changed");
+    expect(payload.watchtower_narrative_diff?.recommended_action_change).toBe("changed");
+    expect(payload.watchtower_narrative_diff?.urgency_change).toBe("unchanged");
+    expect(payload.watchtower_narrative_diff?.change_signals).toEqual(["risk_posture_decreased"]);
+    expect(payload.watchtower_narrative_diff?.deterministic_summary).toBe("Risk posture decreased.");
+    expect(payload.watchtower_narrative_diff?.previous_narrative_id).toBe("narrative-uuid-000");
+    expect(payload.watchtower_narrative_diff?.compared_at).toBe("2026-06-07T12:00:00.000Z");
+    expect(payload.payload_version).toBe("mind_digest_payload_v1");
+    expect(payload.phase).toBe(CURRENT_WATCH_PHASE);
+    expect(isPrivacySafeMindDigestHandoffPayload(payload as unknown as Record<string, unknown>)).toBe(
+      true
+    );
+  });
+
+  it("omits watchtower_narrative_diff when null or undefined", () => {
+    const withoutDiff = buildMindDigestHandoffPayload(digest, items, {
+      watchtowerNarrativeDiff: null,
+    });
+    const defaultPayload = buildMindDigestHandoffPayload(digest, items);
+
+    expect(withoutDiff.watchtower_narrative_diff).toBeUndefined();
+    expect(defaultPayload.watchtower_narrative_diff).toBeUndefined();
+    expect(withoutDiff.payload_version).toBe("mind_digest_payload_v1");
+  });
+
+  it("maps diff_id from diff.id and excludes private diff fields from serialized payload", () => {
+    const payload = buildMindDigestHandoffPayload(digest, items, {
+      watchtowerNarrativeDiff: narrativeDiff,
+    });
+    const serialized = JSON.stringify(payload);
+
+    expect(payload.watchtower_narrative_diff?.diff_id).toBe(narrativeDiff.id);
+    expect(serialized).not.toContain("metadata_json");
+    expect(serialized).not.toContain("source_counts_json");
+    expect(serialized).not.toContain("referenced_entities_json");
+    expect(serialized).not.toContain("workspace_id\":\"demo-workspace-spa-menu\",\"current_narrative_id");
+    expect(payload.watchtower_narrative_diff).not.toHaveProperty("comparison_method");
+    expect(payload.watchtower_narrative_diff).not.toHaveProperty("created_at");
+    expect(payload.watchtower_narrative_diff).not.toHaveProperty("updated_at");
+    expect(payload.watchtower_narrative_diff).not.toHaveProperty("current_digest_id");
+    expect(payload.watchtower_narrative_diff).not.toHaveProperty("previous_digest_id");
+    expect(payload.watchtower_narrative_diff).not.toHaveProperty("current_narrative_id");
   });
 });

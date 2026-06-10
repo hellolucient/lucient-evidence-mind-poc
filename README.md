@@ -12,9 +12,9 @@ This is **not** the full Evidence Intelligence Engine. It proves that an Animoca
 
 **Use demo workspace IDs and synthetic queries only.** Do not send real client-private data.
 
-## Current capabilities (Phases 1–35 production validated)
+## Current capabilities (Phases 1–36 production validated)
 
-Production-validated internal alpha — **production phase marker: 35**. **Phase 36 (Watchtower Narrative History / Diff Layer) is next and not started.**
+Production-validated internal alpha — **production phase marker: 36**. **Phase 37 (External Mind Handoff Narrative Diff Section) is next and not started.**
 
 | Capability | Status |
 |------------|--------|
@@ -32,11 +32,12 @@ Production-validated internal alpha — **production phase marker: 35**. **Phase
 | Evidence change briefs | `evidence_change_briefs` — `/evidence-briefs` |
 | Mind digests / watchtower summaries | `evidence_mind_digests` — `/mind-digests` |
 | Watchtower narratives (deterministic templates) | `evidence_mind_watchtower_narratives` — generate from `/mind-digests` |
-| External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` when narrative exists |
+| Watchtower narrative diffs (deterministic comparison) | `evidence_mind_watchtower_narrative_diffs` — compare against prior digest narrative |
+| External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` when narrative exists (diff section deferred to Phase 37) |
 | Operator approval before handoff send | Phase 34 — pending review blocks test-sink send until approved |
 | Test-sink send + send audit log | Disabled-by-default external send; real Animoca delivery not enabled |
 
-**Validated production chain (Phases 29–35):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → external Mind handoff payload (including `watchtower_narrative` when present) → operator approval → test-sink send → send audit log.
+**Validated production chain (Phases 29–36):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload (including `watchtower_narrative` when present) → operator approval → test-sink send → send audit log.
 
 **For detailed phase status and validation records, see [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md).**
 

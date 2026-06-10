@@ -8,6 +8,7 @@ import type {
   PrivacySafeEvidenceMindDigest,
   PrivacySafeEvidenceMindDigestItem,
 } from "@/lib/watch/evidence-mind-digest-store";
+import type { PrivacySafeWatchtowerNarrativeDiff } from "@/lib/watch/evidence-mind-watchtower-narrative-diff-store";
 import type { PrivacySafeWatchtowerNarrative } from "@/lib/watch/evidence-mind-watchtower-narrative-store";
 
 export type MindDigestHandoffWatchtowerNarrative = {
@@ -21,6 +22,21 @@ export type MindDigestHandoffWatchtowerNarrative = {
   operator_focus_text: string | null;
   recommended_next_action_text: string | null;
   generated_at: string;
+};
+
+export type MindDigestHandoffWatchtowerNarrativeDiff = {
+  diff_id: string;
+  diff_version: string;
+  comparison_scope: string;
+  interpretation_change_level: string;
+  risk_posture_change: string;
+  operator_focus_change: string;
+  recommended_action_change: string;
+  urgency_change: string;
+  change_signals: string[];
+  deterministic_summary: string;
+  previous_narrative_id: string | null;
+  compared_at: string;
 };
 
 export type MindDigestHandoffPayloadItem = {
@@ -68,6 +84,7 @@ export type MindDigestHandoffPayloadV1 = {
   source_system: "lucient_evidence_mind";
   phase: typeof CURRENT_WATCH_PHASE;
   watchtower_narrative?: MindDigestHandoffWatchtowerNarrative;
+  watchtower_narrative_diff?: MindDigestHandoffWatchtowerNarrativeDiff;
 };
 
 const FORBIDDEN_PAYLOAD_KEY_FRAGMENTS = [
@@ -123,6 +140,25 @@ export function buildMindDigestHandoffWatchtowerNarrativeSection(
   };
 }
 
+export function buildMindDigestHandoffWatchtowerNarrativeDiffSection(
+  diff: PrivacySafeWatchtowerNarrativeDiff
+): MindDigestHandoffWatchtowerNarrativeDiff {
+  return {
+    diff_id: diff.id,
+    diff_version: diff.diff_version,
+    comparison_scope: diff.comparison_scope,
+    interpretation_change_level: diff.interpretation_change_level,
+    risk_posture_change: diff.risk_posture_change,
+    operator_focus_change: diff.operator_focus_change,
+    recommended_action_change: diff.recommended_action_change,
+    urgency_change: diff.urgency_change,
+    change_signals: diff.change_signals,
+    deterministic_summary: diff.deterministic_summary,
+    previous_narrative_id: diff.previous_narrative_id,
+    compared_at: diff.compared_at,
+  };
+}
+
 export function buildMindDigestHandoffPayload(
   digest: PrivacySafeEvidenceMindDigest,
   items: PrivacySafeEvidenceMindDigestItem[],
@@ -131,6 +167,7 @@ export function buildMindDigestHandoffPayload(
     destination?: ExternalMindHandoffDestination;
     generatedAt?: string;
     watchtowerNarrative?: PrivacySafeWatchtowerNarrative | null;
+    watchtowerNarrativeDiff?: PrivacySafeWatchtowerNarrativeDiff | null;
   }
 ): MindDigestHandoffPayloadV1 {
   const claimFamilies = new Set<string>();
@@ -203,6 +240,13 @@ export function buildMindDigestHandoffPayload(
       ? {
           watchtower_narrative: buildMindDigestHandoffWatchtowerNarrativeSection(
             options.watchtowerNarrative
+          ),
+        }
+      : {}),
+    ...(options?.watchtowerNarrativeDiff
+      ? {
+          watchtower_narrative_diff: buildMindDigestHandoffWatchtowerNarrativeDiffSection(
+            options.watchtowerNarrativeDiff
           ),
         }
       : {}),

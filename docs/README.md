@@ -6,9 +6,9 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 
 > **For current phase status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** This index includes historical phase-specific guides; older docs may describe only the phase they were written for.
 
-## Current capabilities (Phases 1–35 production validated)
+## Current capabilities (Phases 1–36 production validated)
 
-**Production phase marker:** `35`. **Next proposed phase:** Phase 36 — Watchtower Narrative History / Diff Layer (not started).
+**Production phase marker:** `36`. **Next proposed phase:** Phase 37 — External Mind Handoff Narrative Diff Section (not started).
 
 | Capability | Entry point / table |
 |------------|---------------------|
@@ -25,7 +25,8 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | Evidence change briefs | `evidence_change_briefs`, `/evidence-briefs` |
 | Mind digests | `evidence_mind_digests`, `/mind-digests` |
 | Watchtower narratives (deterministic templates only) | `evidence_mind_watchtower_narratives`, `/mind-digests/generate-narrative` |
-| External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` when narrative exists |
+| Watchtower narrative diffs (deterministic comparison only) | `evidence_mind_watchtower_narrative_diffs`, `/mind-digests` diff detail |
+| External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` when narrative exists (diff section deferred to Phase 37) |
 | Operator approval before send | Phase 34 — test-sink send blocked until `approved` |
 | Test-sink send + send audit | Phase 32–33 — real Animoca delivery disabled by default |
 
@@ -159,7 +160,7 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 
 ## What this POC does not include
 
-Client-facing dashboard, watchtower narrative history / diff layer (Phase 36 — next; Phase 35 production validated), PDF handling, webhooks, non-PubMed regulatory sources, or real client data. Evidence change briefs are implemented and validated (Phase 28).
+Client-facing dashboard, external Mind handoff narrative diff section (Phase 37 — next; Phase 36 production validated), PDF handling, webhooks, non-PubMed regulatory sources, or real client data. Evidence change briefs are implemented and validated (Phase 28).
 
 **Historical note (Phases 11–13):** early docs described Supabase as watchlist-only. Since Phases 14–27, Supabase also stores review items, audit events, notes, client claims, and claim mappings. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
 

@@ -5,7 +5,7 @@ import { CURRENT_WATCH_PHASE } from "./watch-phase";
 
 describe("watch-phase", () => {
   it("defines the current watchtower phase", () => {
-    expect(CURRENT_WATCH_PHASE).toBe("35");
+    expect(CURRENT_WATCH_PHASE).toBe("36");
   });
 
   it("is used by cron unauthorized diagnostics", () => {

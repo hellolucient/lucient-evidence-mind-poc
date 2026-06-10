@@ -7,10 +7,22 @@ const mockCreateExternalMindHandoff = vi.fn();
 const mockSendExternalMindHandoffIfEnabled = vi.fn();
 
 const mockGetLatestWatchtowerNarrativeForDigest = vi.fn();
+const mockGetLatestWatchtowerNarrativeDiffForNarrative = vi.fn();
+const mockGenerateAndStoreWatchtowerNarrativeDiffForNarrative = vi.fn();
 
 vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-generator", () => ({
   getLatestWatchtowerNarrativeForDigest: (...args: unknown[]) =>
     mockGetLatestWatchtowerNarrativeForDigest(...args),
+}));
+
+vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-diff-store", () => ({
+  getLatestWatchtowerNarrativeDiffForNarrative: (...args: unknown[]) =>
+    mockGetLatestWatchtowerNarrativeDiffForNarrative(...args),
+}));
+
+vi.mock("@/lib/watch/evidence-mind-watchtower-narrative-diff-generator", () => ({
+  generateAndStoreWatchtowerNarrativeDiffForNarrative: (...args: unknown[]) =>
+    mockGenerateAndStoreWatchtowerNarrativeDiffForNarrative(...args),
 }));
 
 vi.mock("@/lib/watch/evidence-mind-digest-store", () => ({
@@ -99,7 +111,54 @@ beforeEach(() => {
     reason: "external_send_disabled",
   });
   mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValue(null);
+  mockGetLatestWatchtowerNarrativeDiffForNarrative.mockResolvedValue({ diff: null });
 });
+
+const narrative = {
+  id: "narrative-uuid-001",
+  workspace_id: "demo-workspace-spa-menu",
+  digest_id: "digest-uuid-001",
+  claim_family: null,
+  narrative_type: "digest_interpretation",
+  narrative_version: "watchtower_narrative_v1",
+  title: "Watchtower Narrative — Evidence Mind Digest",
+  summary_text: "Evidence-constrained summary.",
+  what_changed_text: "One alert recorded.",
+  why_it_matters_text: "Monitor posture based on stored snapshots.",
+  operator_focus_text: "Continue monitoring.",
+  recommended_next_action_text: "Continue monitoring affected claim families.",
+  risk_posture: "monitor",
+  confidence_level: "medium",
+  source_counts_json: { briefs_count: 1 },
+  referenced_entities_json: { claim_families: ["magnesium_cortisol_stress"] },
+  generation_method: "deterministic_template",
+  generated_at: "2026-05-31T12:30:00.000Z",
+  created_at: "2026-05-31T12:30:00.000Z",
+  updated_at: "2026-05-31T12:30:00.000Z",
+};
+
+const narrativeDiff = {
+  id: "diff-uuid-001",
+  workspace_id: "demo-workspace-spa-menu",
+  current_narrative_id: "narrative-uuid-001",
+  previous_narrative_id: "narrative-uuid-000",
+  current_digest_id: "digest-uuid-001",
+  previous_digest_id: "digest-uuid-000",
+  comparison_scope: "workspace_digest_sequence",
+  diff_version: "watchtower_narrative_diff_v1",
+  interpretation_change_level: "medium",
+  risk_posture_change: "decreased",
+  operator_focus_change: "changed",
+  recommended_action_change: "changed",
+  urgency_change: "unchanged",
+  change_signals: ["risk_posture_decreased"],
+  deterministic_summary: "Risk posture decreased.",
+  comparison_method: "deterministic_template",
+  metadata_json: { internal_only: true },
+  compared_at: "2026-06-07T12:00:00.000Z",
+  created_at: "2026-06-07T12:00:00.000Z",
+  updated_at: "2026-06-07T12:00:00.000Z",
+};
 
 describe("external-mind-handoff-creator", () => {
   it("creates a handoff from digest", async () => {
@@ -143,5 +202,75 @@ describe("external-mind-handoff-creator", () => {
     if (!result.ok) {
       expect(result.error).toBe("forbidden");
     }
+  });
+
+  it("does not fetch diff when no watchtower narrative exists", async () => {
+    await createMindHandoffFromDigest("digest-uuid-001", operatorAccess);
+
+    expect(mockGetLatestWatchtowerNarrativeDiffForNarrative).not.toHaveBeenCalled();
+    expect(mockGenerateAndStoreWatchtowerNarrativeDiffForNarrative).not.toHaveBeenCalled();
+  });
+
+  it("fetches diff only when watchtower narrative exists", async () => {
+    mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValueOnce(narrative);
+    mockGetLatestWatchtowerNarrativeDiffForNarrative.mockResolvedValueOnce({ diff: narrativeDiff });
+
+    await createMindHandoffFromDigest("digest-uuid-001", operatorAccess);
+
+    expect(mockGetLatestWatchtowerNarrativeDiffForNarrative).toHaveBeenCalledWith(
+      {
+        current_narrative_id: "narrative-uuid-001",
+        comparison_scope: "workspace_digest_sequence",
+        diff_version: "watchtower_narrative_diff_v1",
+      },
+      operatorAccess
+    );
+    expect(mockGenerateAndStoreWatchtowerNarrativeDiffForNarrative).not.toHaveBeenCalled();
+  });
+
+  it("passes watchtowerNarrativeDiff into payload when diff exists", async () => {
+    mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValueOnce(narrative);
+    mockGetLatestWatchtowerNarrativeDiffForNarrative.mockResolvedValueOnce({ diff: narrativeDiff });
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess);
+
+    expect(result.ok).toBe(true);
+    expect(mockCreateExternalMindHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload_json: expect.objectContaining({
+          watchtower_narrative_diff: expect.objectContaining({
+            diff_id: "diff-uuid-001",
+            deterministic_summary: "Risk posture decreased.",
+          }),
+        }),
+      }),
+      operatorAccess
+    );
+  });
+
+  it("succeeds and omits diff when no diff exists", async () => {
+    mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValueOnce(narrative);
+    mockGetLatestWatchtowerNarrativeDiffForNarrative.mockResolvedValueOnce({ diff: null });
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess);
+
+    expect(result.ok).toBe(true);
+    const createCall = mockCreateExternalMindHandoff.mock.calls[0]?.[0];
+    expect(createCall?.payload_json.watchtower_narrative_diff).toBeUndefined();
+  });
+
+  it("succeeds and omits diff when diff lookup errors", async () => {
+    mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValueOnce(narrative);
+    mockGetLatestWatchtowerNarrativeDiffForNarrative.mockResolvedValueOnce({
+      diff: null,
+      error: "supabase_not_configured",
+    });
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess);
+
+    expect(result.ok).toBe(true);
+    const createCall = mockCreateExternalMindHandoff.mock.calls[0]?.[0];
+    expect(createCall?.payload_json.watchtower_narrative_diff).toBeUndefined();
+    expect(mockGenerateAndStoreWatchtowerNarrativeDiffForNarrative).not.toHaveBeenCalled();
   });
 });

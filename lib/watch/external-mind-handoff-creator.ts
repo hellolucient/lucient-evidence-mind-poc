@@ -18,6 +18,11 @@ import {
   listExternalMindHandoffs,
   type PrivacySafeExternalMindHandoffWithPayload,
 } from "@/lib/watch/external-mind-handoff-store";
+import {
+  DEFAULT_WATCHTOWER_NARRATIVE_COMPARISON_SCOPE,
+  DEFAULT_WATCHTOWER_NARRATIVE_DIFF_VERSION,
+} from "@/lib/watch/evidence-mind-watchtower-narrative-diff-constants";
+import { getLatestWatchtowerNarrativeDiffForNarrative } from "@/lib/watch/evidence-mind-watchtower-narrative-diff-store";
 import { getLatestWatchtowerNarrativeForDigest } from "@/lib/watch/evidence-mind-watchtower-narrative-generator";
 import {
   getEvidenceMindDigestById,
@@ -100,10 +105,24 @@ export async function createMindHandoffFromDigest(
 
   const watchtowerNarrative = await getLatestWatchtowerNarrativeForDigest(digestId, access);
 
+  let watchtowerNarrativeDiff = null;
+  if (watchtowerNarrative) {
+    const diffResult = await getLatestWatchtowerNarrativeDiffForNarrative(
+      {
+        current_narrative_id: watchtowerNarrative.id,
+        comparison_scope: DEFAULT_WATCHTOWER_NARRATIVE_COMPARISON_SCOPE,
+        diff_version: DEFAULT_WATCHTOWER_NARRATIVE_DIFF_VERSION,
+      },
+      access
+    );
+    watchtowerNarrativeDiff = diffResult.diff ?? null;
+  }
+
   const payload = buildMindDigestHandoffPayload(digestResult.digest, itemsResult.items, {
     handoffType,
     destination,
     watchtowerNarrative,
+    watchtowerNarrativeDiff,
   });
 
   if (!isPrivacySafeMindDigestHandoffPayload(payload as unknown as Record<string, unknown>)) {
