@@ -9,6 +9,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 > **Phase 38 summary:** Phase 38 added external Mind send config/readiness helpers, hardened dry-run/live transport, orchestration/audit semantics (`external_dry_run_ok`, `external_config_invalid`), and a gated backend path to create `animoca_mind` handoffs. **Dry-run guardrails are production-validated.** Live external HTTP delivery is implemented but **not live-validated** — it remains disabled unless both `ENABLE_EXTERNAL_MIND_SEND=true` and `EXTERNAL_MIND_LIVE_SEND=true`. Default operator UI still creates `test_sink` only; approval-before-send remains required; dry-run send does not POST externally.
 
+> **Phase 39A summary:** HelloMinds Builder API local connectivity smoke test **passed** (2026-06-12 UTC). `GET /v1/humans/{humanId}/minds` returned HTTP 200 with a top-level array (2 Minds). Target Mind **lucient** (mindId suffix `df11`, `isEnabled: true`, model `xiaomi/mimo-v2.5`, species moca, `hasTelegram: true`) confirmed via `X-Access-Key`. No lucient app, Supabase, or Vercel env changes; no handoff payload, messaging conversation, or message sent. Marker remains `37`; `payload_version` unchanged. Detail: [hellominds-connectivity-phase-39a.md](./hellominds-connectivity-phase-39a.md).
+
 > **Phase 37 summary:** Phase 37 added an optional privacy-safe `watchtower_narrative_diff` section to external Mind handoff payloads when a stored diff exists. Payload version remains `mind_digest_payload_v1`. No diff recomputation during handoff creation. No `metadata_json`, `source_counts_json`, or `referenced_entities_json` exposure. Send, approval, test-sink, and disabled-by-default external send behavior unchanged.
 
 ### Recent phase status (quick reference)
@@ -30,6 +32,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **36** | Watchtower narrative history / diff layer | **PASS / Production validated** |
 | **37** | External Mind handoff narrative diff section | **PASS / Production validated** |
 | **38** | External Mind dry-run guardrails + gated `animoca_mind` handoff creation | **PASS / Dry-run production validated** (live send not validated) |
+| **39A** | HelloMinds Builder API local connectivity smoke test | **PASS / Local validated** (messaging not tested) |
 
 ---
 
@@ -38,7 +41,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
 | **Completed** | 1–37 | PASS / Done | Evidence engine through watchtower narratives and narrative diffs, Mind digests, external Mind handoffs with optional narrative diff section, disabled-by-default send stub, send audit trail, operator handoff review/approval |
-| **Mind integration** | 38 (dry-run) / 39+ | 38 dry-run **PASS**; live delivery planned | External send guardrails, gated `animoca_mind` creation, dry-run audit; controlled live validation against approved Animoca/staging endpoint (next) |
+| **Mind integration** | 38 (dry-run) / 39A+ | 38 dry-run **PASS**; 39A HelloMinds list-Minds **PASS** | External send guardrails, gated `animoca_mind` creation, dry-run audit; HelloMinds Builder API connectivity confirmed; Phase 39B messaging smoke test next |
 
 ---
 
@@ -192,7 +195,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | External Mind send orchestration / audit semantics | 38C | **PASS / Done** | `external_dry_run_ok`, `external_config_invalid`; Supabase migration applied |
 | Gated `animoca_mind` handoff creation (backend only) | 38D | **PASS / Done** | Optional `destination` on create-handoff route; UI still `test_sink` default |
 | Production validation: animoca_mind dry-run send | 38E | **PASS / Done** | Handoff `d9c2a14f-534b-4c46-b620-86d0637db0dd`; no external POST; audit `send_blocked` / `external_dry_run_ok` |
-| Production validation: live external HTTP delivery | 38 | **Not validated** | Awaits controlled test against approved Animoca/staging endpoint |
+| Production validation: live external HTTP delivery | 38 | **Not validated** | Awaits HelloMinds adapter and controlled live validation |
+| HelloMinds Builder API local connectivity (`GET /v1/humans/{humanId}/minds`) | 39A | **PASS / Done** | HTTP 200; 2 Minds; target **lucient** (mindId suffix `df11`, `isEnabled: true`); no app/Supabase/Vercel changes; no handoff or messaging |
 
 ---
 
@@ -1174,7 +1178,58 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Live external HTTP delivery not production-validated.
 - Production phase marker remains `37`.
 
-**Next recommended phase:** Phase 39 — controlled live external delivery validation against an approved Animoca/staging endpoint (see [Forward Roadmap](#forward-roadmap--from-internal-alpha-to-evidence-mind-operating-system)).
+**Next recommended phase:** Phase 39B — HelloMinds messaging connectivity smoke test (see [Phase 39A](#phase-39a--hellominds-local-connectivity-smoke-test) and [Forward Roadmap](#forward-roadmap--from-internal-alpha-to-evidence-mind-operating-system)).
+
+---
+
+## Phase 39A — HelloMinds Local Connectivity Smoke Test
+
+**Status:** PASS / Local validated (messaging not tested)
+
+**Purpose:** Manually confirm HelloMinds Builder API authentication and Mind inventory via `GET /v1/humans/{humanId}/minds`, without changing lucient application behavior, Vercel env, Supabase, or sending lucient handoff payloads.
+
+**Procedure:** [hellominds-connectivity-phase-39a.md](./hellominds-connectivity-phase-39a.md)
+
+### Production validation (completed)
+
+Redacted record — no API keys, full `humanId`, curl transcripts, handoff payloads, conversation aliases, or message history.
+
+| Field | Value |
+|-------|-------|
+| Phase | 39A |
+| Result | **passed** |
+| Date (UTC) | 2026-06-12 |
+| Base URL | `https://api.build.hellominds.ai` |
+| Auth scheme | `X-Access-Key` confirmed working |
+| Endpoint tested | `GET /v1/humans/{humanId}/minds` |
+| HTTP result | 200 |
+| Response shape | top-level array |
+| Minds count | 2 |
+| Target Mind name | lucient |
+| Target mindId | confirmed; suffix `df11` |
+| Target model | `xiaomi/mimo-v2.5` |
+| Target enabled field | `isEnabled` |
+| Target enabled value | `true` |
+| Target species | moca |
+| hasTelegram | `true` |
+| lucient app impact | none |
+| Supabase impact | none |
+| Vercel env impact | none |
+| External live send | not enabled |
+| `CURRENT_WATCH_PHASE` | remains `"37"` |
+| `payload_version` | unchanged |
+| lucient handoff payload sent | **no** |
+| Messaging conversation created | **no** |
+| Message sent | **no** |
+| Gap noted | lucient sender uses Bearer + single POST; HelloMinds uses messaging API |
+| Next step | Phase 39B messaging smoke test — **not yet started** |
+
+### Remaining limitations
+
+- No `POST /v1/messaging/conversation` or `POST /v1/messaging/message` tested.
+- No HelloMinds transport adapter in lucient app.
+- Live external HTTP delivery via lucient sender not validated.
+- Production phase marker remains `37`.
 
 ---
 
@@ -2124,16 +2179,16 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 39 — Controlled live external delivery validation**
+**Phase 39B — HelloMinds messaging connectivity smoke test** (not yet started)
 
-Phase 38 dry-run guardrails are production-validated (marker remains `37`). Live external HTTP delivery is implemented but not live-validated. Recommended next step:
+Phase 39A confirmed Builder API access and Mind inventory (marker remains `37`). Recommended next step:
 
-1. Obtain an approved Animoca/staging endpoint.
-2. Set `EXTERNAL_MIND_ENDPOINT_ALLOWLIST` to the exact hostname.
-3. Set `EXTERNAL_MIND_LIVE_SEND=true` only for the validation window (with `ENABLE_EXTERNAL_MIND_SEND=true`).
-4. Send one approved `animoca_mind` handoff via existing review + send routes.
-5. Verify `external_sent` audit result and downstream receipt.
-6. Immediately disable `EXTERNAL_MIND_LIVE_SEND` after the test unless production launch is approved.
+1. Document a local-only procedure for `POST /v1/messaging/conversation` and `POST /v1/messaging/message` with synthetic text only.
+2. Confirm conversation alias resolution and optional history/events reads.
+3. Record redacted request/response shapes for a future HelloMinds transport adapter.
+4. Do **not** send lucient handoff `payload_json`, toggle `EXTERNAL_MIND_LIVE_SEND`, or change app code until adapter design is approved.
+
+Controlled live lucient delivery via the existing sender remains a later phase after HelloMinds messaging is understood and an adapter is implemented.
 
 Other future directions: client claim extraction at scale; client-facing dashboard and reporting/export layer.
 
@@ -2180,20 +2235,22 @@ Other future directions: client claim extraction at scale; client-facing dashboa
 | 2026-06-10 | Phase 38 implemented (38A–38D); external send config, transport, audit, gated `animoca_mind` creation |
 | 2026-06-10 | Phase 38 dry-run production validated; handoff `d9c2a14f-534b-4c46-b620-86d0637db0dd`, digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf`, no external POST |
 | 2026-06-10 | Phase 38E documentation closeout; marker remains `37`; live external delivery not validated |
+| 2026-06-12 | Phase 39A HelloMinds local connectivity smoke test passed; `GET /v1/humans/{humanId}/minds` HTTP 200; target Mind lucient (suffix `df11`); no app/Supabase/Vercel/handoff/messaging changes |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 38E dry-run production validation (2026-06-10).
+**Last sync:** after Phase 39A HelloMinds local connectivity validation (2026-06-12).
 
 | Doc | Role after sync |
 |-----|-----------------|
 | **`docs/evidence-mind-roadmap.md`** | **Canonical** — current phase status, validation records, next step |
+| **`docs/hellominds-connectivity-phase-39a.md`** | Phase 39A HelloMinds Builder API local smoke-test procedure and validation record |
 | **`docs/DEVELOPMENT_PHASES.md`** | Historical detail for Phases 1–20 + concise Phase 21–28 summary |
 | **`README.md`**, **`docs/README.md`** | Current capabilities snapshot + links to roadmap |
 | **`docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md`** | Updated for durable mapping architecture (Phase 27) |
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 39 — controlled live external delivery validation against approved Animoca/staging endpoint.
+**Next build step:** Phase 39B — HelloMinds messaging connectivity smoke test (docs/procedure only; not yet started).
