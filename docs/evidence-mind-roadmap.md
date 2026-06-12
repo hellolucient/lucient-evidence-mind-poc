@@ -11,6 +11,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 > **Phase 39A summary:** HelloMinds Builder API local connectivity smoke test **passed** (2026-06-12 UTC). `GET /v1/humans/{humanId}/minds` returned HTTP 200 with a top-level array (2 Minds). Target Mind **lucient** (mindId suffix `df11`, `isEnabled: true`, model `xiaomi/mimo-v2.5`, species moca, `hasTelegram: true`) confirmed via `X-Access-Key`. No lucient app, Supabase, or Vercel env changes; no handoff payload, messaging conversation, or message sent. Marker remains `37`; `payload_version` unchanged. Detail: [hellominds-connectivity-phase-39a.md](./hellominds-connectivity-phase-39a.md).
 
+> **Phase 39B summary:** HelloMinds messaging local smoke test **passed** (2026-06-12 UTC). Synthetic ping only via `POST /v1/messaging/conversation` (`alias` + `mindId`, HTTP 200), `POST /v1/messaging/message` (HTTP 200), and `GET /v1/messaging/history/{alias}` (HTTP 200; Mind reply observed). Caller-supplied test alias; `humanId` not required for conversation. No lucient app, Supabase, Vercel, sender, or adapter changes; no handoff payload. Marker remains `37`. Detail: [hellominds-connectivity-phase-39b.md](./hellominds-connectivity-phase-39b.md).
+
 > **Phase 37 summary:** Phase 37 added an optional privacy-safe `watchtower_narrative_diff` section to external Mind handoff payloads when a stored diff exists. Payload version remains `mind_digest_payload_v1`. No diff recomputation during handoff creation. No `metadata_json`, `source_counts_json`, or `referenced_entities_json` exposure. Send, approval, test-sink, and disabled-by-default external send behavior unchanged.
 
 ### Recent phase status (quick reference)
@@ -32,7 +34,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **36** | Watchtower narrative history / diff layer | **PASS / Production validated** |
 | **37** | External Mind handoff narrative diff section | **PASS / Production validated** |
 | **38** | External Mind dry-run guardrails + gated `animoca_mind` handoff creation | **PASS / Dry-run production validated** (live send not validated) |
-| **39A** | HelloMinds Builder API local connectivity smoke test | **PASS / Local validated** (messaging not tested) |
+| **39A** | HelloMinds Builder API local connectivity smoke test | **PASS / Local validated** |
+| **39B** | HelloMinds messaging local smoke test | **PASS / Local validated** (synthetic ping only) |
 
 ---
 
@@ -41,7 +44,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
 | **Completed** | 1–37 | PASS / Done | Evidence engine through watchtower narratives and narrative diffs, Mind digests, external Mind handoffs with optional narrative diff section, disabled-by-default send stub, send audit trail, operator handoff review/approval |
-| **Mind integration** | 38 (dry-run) / 39A+ | 38 dry-run **PASS**; 39A HelloMinds list-Minds **PASS** | External send guardrails, gated `animoca_mind` creation, dry-run audit; HelloMinds Builder API connectivity confirmed; Phase 39B messaging smoke test next |
+| **Mind integration** | 38 (dry-run) / 39A–39B+ | 38 dry-run **PASS**; 39A list-Minds **PASS**; 39B messaging **PASS** | External send guardrails, gated `animoca_mind` creation, dry-run audit; HelloMinds Builder + messaging API shapes validated; Phase 39C adapter design next |
 
 ---
 
@@ -196,7 +199,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | Gated `animoca_mind` handoff creation (backend only) | 38D | **PASS / Done** | Optional `destination` on create-handoff route; UI still `test_sink` default |
 | Production validation: animoca_mind dry-run send | 38E | **PASS / Done** | Handoff `d9c2a14f-534b-4c46-b620-86d0637db0dd`; no external POST; audit `send_blocked` / `external_dry_run_ok` |
 | Production validation: live external HTTP delivery | 38 | **Not validated** | Awaits HelloMinds adapter and controlled live validation |
-| HelloMinds Builder API local connectivity (`GET /v1/humans/{humanId}/minds`) | 39A | **PASS / Done** | HTTP 200; 2 Minds; target **lucient** (mindId suffix `df11`, `isEnabled: true`); no app/Supabase/Vercel changes; no handoff or messaging |
+| HelloMinds Builder API local connectivity (`GET /v1/humans/{humanId}/minds`) | 39A | **PASS / Done** | HTTP 200; 2 Minds; target **lucient** (mindId suffix `df11`, `isEnabled: true`); no app/Supabase/Vercel changes |
+| HelloMinds messaging local smoke test (conversation, message, history) | 39B | **PASS / Done** | Synthetic ping only; conversation `alias`+`mindId` HTTP 200; message HTTP 200; history HTTP 200; Mind reply observed; no app/sender/adapter/handoff changes |
 
 ---
 
@@ -1178,7 +1182,7 @@ Mind-facing outputs and client product definition — without overbuilding UI pr
 - Live external HTTP delivery not production-validated.
 - Production phase marker remains `37`.
 
-**Next recommended phase:** Phase 39B — HelloMinds messaging connectivity smoke test (see [Phase 39A](#phase-39a--hellominds-local-connectivity-smoke-test) and [Forward Roadmap](#forward-roadmap--from-internal-alpha-to-evidence-mind-operating-system)).
+**Next recommended phase:** Phase 39C — HelloMinds transport adapter design (see [Phase 39B](#phase-39b--hellominds-messaging-smoke-test)).
 
 ---
 
@@ -1222,14 +1226,82 @@ Redacted record — no API keys, full `humanId`, curl transcripts, handoff paylo
 | Messaging conversation created | **no** |
 | Message sent | **no** |
 | Gap noted | lucient sender uses Bearer + single POST; HelloMinds uses messaging API |
-| Next step | Phase 39B messaging smoke test — **not yet started** |
+| Next step | Phase 39B messaging smoke test — **passed** (see [Phase 39B](#phase-39b--hellominds-messaging-smoke-test)) |
 
-### Remaining limitations
+### Remaining limitations (after 39A)
 
-- No `POST /v1/messaging/conversation` or `POST /v1/messaging/message` tested.
+- Messaging endpoints validated in Phase 39B.
 - No HelloMinds transport adapter in lucient app.
 - Live external HTTP delivery via lucient sender not validated.
 - Production phase marker remains `37`.
+
+---
+
+## Phase 39B — HelloMinds Messaging Smoke Test
+
+**Status:** PASS / Local validated (synthetic ping only)
+
+**Purpose:** Manually confirm HelloMinds messaging API (`conversation`, `message`, `history`) using synthetic text only, without changing lucient application behavior, Vercel env, Supabase, sender, or adapter.
+
+**Procedure:** [hellominds-connectivity-phase-39b.md](./hellominds-connectivity-phase-39b.md)
+
+**Prerequisite:** [Phase 39A](./hellominds-connectivity-phase-39a.md) passed.
+
+### Production validation (completed)
+
+Redacted record — no API keys, full `humanId`, curl transcripts, handoff payloads, full conversation alias, conversation/message IDs, or sensitive message history content.
+
+| Field | Value |
+|-------|-------|
+| Phase | 39B |
+| Result | **passed** |
+| Date (UTC) | 2026-06-12 |
+| Test type | local operator curl only |
+| Content sent | synthetic ping only; no client data |
+| Base URL | `https://api.build.hellominds.ai` |
+| Auth scheme | `X-Access-Key` confirmed on messaging endpoints |
+| Target Mind | lucient |
+| Target mindId | confirmed; suffix `df11` only |
+| Target `isEnabled` (from 39A) | `true` |
+| Conversation alias | caller-supplied test alias (full value not recorded) |
+| **POST /v1/messaging/conversation** | |
+| Initial calls without alias | HTTP 400 |
+| Error type | `BAD_INPUT` |
+| Error subtype | `VALIDATION_FAILED` |
+| Error finding | `alias` is required and must be a non-empty string |
+| Successful body shape | `alias` + `mindId` |
+| `humanId` required | **no** |
+| Success HTTP result | 200 |
+| Success response fields | `conversationId`, `alias` |
+| **POST /v1/messaging/message** | |
+| Body shape | `alias`, `messageText`, `attachments: []` |
+| `messageText` | approved synthetic ping only |
+| Success HTTP result | 200 |
+| Success response fields | `conversationId`, `messageId`, `artifactIds`, `alias` |
+| `artifactIds` | empty array `[]` |
+| **GET /v1/messaging/history/{alias}** | |
+| Success HTTP result | 200 |
+| Response shape | top-level array |
+| Mind reply observed | **yes** |
+| History item fields observed | `fingerprint`, `conversationId`, `messageId`, `messageText`, `createdAt`, `partyId`, `partyType`, `senderName`, `senderEmail`, `mindId`, `mindName`, `mindEmail`, `attachments`, `conversationType`, `subject` |
+| History note | observed item was Mind/lucient reply; not necessarily outgoing user ping |
+| lucient app impact | none |
+| Supabase impact | none |
+| Vercel env impact | none |
+| External live send | not enabled |
+| `CURRENT_WATCH_PHASE` | remains `"37"` |
+| `payload_version` | unchanged |
+| lucient handoff payload sent | **no** |
+| App sender or adapter changed | **no** |
+| Next step | Phase 39C adapter design — **not implementation unless explicitly approved** |
+
+### Remaining limitations
+
+- No HelloMinds transport adapter in lucient app.
+- Live external HTTP delivery via lucient sender not validated.
+- Production phase marker remains `37`.
+
+**Next recommended phase:** Phase 39C — HelloMinds transport adapter design (docs/plan only until explicitly approved).
 
 ---
 
@@ -2179,16 +2251,16 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 39B — HelloMinds messaging connectivity smoke test** (not yet started)
+**Phase 39C — HelloMinds transport adapter design** (not yet started; implementation requires explicit approval)
 
-Phase 39A confirmed Builder API access and Mind inventory (marker remains `37`). Recommended next step:
+Phase 39A and 39B validated HelloMinds Builder and messaging API shapes locally (marker remains `37`). Recommended next step:
 
-1. Document a local-only procedure for `POST /v1/messaging/conversation` and `POST /v1/messaging/message` with synthetic text only.
-2. Confirm conversation alias resolution and optional history/events reads.
-3. Record redacted request/response shapes for a future HelloMinds transport adapter.
-4. Do **not** send lucient handoff `payload_json`, toggle `EXTERNAL_MIND_LIVE_SEND`, or change app code until adapter design is approved.
+1. Document adapter design: map lucient handoff send to `POST /v1/messaging/conversation` + `POST /v1/messaging/message`.
+2. Define env/config model (`X-Access-Key`, `mindId`, conversation alias strategy) separate from current Bearer single-POST sender.
+3. Plan messageText envelope for handoff content without committing client payloads to docs.
+4. Do **not** implement adapter code, toggle `EXTERNAL_MIND_LIVE_SEND`, or change sender until design is explicitly approved.
 
-Controlled live lucient delivery via the existing sender remains a later phase after HelloMinds messaging is understood and an adapter is implemented.
+Controlled live lucient delivery via an approved adapter remains a later phase.
 
 Other future directions: client claim extraction at scale; client-facing dashboard and reporting/export layer.
 
@@ -2236,21 +2308,23 @@ Other future directions: client claim extraction at scale; client-facing dashboa
 | 2026-06-10 | Phase 38 dry-run production validated; handoff `d9c2a14f-534b-4c46-b620-86d0637db0dd`, digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf`, no external POST |
 | 2026-06-10 | Phase 38E documentation closeout; marker remains `37`; live external delivery not validated |
 | 2026-06-12 | Phase 39A HelloMinds local connectivity smoke test passed; `GET /v1/humans/{humanId}/minds` HTTP 200; target Mind lucient (suffix `df11`); no app/Supabase/Vercel/handoff/messaging changes |
+| 2026-06-12 | Phase 39B HelloMinds messaging smoke test passed; synthetic ping only; conversation/message/history HTTP 200; Mind reply observed; no app/sender/adapter/handoff changes |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 39A HelloMinds local connectivity validation (2026-06-12).
+**Last sync:** after Phase 39B HelloMinds messaging validation (2026-06-12).
 
 | Doc | Role after sync |
 |-----|-----------------|
 | **`docs/evidence-mind-roadmap.md`** | **Canonical** — current phase status, validation records, next step |
 | **`docs/hellominds-connectivity-phase-39a.md`** | Phase 39A HelloMinds Builder API local smoke-test procedure and validation record |
+| **`docs/hellominds-connectivity-phase-39b.md`** | Phase 39B HelloMinds messaging smoke-test procedure and validation record |
 | **`docs/DEVELOPMENT_PHASES.md`** | Historical detail for Phases 1–20 + concise Phase 21–28 summary |
 | **`README.md`**, **`docs/README.md`** | Current capabilities snapshot + links to roadmap |
 | **`docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md`** | Updated for durable mapping architecture (Phase 27) |
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 39B — HelloMinds messaging connectivity smoke test (docs/procedure only; not yet started).
+**Next build step:** Phase 39C — HelloMinds transport adapter design (docs/plan only; not yet started).
