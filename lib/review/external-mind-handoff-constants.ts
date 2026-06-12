@@ -8,6 +8,7 @@ export type ExternalMindHandoffType = (typeof EXTERNAL_MIND_HANDOFF_TYPES)[numbe
 
 export const EXTERNAL_MIND_HANDOFF_DESTINATIONS = [
   "animoca_mind",
+  "hellominds",
   "internal_export",
   "test_sink",
 ] as const;
