@@ -13,6 +13,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 > **Phase 39B summary:** HelloMinds messaging local smoke test **passed** (2026-06-12 UTC). Synthetic ping only via `POST /v1/messaging/conversation` (`alias` + `mindId`, HTTP 200), `POST /v1/messaging/message` (HTTP 200), and `GET /v1/messaging/history/{alias}` (HTTP 200; Mind reply observed). Caller-supplied test alias; `humanId` not required for conversation. No lucient app, Supabase, Vercel, sender, or adapter changes; no handoff payload. Marker remains `37`. Detail: [hellominds-connectivity-phase-39b.md](./hellominds-connectivity-phase-39b.md).
 
+> **Phase 39E3 summary:** Controlled local live validation of HelloMinds external Mind handoff **passed** (2026-06-12 UTC). `hellominds` handoff created for digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf` (handoff `4a8effbb-37f8-4c56-9979-46741dbd5fdf`). Operator approval via break-glass review flow succeeded. Dry-run send blocked correctly (`external_dry_run_ok` while `EXTERNAL_MIND_LIVE_SEND=false`). Live send succeeded only after temporary `EXTERNAL_MIND_LIVE_SEND=true`; Supabase recorded `status=sent`, `review_status=approved`, `send_result=external_sent`, `http_status=200`. Send audit: `provider=hellominds`, `transport_mode=live`, `endpoint_host=api.build.hellominds.ai`. HelloMinds history HTTP 200; lucient Mind reply observed. `EXTERNAL_MIND_LIVE_SEND` returned to `false` after validation. Supabase destination constraint corrected via `20260612120000_add_external_mind_handoffs_hellominds_destination.sql`. Tests 484 pass; lint one pre-existing warning; typecheck unrelated pre-existing issues. Marker remains `37`.
+
 > **Phase 37 summary:** Phase 37 added an optional privacy-safe `watchtower_narrative_diff` section to external Mind handoff payloads when a stored diff exists. Payload version remains `mind_digest_payload_v1`. No diff recomputation during handoff creation. No `metadata_json`, `source_counts_json`, or `referenced_entities_json` exposure. Send, approval, test-sink, and disabled-by-default external send behavior unchanged.
 
 ### Recent phase status (quick reference)
@@ -36,6 +38,7 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **38** | External Mind dry-run guardrails + gated `animoca_mind` handoff creation | **PASS / Dry-run production validated** (live send not validated) |
 | **39A** | HelloMinds Builder API local connectivity smoke test | **PASS / Local validated** |
 | **39B** | HelloMinds messaging local smoke test | **PASS / Local validated** (synthetic ping only) |
+| **39E3** | HelloMinds external Mind handoff local live validation | **PASS / Local live validated** |
 
 ---
 
@@ -1305,6 +1308,48 @@ Redacted record — no API keys, full `humanId`, curl transcripts, handoff paylo
 
 ---
 
+## Phase 39E3 — HelloMinds External Mind Handoff Local Live Validation
+
+**Status:** PASS / Local live validated
+
+**Purpose:** Controlled local validation of lucient `hellominds` handoff creation, operator approval, dry-run guardrails, and gated live send via HelloMinds messaging transport.
+
+### Local validation (completed)
+
+Redacted record — no API keys, access tokens, or sensitive env values.
+
+| Field | Value |
+|-------|-------|
+| Phase | 39E3 |
+| Result | **passed** |
+| Date (UTC) | 2026-06-12 |
+| Validation type | controlled local live |
+| `digest_id` | `d739be0f-1399-49aa-ae7a-3b59aedbf0cf` |
+| `handoff_id` | `4a8effbb-37f8-4c56-9979-46741dbd5fdf` |
+| `destination` | `hellominds` |
+| Operator approval | break-glass review flow succeeded |
+| Dry-run send (`EXTERNAL_MIND_LIVE_SEND=false`) | blocked; `send_result=external_dry_run_ok` |
+| Live send | succeeded after temporary `EXTERNAL_MIND_LIVE_SEND=true` |
+| Handoff after live send | `status=sent`, `review_status=approved`, `send_result=external_sent`, `http_status=200` |
+| Audit metadata | `provider=hellominds`, `transport_mode=live`, `endpoint_host=api.build.hellominds.ai` |
+| HelloMinds history | HTTP 200 |
+| Mind reply | observed (Evidence Mind Digest for Jun 1–7 received and processed) |
+| Post-validation env | `EXTERNAL_MIND_LIVE_SEND` returned to `false` |
+| Supabase migration | `20260612120000_add_external_mind_handoffs_hellominds_destination.sql` |
+| Tests | 484 passed |
+| Lint | passed (one pre-existing warning) |
+| Typecheck | unrelated pre-existing test typing issues |
+| `CURRENT_WATCH_PHASE` | remains `"37"` |
+| Vercel env | not changed |
+
+### Remaining limitations
+
+- Controlled local validation only; not production/Vercel live validation.
+- `EXTERNAL_MIND_LIVE_SEND` remains `false` by default after validation.
+- Production phase marker remains `37`.
+
+---
+
 ## Phase 37 — External Mind Handoff Narrative Diff Section
 
 **Status:** PASS / Production validated
@@ -2309,12 +2354,13 @@ Other future directions: client claim extraction at scale; client-facing dashboa
 | 2026-06-10 | Phase 38E documentation closeout; marker remains `37`; live external delivery not validated |
 | 2026-06-12 | Phase 39A HelloMinds local connectivity smoke test passed; `GET /v1/humans/{humanId}/minds` HTTP 200; target Mind lucient (suffix `df11`); no app/Supabase/Vercel/handoff/messaging changes |
 | 2026-06-12 | Phase 39B HelloMinds messaging smoke test passed; synthetic ping only; conversation/message/history HTTP 200; Mind reply observed; no app/sender/adapter/handoff changes |
+| 2026-06-12 | Phase 39E3 HelloMinds external Mind handoff local live validation passed; digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf`, handoff `4a8effbb-37f8-4c56-9979-46741dbd5fdf`; dry-run blocked, gated live send succeeded; `EXTERNAL_MIND_LIVE_SEND` returned to false |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 39B HelloMinds messaging validation (2026-06-12).
+**Last sync:** after Phase 39E3 HelloMinds handoff local live validation (2026-06-12).
 
 | Doc | Role after sync |
 |-----|-----------------|
