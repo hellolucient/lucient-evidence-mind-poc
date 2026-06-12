@@ -25,7 +25,7 @@ function parseCreateHandoffDestination(
     return { ok: true };
   }
 
-  if (trimmed === "test_sink" || trimmed === "animoca_mind") {
+  if (trimmed === "test_sink" || trimmed === "animoca_mind" || trimmed === "hellominds") {
     return { ok: true, destination: trimmed };
   }
 

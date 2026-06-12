@@ -222,7 +222,7 @@ export function isHelloMindsEndpointHttps(): boolean {
   return parsed.valid && parsed.protocol === "https:";
 }
 
-/** Dry-run-ready HelloMinds config required before creating hellominds handoffs (future phase). */
+/** Dry-run-ready HelloMinds config required before creating hellominds handoffs. */
 export function isHelloMindsHandoffCreationReady(): boolean {
   const readiness = describeHelloMindsSendReadiness();
 

@@ -98,6 +98,25 @@ describe("POST /mind-digests/create-handoff", () => {
     );
   });
 
+  it("passes hellominds destination through", async () => {
+    const formData = new FormData();
+    formData.set("digest_id", "digest-uuid-001");
+    formData.set("destination", "hellominds");
+
+    const request = new Request("https://example.com/mind-digests/create-handoff", {
+      method: "POST",
+      body: formData,
+    });
+
+    await POST(request);
+
+    expect(mockProcessMindHandoffCreationSubmission).toHaveBeenCalledWith(
+      operatorAccess,
+      "digest-uuid-001",
+      "hellominds"
+    );
+  });
+
   it("rejects internal_export at route boundary", async () => {
     const formData = new FormData();
     formData.set("digest_id", "digest-uuid-001");

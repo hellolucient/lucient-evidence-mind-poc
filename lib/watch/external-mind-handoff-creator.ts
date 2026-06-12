@@ -12,6 +12,7 @@ import {
   isPrivacySafeMindDigestHandoffPayload,
 } from "@/lib/watch/external-mind-handoff-payload-builder";
 import { isExternalMindHandoffCreationReady } from "@/lib/watch/external-mind-handoff-send-config";
+import { isHelloMindsHandoffCreationReady } from "@/lib/watch/external-mind-hellominds-send-config";
 import { sendExternalMindHandoffIfEnabled } from "@/lib/watch/external-mind-handoff-sender";
 import {
   createExternalMindHandoff,
@@ -85,6 +86,18 @@ export function validateExternalMindHandoffCreationDestination(
 
   if (destination === "animoca_mind") {
     if (!isExternalMindHandoffCreationReady()) {
+      return {
+        ok: false,
+        error: "external_send_not_ready",
+        message: mindHandoffCreationErrorMessage("external_send_not_ready"),
+      };
+    }
+
+    return { ok: true };
+  }
+
+  if (destination === "hellominds") {
+    if (!isHelloMindsHandoffCreationReady()) {
       return {
         ok: false,
         error: "external_send_not_ready",
@@ -225,11 +238,13 @@ export async function createMindHandoffFromDigest(
     };
   }
 
-  await sendExternalMindHandoffIfEnabled({
-    handoffId: createResult.handoff.id,
-    destination,
-    payloadVersion,
-  });
+  if (destination !== "hellominds") {
+    await sendExternalMindHandoffIfEnabled({
+      handoffId: createResult.handoff.id,
+      destination,
+      payloadVersion,
+    });
+  }
 
   return { ok: true, handoff: createResult.handoff };
 }

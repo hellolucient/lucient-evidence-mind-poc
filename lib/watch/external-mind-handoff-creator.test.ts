@@ -56,6 +56,10 @@ function clearExternalMindSendEnv(): void {
   delete process.env.EXTERNAL_MIND_ENDPOINT_URL;
   delete process.env.EXTERNAL_MIND_API_KEY;
   delete process.env.EXTERNAL_MIND_ENDPOINT_ALLOWLIST;
+  delete process.env.EXTERNAL_MIND_HELLOMINDS_BASE_URL;
+  delete process.env.EXTERNAL_MIND_HELLOMINDS_ACCESS_KEY;
+  delete process.env.EXTERNAL_MIND_HELLOMINDS_TARGET_MIND_ID;
+  delete process.env.EXTERNAL_MIND_HELLOMINDS_ENDPOINT_ALLOWLIST;
 }
 
 function setDryRunExternalMindEnv(): void {
@@ -64,6 +68,15 @@ function setDryRunExternalMindEnv(): void {
   process.env.EXTERNAL_MIND_ENDPOINT_URL = "https://example.test/mind";
   process.env.EXTERNAL_MIND_API_KEY = "dummy";
   process.env.EXTERNAL_MIND_LIVE_SEND = "false";
+}
+
+function setHelloMindsCreationEnv(): void {
+  clearExternalMindSendEnv();
+  process.env.ENABLE_EXTERNAL_MIND_SEND = "true";
+  process.env.EXTERNAL_MIND_LIVE_SEND = "false";
+  process.env.EXTERNAL_MIND_HELLOMINDS_BASE_URL = "https://api.build.hellominds.ai";
+  process.env.EXTERNAL_MIND_HELLOMINDS_ACCESS_KEY = "dummy-key";
+  process.env.EXTERNAL_MIND_HELLOMINDS_TARGET_MIND_ID = "mind-id-df11";
 }
 
 const operatorAccess = {
@@ -492,5 +505,130 @@ describe("external-mind-handoff-creator", () => {
       expect(result.error).toBe("unsupported_handoff_destination_for_creation");
     }
     expect(mockCreateExternalMindHandoff).not.toHaveBeenCalled();
+  });
+
+  it("rejects hellominds when HelloMinds config is missing", async () => {
+    const validation = validateExternalMindHandoffCreationDestination("hellominds");
+    expect(validation.ok).toBe(false);
+    if (!validation.ok) {
+      expect(validation.error).toBe("external_send_not_ready");
+    }
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "hellominds",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+    expect(mockCreateExternalMindHandoff).not.toHaveBeenCalled();
+  });
+
+  it("rejects hellominds when base URL uses http", async () => {
+    setHelloMindsCreationEnv();
+    process.env.EXTERNAL_MIND_HELLOMINDS_BASE_URL = "http://api.build.hellominds.ai";
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "hellominds",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+    expect(mockCreateExternalMindHandoff).not.toHaveBeenCalled();
+  });
+
+  it("rejects hellominds when allowlist does not match", async () => {
+    setHelloMindsCreationEnv();
+    process.env.EXTERNAL_MIND_HELLOMINDS_ENDPOINT_ALLOWLIST = "other.example.com";
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "hellominds",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("external_send_not_ready");
+    }
+    expect(mockCreateExternalMindHandoff).not.toHaveBeenCalled();
+  });
+
+  it("accepts hellominds in dry-run HelloMinds configuration without live send", async () => {
+    setHelloMindsCreationEnv();
+
+    const hellomindsHandoff = {
+      ...handoff,
+      id: "handoff-uuid-hellominds",
+      destination: "hellominds",
+      review_status: "pending_review",
+    };
+    mockCreateExternalMindHandoff.mockResolvedValueOnce({ ok: true, handoff: hellomindsHandoff });
+
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "hellominds",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockCreateExternalMindHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: "hellominds",
+        status: "ready",
+        payload_version: "mind_digest_payload_v1",
+        payload_json: expect.objectContaining({ destination: "hellominds" }),
+      }),
+      operatorAccess
+    );
+    if (result.ok) {
+      expect(result.handoff.destination).toBe("hellominds");
+      expect(result.handoff.status).toBe("ready");
+      expect(result.handoff.review_status).toBe("pending_review");
+    }
+    expect(mockSendExternalMindHandoffIfEnabled).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows test_sink and hellominds to coexist for the same digest", async () => {
+    setHelloMindsCreationEnv();
+    mockFindActiveHandoffForDigest.mockImplementation(
+      async (_digestId: string, destination: string) => {
+        if (destination === "test_sink") {
+          return { handoff };
+        }
+        return { handoff: null };
+      }
+    );
+
+    const hellomindsHandoff = {
+      ...handoff,
+      id: "handoff-uuid-hellominds",
+      destination: "hellominds",
+    };
+    mockCreateExternalMindHandoff.mockResolvedValueOnce({ ok: true, handoff: hellomindsHandoff });
+
+    const result = await createMindHandoffFromDigest("digest-uuid-001", operatorAccess, {
+      destination: "hellominds",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockCreateExternalMindHandoff).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: "hellominds" }),
+      operatorAccess
+    );
+    expect(mockSendExternalMindHandoffIfEnabled).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid destination via validateExternalMindHandoffCreationDestination", () => {
+    const validation = validateExternalMindHandoffCreationDestination(
+      "unknown_destination" as "test_sink"
+    );
+    expect(validation.ok).toBe(false);
+    if (!validation.ok) {
+      expect(validation.error).toBe("invalid_handoff_destination");
+    }
   });
 });
