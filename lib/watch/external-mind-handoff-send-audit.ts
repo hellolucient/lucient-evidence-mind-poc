@@ -89,6 +89,22 @@ export function buildPrivacySafeMetadata(input: {
     metadata.http_status = transport.http_status;
   }
 
+  if (transport?.provider) {
+    metadata.provider = transport.provider;
+  }
+
+  if (typeof transport?.artifact_count === "number") {
+    metadata.artifact_count = transport.artifact_count;
+  }
+
+  if (transport?.conversation_id_suffix) {
+    metadata.conversation_id_suffix = transport.conversation_id_suffix;
+  }
+
+  if (transport?.message_id_suffix) {
+    metadata.message_id_suffix = transport.message_id_suffix;
+  }
+
   return Object.keys(metadata).length > 0 ? metadata : null;
 }
 

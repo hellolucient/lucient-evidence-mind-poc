@@ -69,5 +69,29 @@ describe("external-mind-handoff-send-audit", () => {
       endpoint_host: "mind.example.com",
       timeout_ms: 15000,
     });
+
+    expect(
+      buildPrivacySafeMetadata({
+        transportKind: "sent",
+        transportMetadata: {
+          transport_mode: "live",
+          provider: "hellominds",
+          http_status: 200,
+          endpoint_host: "api.build.hellominds.ai",
+          conversation_id_suffix: "ab12",
+          message_id_suffix: "cd34",
+          artifact_count: 0,
+        },
+      })
+    ).toEqual({
+      transport_kind: "sent",
+      transport_mode: "live",
+      provider: "hellominds",
+      http_status: 200,
+      endpoint_host: "api.build.hellominds.ai",
+      conversation_id_suffix: "ab12",
+      message_id_suffix: "cd34",
+      artifact_count: 0,
+    });
   });
 });

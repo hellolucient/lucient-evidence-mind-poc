@@ -25,6 +25,9 @@ export type ExternalMindHandoffTransportMetadata = {
   http_status?: number;
   message_text_char_count?: number;
   conversation_alias_length?: number;
+  conversation_id_suffix?: string;
+  message_id_suffix?: string;
+  artifact_count?: number;
 };
 
 export type ExternalMindHandoffTransportOutcome =
