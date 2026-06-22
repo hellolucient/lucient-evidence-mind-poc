@@ -179,6 +179,12 @@ function formatReviewStatus(status: string): string {
   return status.replaceAll("_", " ");
 }
 
+function formatHandoffDestinationLabel(
+  destination: MindDigestsPageData["selectedHandoffDestination"]
+): string {
+  return destination === "hellominds" ? "HelloMinds" : "test sink";
+}
+
 export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) {
   const selectedDigestId = pageData.selectedDigest?.id ?? null;
 
@@ -596,6 +602,31 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                 sink handoffs can be sent from this page.
               </p>
 
+              <div style={{ marginTop: "0.75rem" }}>
+                <div style={styles.detailLabel}>View handoff by destination</div>
+                <nav style={{ ...styles.nav, marginTop: "0.25rem" }}>
+                  <a
+                    href={`/mind-digests?digest_id=${encodeURIComponent(pageData.selectedDigest.id)}`}
+                    aria-current={
+                      pageData.selectedHandoffDestination === "test_sink" ? "page" : undefined
+                    }
+                  >
+                    test sink
+                    {pageData.selectedHandoffDestination === "test_sink" ? " (viewing)" : ""}
+                  </a>
+                  {" · "}
+                  <a
+                    href={`/mind-digests?digest_id=${encodeURIComponent(pageData.selectedDigest.id)}&handoff_destination=hellominds`}
+                    aria-current={
+                      pageData.selectedHandoffDestination === "hellominds" ? "page" : undefined
+                    }
+                  >
+                    HelloMinds
+                    {pageData.selectedHandoffDestination === "hellominds" ? " (viewing)" : ""}
+                  </a>
+                </nav>
+              </div>
+
               {pageData.selectedDigestHandoff ? (
                 <div style={{ marginTop: "1rem" }}>
                   <div style={styles.detailLabel}>Latest handoff</div>
@@ -628,6 +659,13 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                           name="digest_id"
                           value={pageData.selectedDigest.id}
                         />
+                        {pageData.selectedHandoffDestination !== "test_sink" ? (
+                          <input
+                            type="hidden"
+                            name="handoff_destination"
+                            value={pageData.selectedHandoffDestination}
+                          />
+                        ) : null}
                         <input type="hidden" name="review_action" value="approve" />
                         <button type="submit" style={styles.button}>
                           Approve payload
@@ -644,6 +682,13 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                           name="digest_id"
                           value={pageData.selectedDigest.id}
                         />
+                        {pageData.selectedHandoffDestination !== "test_sink" ? (
+                          <input
+                            type="hidden"
+                            name="handoff_destination"
+                            value={pageData.selectedHandoffDestination}
+                          />
+                        ) : null}
                         <input type="hidden" name="review_action" value="reject" />
                         <button type="submit" style={styles.buttonDanger}>
                           Reject payload
@@ -660,6 +705,13 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                           name="digest_id"
                           value={pageData.selectedDigest.id}
                         />
+                        {pageData.selectedHandoffDestination !== "test_sink" ? (
+                          <input
+                            type="hidden"
+                            name="handoff_destination"
+                            value={pageData.selectedHandoffDestination}
+                          />
+                        ) : null}
                         <input type="hidden" name="review_action" value="request_changes" />
                         <button type="submit" style={styles.buttonSecondary}>
                           Request changes
@@ -773,7 +825,8 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                 </div>
               ) : (
                 <p style={{ ...styles.note, marginTop: "0.75rem" }}>
-                  No Mind handoff payload exists for this digest yet.
+                  No Mind handoff payload exists for this digest at destination{" "}
+                  {formatHandoffDestinationLabel(pageData.selectedHandoffDestination)} yet.
                 </p>
               )}
             </>

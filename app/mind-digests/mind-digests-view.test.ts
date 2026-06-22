@@ -44,6 +44,7 @@ const basePageData: MindDigestsPageData = {
   selectedDigestItems: [],
   selectedDigestHandoff: null,
   selectedDigestHandoffSendEvents: [],
+  selectedHandoffDestination: "test_sink",
   selectedDigestNarrative: null,
   selectedDigestWatchtowerNarrativeDiff: null,
   sendEventsConfigured: true,
@@ -200,5 +201,58 @@ describe("mind-digests-view", () => {
     expect(html).not.toContain("Send to HelloMinds");
     expect(html).not.toContain("EXTERNAL_MIND_HELLOMINDS");
     expect(html).not.toContain("ACCESS_KEY");
+  });
+
+  it("renders destination switcher links for test_sink and hellominds", () => {
+    const html = renderView(basePageData);
+
+    expect(html).toContain("View handoff by destination");
+    expect(html).toContain("/mind-digests?digest_id=digest-uuid-001");
+    expect(html).toContain("handoff_destination=hellominds");
+    expect(html).toContain("test sink (viewing)");
+  });
+
+  it("displays hellominds handoff detail when page data includes one", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "hellominds",
+      selectedDigestHandoff: {
+        id: "handoff-uuid-hellominds",
+        workspace_id: "demo-workspace-spa-menu",
+        digest_id: "digest-uuid-001",
+        handoff_type: "digest_summary",
+        destination: "hellominds",
+        payload_version: "mind_digest_payload_v1",
+        status: "ready",
+        review_status: "pending_review",
+        created_at: "2026-06-22T12:00:00.000Z",
+        updated_at: "2026-06-22T12:00:00.000Z",
+        approved_at: null,
+        sent_at: null,
+        send_attempted_at: null,
+        send_result_json: null,
+        payload_json: {
+          destination: "hellominds",
+          digest_id: "digest-uuid-001",
+          summary: "Privacy-safe summary",
+        },
+      },
+    });
+
+    expect(html).toContain("Destination: hellominds");
+    expect(html).toContain("HelloMinds (viewing)");
+    expect(html).not.toContain("No Mind handoff payload exists");
+    expect(html).not.toContain("Send to HelloMinds");
+    expect(html).toContain('name="handoff_destination" value="hellominds"');
+  });
+
+  it("shows destination-specific empty state when hellominds handoff is missing", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "hellominds",
+      selectedDigestHandoff: null,
+    });
+
+    expect(html).toContain("No Mind handoff payload exists for this digest at destination HelloMinds yet.");
   });
 });

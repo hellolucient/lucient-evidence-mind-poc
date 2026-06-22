@@ -9,6 +9,10 @@ import {
 } from "@/lib/watch/evidence-mind-digest-generator";
 import type { ExternalMindHandoffDestination } from "@/lib/review/external-mind-handoff-constants";
 import {
+  DEFAULT_MIND_DIGEST_HANDOFF_DESTINATION,
+  isSupportedExternalMindHandoffDestination,
+} from "@/lib/review/external-mind-handoff-constants";
+import {
   createMindHandoffFromDigest,
   getLatestHandoffForDigest,
   mindHandoffCreationErrorMessage,
@@ -64,6 +68,14 @@ import {
 
 export type MindDigestsPageFilters = EvidenceMindDigestListFilters;
 
+export const MIND_DIGESTS_HANDOFF_DESTINATION_OPTIONS = [
+  "test_sink",
+  "hellominds",
+] as const satisfies readonly ExternalMindHandoffDestination[];
+
+export type MindDigestsHandoffDestinationOption =
+  (typeof MIND_DIGESTS_HANDOFF_DESTINATION_OPTIONS)[number];
+
 export type MindDigestsGenerateFlash =
   | { kind: "success"; duplicate_skipped?: boolean }
   | { kind: "error"; error: string; message: string };
@@ -95,6 +107,7 @@ export type MindDigestsPageData = {
   selectedDigestItems: PrivacySafeEvidenceMindDigestItem[];
   selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null;
   selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[];
+  selectedHandoffDestination: MindDigestsHandoffDestinationOption;
   selectedDigestNarrative: PrivacySafeWatchtowerNarrative | null;
   selectedDigestWatchtowerNarrativeDiff: MindDigestsWatchtowerNarrativeDiffView | null;
   sendEventsConfigured: boolean;
@@ -121,6 +134,33 @@ function readParam(
   }
 
   return value ?? undefined;
+}
+
+export function parseMindDigestsHandoffDestination(
+  params: Record<string, string | string[] | undefined>
+): MindDigestsHandoffDestinationOption {
+  const value = readParam(params, "handoff_destination");
+  if (value === "hellominds") {
+    return "hellominds";
+  }
+
+  return DEFAULT_MIND_DIGEST_HANDOFF_DESTINATION;
+}
+
+export function buildMindDigestsDigestQuery(
+  digestId: string,
+  handoffDestination?: ExternalMindHandoffDestination
+): string {
+  const parts = [`digest_id=${encodeURIComponent(digestId)}`];
+  if (
+    handoffDestination &&
+    handoffDestination !== DEFAULT_MIND_DIGEST_HANDOFF_DESTINATION &&
+    isSupportedExternalMindHandoffDestination(handoffDestination)
+  ) {
+    parts.push(`handoff_destination=${encodeURIComponent(handoffDestination)}`);
+  }
+
+  return parts.join("&");
 }
 
 export function parseMindDigestsPageFilters(
@@ -279,6 +319,7 @@ export async function buildMindDigestsPageData(
   access: ReviewQueueAccessContext
 ): Promise<MindDigestsPageData> {
   const filters = parseMindDigestsPageFilters(params);
+  const selectedHandoffDestination = parseMindDigestsHandoffDestination(params);
   const configured = isEvidenceMindDigestPersistenceConfigured();
   const handoffsConfigured = isExternalMindHandoffPersistenceConfigured();
   const narrativesConfigured = isWatchtowerNarrativePersistenceConfigured();
@@ -301,6 +342,7 @@ export async function buildMindDigestsPageData(
       selectedDigestItems: [],
       selectedDigestHandoff: null,
       selectedDigestHandoffSendEvents: [],
+      selectedHandoffDestination,
       selectedDigestNarrative: null,
       selectedDigestWatchtowerNarrativeDiff: null,
       sendEventsConfigured: false,
@@ -342,7 +384,11 @@ export async function buildMindDigestsPageData(
       }
 
       if (handoffsConfigured) {
-        selectedDigestHandoff = await getLatestHandoffForDigest(selectedDigestId, access);
+        selectedDigestHandoff = await getLatestHandoffForDigest(
+          selectedDigestId,
+          access,
+          selectedHandoffDestination
+        );
         if (selectedDigestHandoff && sendEventsConfigured) {
           const eventsResult = await listExternalMindHandoffSendEventsForHandoff(
             selectedDigestHandoff.id,
@@ -398,6 +444,7 @@ export async function buildMindDigestsPageData(
     selectedDigestItems,
     selectedDigestHandoff,
     selectedDigestHandoffSendEvents,
+    selectedHandoffDestination,
     selectedDigestNarrative,
     selectedDigestWatchtowerNarrativeDiff,
     sendEventsConfigured,
@@ -456,6 +503,8 @@ export async function processMindHandoffCreationSubmission(
   digestId: string,
   destination?: ExternalMindHandoffDestination
 ): Promise<MindHandoffCreationSubmissionResult> {
+  const effectiveDestination = destination ?? DEFAULT_MIND_DIGEST_HANDOFF_DESTINATION;
+  const digestQuery = buildMindDigestsDigestQuery(digestId, effectiveDestination);
   const result = await createMindHandoffFromDigest(
     digestId,
     access,
@@ -464,20 +513,20 @@ export async function processMindHandoffCreationSubmission(
 
   if (!result.ok) {
     return {
-      redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&handoff_error=${encodeURIComponent(result.error)}&handoff_message=${encodeURIComponent(result.message)}`,
+      redirectPath: `/mind-digests?${digestQuery}&handoff_error=${encodeURIComponent(result.error)}&handoff_message=${encodeURIComponent(result.message)}`,
       result,
     };
   }
 
   if (result.duplicate_skipped) {
     return {
-      redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&handoff_ok=1&handoff_duplicate_skipped=1`,
+      redirectPath: `/mind-digests?${digestQuery}&handoff_ok=1&handoff_duplicate_skipped=1`,
       result,
     };
   }
 
   return {
-    redirectPath: `/mind-digests?digest_id=${encodeURIComponent(digestId)}&handoff_ok=1`,
+    redirectPath: `/mind-digests?${digestQuery}&handoff_ok=1`,
     result,
   };
 }
@@ -491,10 +540,13 @@ export async function processMindHandoffSendSubmission(
   access: ReviewQueueAccessContext,
   handoffId: string,
   digestId?: string,
-  operatorEmail?: string | null
+  operatorEmail?: string | null,
+  handoffDestination?: ExternalMindHandoffDestination
 ): Promise<MindHandoffSendSubmissionResult> {
   const result = await sendExternalMindHandoff(handoffId, access, { operatorEmail });
-  const digestQuery = digestId ? `digest_id=${encodeURIComponent(digestId)}&` : "";
+  const digestQuery = digestId
+    ? `${buildMindDigestsDigestQuery(digestId, handoffDestination)}&`
+    : "";
 
   if (!result.ok) {
     return {
@@ -520,13 +572,16 @@ export async function processMindHandoffReviewSubmission(
   action: ExternalMindHandoffReviewAction,
   digestId?: string,
   operatorEmail?: string | null,
-  note?: string | null
+  note?: string | null,
+  handoffDestination?: ExternalMindHandoffDestination
 ): Promise<MindHandoffReviewSubmissionResult> {
   const result = await reviewExternalMindHandoff(handoffId, access, action, {
     operatorEmail,
     note,
   });
-  const digestQuery = digestId ? `digest_id=${encodeURIComponent(digestId)}&` : "";
+  const digestQuery = digestId
+    ? `${buildMindDigestsDigestQuery(digestId, handoffDestination)}&`
+    : "";
 
   if (!result.ok) {
     return {

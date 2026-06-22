@@ -96,6 +96,7 @@ vi.mock("@/lib/watch/evidence-mind-digest-generator", async (importOriginal) => 
 
 import {
   buildMindDigestsPageData,
+  parseMindDigestsHandoffDestination,
   processDemoDigestGenerationSubmission,
   processMindHandoffCreationSubmission,
   processMindHandoffReviewSubmission,
@@ -255,6 +256,43 @@ describe("mind-digests-page", () => {
     expect(pageData.sendEventsConfigured).toBe(true);
     expect(pageData.selectedDigestHandoffSendEvents).toHaveLength(1);
     expect(pageData.selectedDigestHandoffSendEvents[0].event_type).toBe("send_succeeded");
+    expect(pageData.selectedHandoffDestination).toBe("test_sink");
+    expect(mockGetLatestHandoffForDigest).toHaveBeenCalledWith(
+      "digest-uuid-001",
+      operatorAccess,
+      "test_sink"
+    );
+  });
+
+  it("loads hellominds handoff when handoff_destination query param is hellominds", async () => {
+    const hellomindsHandoff = {
+      id: "handoff-uuid-hellominds",
+      status: "ready",
+      destination: "hellominds",
+      review_status: "pending_review",
+    };
+    mockGetLatestHandoffForDigest.mockResolvedValueOnce(hellomindsHandoff);
+
+    const pageData = await buildMindDigestsPageData(
+      { digest_id: "digest-uuid-001", handoff_destination: "hellominds" },
+      operatorAccess
+    );
+
+    expect(pageData.selectedHandoffDestination).toBe("hellominds");
+    expect(pageData.selectedDigestHandoff).toEqual(hellomindsHandoff);
+    expect(mockGetLatestHandoffForDigest).toHaveBeenCalledWith(
+      "digest-uuid-001",
+      operatorAccess,
+      "hellominds"
+    );
+  });
+
+  it("defaults handoff destination parsing to test_sink", () => {
+    expect(parseMindDigestsHandoffDestination({})).toBe("test_sink");
+    expect(parseMindDigestsHandoffDestination({ handoff_destination: "unknown" })).toBe("test_sink");
+    expect(parseMindDigestsHandoffDestination({ handoff_destination: "hellominds" })).toBe(
+      "hellominds"
+    );
   });
 
   it("redirects after successful handoff creation submission", async () => {
@@ -262,11 +300,26 @@ describe("mind-digests-page", () => {
 
     expect(submission.result.ok).toBe(true);
     expect(submission.redirectPath).toContain("handoff_ok=1");
+    expect(submission.redirectPath).toContain("digest_id=digest-uuid-001");
+    expect(submission.redirectPath).not.toContain("handoff_destination=");
     expect(mockCreateMindHandoffFromDigest).toHaveBeenCalledWith(
       "digest-uuid-001",
       operatorAccess,
       undefined
     );
+  });
+
+  it("redirects with hellominds handoff_destination after HelloMinds handoff creation", async () => {
+    const submission = await processMindHandoffCreationSubmission(
+      operatorAccess,
+      "digest-uuid-001",
+      "hellominds"
+    );
+
+    expect(submission.result.ok).toBe(true);
+    expect(submission.redirectPath).toContain("handoff_ok=1");
+    expect(submission.redirectPath).toContain("handoff_destination=hellominds");
+    expect(submission.redirectPath).toContain("digest_id=digest-uuid-001");
   });
 
   it("forwards destination to createMindHandoffFromDigest when provided", async () => {
@@ -304,12 +357,16 @@ describe("mind-digests-page", () => {
       operatorAccess,
       "handoff-uuid-001",
       "approve",
-      "digest-uuid-001"
+      "digest-uuid-001",
+      null,
+      null,
+      "hellominds"
     );
 
     expect(submission.result.ok).toBe(true);
     expect(submission.redirectPath).toContain("review_ok=1");
     expect(submission.redirectPath).toContain("review_action=approve");
+    expect(submission.redirectPath).toContain("handoff_destination=hellominds");
   });
 
   it("loads page data without diff when no narrative exists", async () => {
