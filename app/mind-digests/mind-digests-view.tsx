@@ -561,20 +561,40 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
 
           <h3 style={{ fontSize: "0.9375rem", marginTop: "1.5rem" }}>External Mind handoff</h3>
           <p style={styles.note}>
-            Creates a durable privacy-safe payload for future external Mind integration. Phase 34
-            requires operator review before send. Phase 32 supports safe test-sink send only by
-            default; no real Animoca Mind call is made unless external send is explicitly enabled in
-            server configuration.
+            Creates a durable privacy-safe payload for operator review before any send. Test sink is
+            the safe default. HelloMinds creates a production-format payload for validation — it
+            does not send or approve automatically.
           </p>
 
           {pageData.handoffsConfigured ? (
             <>
-              <form action={CREATE_HANDOFF_PATH} method="post">
-                <input type="hidden" name="digest_id" value={pageData.selectedDigest.id} />
-                <button type="submit" style={styles.button}>
-                  Create Mind handoff payload
-                </button>
-              </form>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.5rem",
+                  flexWrap: "wrap",
+                  alignItems: "flex-start",
+                }}
+              >
+                <form action={CREATE_HANDOFF_PATH} method="post">
+                  <input type="hidden" name="digest_id" value={pageData.selectedDigest.id} />
+                  <input type="hidden" name="destination" value="test_sink" />
+                  <button type="submit" style={styles.button}>
+                    Create test sink handoff
+                  </button>
+                </form>
+                <form action={CREATE_HANDOFF_PATH} method="post">
+                  <input type="hidden" name="digest_id" value={pageData.selectedDigest.id} />
+                  <input type="hidden" name="destination" value="hellominds" />
+                  <button type="submit" style={styles.buttonSecondary}>
+                    Create HelloMinds handoff
+                  </button>
+                </form>
+              </div>
+              <p style={{ ...styles.note, marginTop: "0.5rem", marginBottom: 0 }}>
+                Both destinations require separate operator approval before send. Only approved test
+                sink handoffs can be sent from this page.
+              </p>
 
               {pageData.selectedDigestHandoff ? (
                 <div style={{ marginTop: "1rem" }}>

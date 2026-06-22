@@ -181,4 +181,24 @@ describe("mind-digests-view", () => {
     expect(html).not.toContain("metadata_json");
     expect(html).not.toContain("internal_only");
   });
+
+  it("renders separate create-handoff forms for test_sink and hellominds", () => {
+    const html = renderView(basePageData);
+
+    expect(html).toContain('action="/mind-digests/create-handoff"');
+    expect(html).toContain('name="destination" value="test_sink"');
+    expect(html).toContain('name="destination" value="hellominds"');
+    expect(html).toContain('name="digest_id" value="digest-uuid-001"');
+    expect(html).toContain("Create test sink handoff");
+    expect(html).toContain("Create HelloMinds handoff");
+    expect(html).not.toContain("Create Mind handoff payload");
+  });
+
+  it("does not expose HelloMinds send controls on the create-handoff forms", () => {
+    const html = renderView(basePageData);
+
+    expect(html).not.toContain("Send to HelloMinds");
+    expect(html).not.toContain("EXTERNAL_MIND_HELLOMINDS");
+    expect(html).not.toContain("ACCESS_KEY");
+  });
 });
