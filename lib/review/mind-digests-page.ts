@@ -76,6 +76,9 @@ export const MIND_DIGESTS_HANDOFF_DESTINATION_OPTIONS = [
 export type MindDigestsHandoffDestinationOption =
   (typeof MIND_DIGESTS_HANDOFF_DESTINATION_OPTIONS)[number];
 
+export const DEFAULT_MIND_DIGESTS_HANDOFF_DESTINATION: MindDigestsHandoffDestinationOption =
+  "test_sink";
+
 export type MindDigestsGenerateFlash =
   | { kind: "success"; duplicate_skipped?: boolean }
   | { kind: "error"; error: string; message: string };
@@ -144,7 +147,7 @@ export function parseMindDigestsHandoffDestination(
     return "hellominds";
   }
 
-  return DEFAULT_MIND_DIGEST_HANDOFF_DESTINATION;
+  return DEFAULT_MIND_DIGESTS_HANDOFF_DESTINATION;
 }
 
 export function buildMindDigestsDigestQuery(
