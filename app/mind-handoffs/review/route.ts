@@ -7,6 +7,7 @@ import {
 } from "@/lib/operator-auth";
 import { processMindHandoffReviewSubmission } from "@/lib/review/mind-digests-page";
 import type { ExternalMindHandoffReviewAction } from "@/lib/watch/external-mind-handoff-review";
+import { isSupportedExternalMindHandoffDestination } from "@/lib/review/external-mind-handoff-constants";
 import { getSupabaseAuthUser } from "@/lib/supabase/auth-server";
 
 export const runtime = "nodejs";
@@ -32,6 +33,11 @@ export async function POST(request: Request) {
   const digestId = formData.get("digest_id")?.toString().trim();
   const action = parseReviewAction(formData.get("review_action"));
   const note = formData.get("review_note")?.toString() ?? null;
+  const handoffDestinationRaw = formData.get("handoff_destination")?.toString().trim();
+  const handoffDestination =
+    handoffDestinationRaw && isSupportedExternalMindHandoffDestination(handoffDestinationRaw)
+      ? handoffDestinationRaw
+      : undefined;
 
   if (!handoffId || !action) {
     return NextResponse.redirect(
@@ -46,7 +52,8 @@ export async function POST(request: Request) {
     action,
     digestId || undefined,
     auth.mode === "operator" ? (await getSupabaseAuthUser())?.email : null,
-    note
+    note,
+    handoffDestination
   );
 
   if (submission.result.ok) {

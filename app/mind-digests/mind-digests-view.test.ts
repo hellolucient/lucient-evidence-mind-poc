@@ -82,6 +82,34 @@ const narrative = {
   updated_at: "2026-06-07T12:00:00.000Z",
 };
 
+const pendingHelloMindsHandoff = {
+  id: "handoff-uuid-hellominds",
+  workspace_id: "demo-workspace-spa-menu",
+  digest_id: "digest-uuid-001",
+  handoff_type: "digest_summary" as const,
+  destination: "hellominds" as const,
+  payload_version: "mind_digest_payload_v1" as const,
+  status: "ready" as const,
+  review_status: "pending_review" as const,
+  created_at: "2026-06-22T12:00:00.000Z",
+  updated_at: "2026-06-22T12:00:00.000Z",
+  approved_at: null,
+  sent_at: null,
+  send_attempted_at: null,
+  send_result_json: null,
+  payload_json: {
+    destination: "hellominds",
+    digest_id: "digest-uuid-001",
+    summary: "Privacy-safe summary",
+  },
+};
+
+const approvedHelloMindsHandoff = {
+  ...pendingHelloMindsHandoff,
+  review_status: "approved" as const,
+  approved_at: "2026-06-22T12:30:00.000Z",
+};
+
 const diffView = {
   id: "diff-uuid-001",
   workspace_id: "demo-workspace-spa-menu",
@@ -216,34 +244,48 @@ describe("mind-digests-view", () => {
     const html = renderView({
       ...basePageData,
       selectedHandoffDestination: "hellominds",
-      selectedDigestHandoff: {
-        id: "handoff-uuid-hellominds",
-        workspace_id: "demo-workspace-spa-menu",
-        digest_id: "digest-uuid-001",
-        handoff_type: "digest_summary",
-        destination: "hellominds",
-        payload_version: "mind_digest_payload_v1",
-        status: "ready",
-        review_status: "pending_review",
-        created_at: "2026-06-22T12:00:00.000Z",
-        updated_at: "2026-06-22T12:00:00.000Z",
-        approved_at: null,
-        sent_at: null,
-        send_attempted_at: null,
-        send_result_json: null,
-        payload_json: {
-          destination: "hellominds",
-          digest_id: "digest-uuid-001",
-          summary: "Privacy-safe summary",
-        },
-      },
+      selectedDigestHandoff: pendingHelloMindsHandoff,
     });
 
     expect(html).toContain("Destination: hellominds");
     expect(html).toContain("HelloMinds (viewing)");
     expect(html).not.toContain("No Mind handoff payload exists");
-    expect(html).not.toContain("Send to HelloMinds");
+    expect(html).toContain("Dry-run send is disabled until an operator approves");
+    expect(html).not.toContain('action="/mind-handoffs/send"');
     expect(html).toContain('name="handoff_destination" value="hellominds"');
+  });
+
+  it("shows HelloMinds dry-run send form only for approved unsent hellominds handoffs", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "hellominds",
+      selectedDigestHandoff: approvedHelloMindsHandoff,
+    });
+
+    expect(html).toContain('action="/mind-handoffs/send"');
+    expect(html).toContain('name="handoff_id" value="handoff-uuid-hellominds"');
+    expect(html).toContain('name="digest_id" value="digest-uuid-001"');
+    expect(html).toContain('name="handoff_destination" value="hellominds"');
+    expect(html).toContain("Dry-run send HelloMinds handoff</button>");
+    expect(html).toContain("EXTERNAL_MIND_LIVE_SEND=false");
+    expect(html).not.toContain("Live send HelloMinds");
+    expect(html).not.toContain("Send to HelloMinds");
+    expect(html).not.toContain("EXTERNAL_MIND_HELLOMINDS");
+    expect(html).not.toContain("ACCESS_KEY");
+  });
+
+  it("does not show HelloMinds dry-run send form after handoff is sent", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "hellominds",
+      selectedDigestHandoff: {
+        ...approvedHelloMindsHandoff,
+        status: "sent",
+        sent_at: "2026-06-22T13:00:00.000Z",
+      },
+    });
+
+    expect(html).not.toContain("Dry-run send HelloMinds handoff</button>");
   });
 
   it("shows destination-specific empty state when hellominds handoff is missing", () => {

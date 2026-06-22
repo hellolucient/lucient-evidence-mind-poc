@@ -761,6 +761,48 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                     </div>
                   ) : null}
 
+                  {pageData.selectedHandoffDestination === "hellominds" &&
+                  pageData.selectedDigestHandoff.destination === "hellominds" &&
+                  pageData.selectedDigestHandoff.review_status === "approved" &&
+                  pageData.selectedDigestHandoff.status !== "sent" ? (
+                    <form action={SEND_HANDOFF_PATH} method="post" style={{ marginTop: "0.75rem" }}>
+                      <input
+                        type="hidden"
+                        name="handoff_id"
+                        value={pageData.selectedDigestHandoff.id}
+                      />
+                      <input
+                        type="hidden"
+                        name="digest_id"
+                        value={pageData.selectedDigest.id}
+                      />
+                      <input type="hidden" name="handoff_destination" value="hellominds" />
+                      <button type="submit" style={styles.buttonSecondary}>
+                        Dry-run send HelloMinds handoff
+                      </button>
+                      <p style={{ ...styles.note, marginTop: "0.35rem", marginBottom: 0 }}>
+                        This performs a HelloMinds transport dry-run only while
+                        EXTERNAL_MIND_LIVE_SEND=false. No live delivery is attempted from this
+                        control.
+                      </p>
+                    </form>
+                  ) : null}
+
+                  {pageData.selectedHandoffDestination === "hellominds" &&
+                  pageData.selectedDigestHandoff.destination === "hellominds" &&
+                  pageData.selectedDigestHandoff.review_status !== "approved" &&
+                  pageData.selectedDigestHandoff.status !== "sent" ? (
+                    <div style={{ marginTop: "0.75rem" }}>
+                      <button type="button" disabled style={styles.buttonDisabled}>
+                        Dry-run send HelloMinds handoff
+                      </button>
+                      <p style={{ ...styles.note, marginTop: "0.35rem", marginBottom: 0 }}>
+                        Dry-run send is disabled until an operator approves this payload (
+                        {formatReviewStatus(pageData.selectedDigestHandoff.review_status)}).
+                      </p>
+                    </div>
+                  ) : null}
+
                   {pageData.selectedDigestHandoff.send_result_json ? (
                     <>
                       <div style={styles.detailLabel}>Send result</div>
