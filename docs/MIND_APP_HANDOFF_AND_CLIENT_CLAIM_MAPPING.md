@@ -1,6 +1,6 @@
 # Mind/App Handoff and Client Claim Mapping
 
-> **Current architecture (Phase 27 validated).** For live phase status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md). Phase 17 introduced the handoff concept; Phases 26–27 added durable client claims and durable claim-to-watchlist mappings.
+> **Current architecture (Phases 27 + 39F).** For live phase status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md). Phase 17 introduced the handoff concept; Phases 26–27 added durable client claims and mappings; Phase 39F validated production HelloMinds transport for external Mind handoffs.
 
 Phase 17 introduced the bridge between abstract evidence monitoring and private client/workspace claims. Phase 27 completed the durable mapping layer.
 

@@ -1,20 +1,29 @@
 # lucient-evidence-mind-poc
 
-Minimal HTTPS API proof-of-concept for **Animoca Mind → Lucient Evidence Intelligence Engine (EIE)** integration.
+Ecosystem-ready proof-of-concept for **lucient Evidence Mind** integrated with an external Mind layer (**HelloMinds / Animoca Minds**).
 
-This is **not** the full Evidence Intelligence Engine. It proves that an Animoca Mind can:
+This repository demonstrates how a wellness evidence watchtower can convert monitoring into structured, reviewable intelligence and hand it to an external Mind for reasoning, memory, collaboration, and action planning. The Mind layer is **not** an optional notification channel — the intended operating model depends on the Mind receiving structured evidence intelligence and participating in the evidence-to-action workflow.
 
-1. Call our HTTPS endpoint
-2. Authenticate with an API key
-3. Send a `workspace_id` and evidence query
-4. Receive structured JSON suitable for an Evidence Brief
-5. Optionally retrieve real PubMed metadata with automated appraisal (Phases 5–7)
+**Production app:** https://lucient-evidence-mind-poc.vercel.app
 
-**Use demo workspace IDs and synthetic queries only.** Do not send real client-private data.
+**Use demo workspace IDs and synthetic queries only.** Do not send real client-private data. This is a technical POC, not a finished SaaS product or multi-client platform.
 
-## Current capabilities (Phases 1–37 production validated; Phase 38 dry-run guardrails validated)
+## External Mind operating model
 
-Production-validated internal alpha — **production phase marker: 37** (unchanged until live external delivery is validated). **Phase 38 dry-run guardrails are production-validated.** Live external HTTP delivery is implemented but disabled by default and not yet live-validated.
+| Layer | Responsibility |
+|-------|----------------|
+| **lucient Evidence Mind** | Evidence monitoring, digest generation, risk posture, privacy-safe handoff preparation, operator review gates, durable audit |
+| **External Mind (HelloMinds)** | Persistent reasoning context, memory, collaborative interpretation, downstream action planning |
+
+The product becomes more defensible when the workflow depends on this loop:
+
+**evidence intelligence → Mind interpretation → operator action**
+
+Phase 39F validated production transport to HelloMinds (HTTP 200, durable audit records). The immediate next step is not more transport testing alone — it is **closing the loop** by retrieving or surfacing the Mind’s response back inside the operator workflow.
+
+## Current capabilities (Phases 1–39F)
+
+**Strategic milestone:** Phase 39F — controlled production HelloMinds validation **complete**. Internal API metadata `CURRENT_WATCH_PHASE` remains `"37"` for payload compatibility; see [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) for canonical phase status.
 
 | Capability | Status |
 |------------|--------|
@@ -32,14 +41,24 @@ Production-validated internal alpha — **production phase marker: 37** (unchang
 | Evidence change briefs | `evidence_change_briefs` — `/evidence-briefs` |
 | Mind digests / watchtower summaries | `evidence_mind_digests` — `/mind-digests` |
 | Watchtower narratives (deterministic templates) | `evidence_mind_watchtower_narratives` — generate from `/mind-digests` |
-| Watchtower narrative diffs (deterministic comparison) | `evidence_mind_watchtower_narrative_diffs` — compare against prior digest narrative |
-| External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` and `watchtower_narrative_diff` when narrative/diff exist |
+| Watchtower narrative diffs (deterministic comparison) | `evidence_mind_watchtower_narrative_diffs` |
+| External Mind handoff payloads | `external_mind_handoffs` — `test_sink` and `hellominds` destinations |
 | Operator approval before handoff send | Phase 34 — pending review blocks send until approved |
-| Test-sink send + send audit log | Default operator path; `test_sink` handoffs via UI |
-| External Mind dry-run guardrails | Phase 38 — gated `animoca_mind` creation (backend only); dry-run send records `external_dry_run_ok` without external POST |
-| Live external Animoca delivery | Requires `ENABLE_EXTERNAL_MIND_SEND=true` **and** `EXTERNAL_MIND_LIVE_SEND=true`; **not live-validated** |
+| Test-sink send + send audit log | Default safe operator path for `test_sink` handoffs |
+| HelloMinds handoff creation (operator UI) | Explicit `hellominds` destination from `/mind-digests` |
+| HelloMinds dry-run send (operator UI) | Approved `hellominds` handoffs while `EXTERNAL_MIND_LIVE_SEND=false` |
+| HelloMinds production transport | **Validated Phase 39F** — controlled dry-run + one gated live send; live send disabled again |
 
-**Validated production chain (Phases 29–37):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload (including `watchtower_narrative` and optional `watchtower_narrative_diff` when stored diff exists) → operator approval → test-sink send → send audit log.
+**Validated production chain (Phases 29–39F):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload → operator approval → test-sink or HelloMinds send (gated) → send audit log.
+
+### External Mind safety model
+
+- External Mind sends are **operator-approval-gated** (`review_status=approved` required).
+- Live delivery is **separately gated** by `EXTERNAL_MIND_LIVE_SEND`.
+- `EXTERNAL_MIND_LIVE_SEND=false` is the **safe default production state**.
+- Live sending requires an intentional, temporary operator-controlled validation window.
+- Operator UI exposes dry-run send for HelloMinds; it does **not** expose live-send controls or secrets.
+- Documentation records validation IDs and audit metadata only — no API keys, bearer tokens, or full payload contents.
 
 **For detailed phase status and validation records, see [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md).**
 
@@ -84,7 +103,7 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) | Supabase durable watchlist store (Phase 11) |
 | [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md) | Vercel Cron scheduled monitoring (Phase 12) |
 | [docs/watch-run-logging-phase-13.md](./docs/watch-run-logging-phase-13.md) | Durable watch run logging (Phase 13) |
-| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 38 dry-run validation |
+| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 39F production HelloMinds validation |
 | [docs/DEVELOPMENT_PHASES.md](./docs/DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–38) |
 | [docs/REVIEW_QUEUE_API.md](./docs/REVIEW_QUEUE_API.md) | Review queue API (Phase 18 origin; see current-status note) |
 | [docs/REVIEW_QUEUE_UI.md](./docs/REVIEW_QUEUE_UI.md) | Review queue UI (Phase 19 origin; see current-status note) |
@@ -292,10 +311,12 @@ Use the curl examples above with your Vercel URL and API key. PubMed mode requir
 ## What this does not include
 
 - Client-facing dashboard or polished SaaS UI
+- Multi-client production readiness
 - Full evidence search, PDF handling, or final claim substantiation
 - Webhooks or client-facing alert delivery
 - Non-PubMed regulatory source integration
-- Live external Animoca Mind HTTP delivery (Phase 39 — controlled validation against approved staging endpoint)
+- Operator UI live-send control for HelloMinds (`EXTERNAL_MIND_LIVE_SEND` remains `false` in production)
+- Mind-response loop closure — retrieving or surfacing HelloMinds interpretation back into operator workflow (Phase 41)
 - Real client data — demo workspace IDs and synthetic queries only
 
 PubMed retrieval and Phase 7 appraisal are **conservative and automated only** — not proof that a claim is supported.

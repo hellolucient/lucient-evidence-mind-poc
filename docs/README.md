@@ -1,14 +1,21 @@
 # Documentation index
 
-Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca Mind → Lucient EIE**.
+Lucient Evidence Mind POC — evidence watchtower integrated with an external Mind layer (**HelloMinds / Animoca Minds**).
 
 **Use demo workspace IDs and synthetic queries only.** Do not send real client-private data.
 
 > **For current phase status, see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** This index includes historical phase-specific guides; older docs may describe only the phase they were written for.
 
-## Current capabilities (Phases 1–37 production validated; Phase 38 dry-run guardrails validated)
+## External Mind operating model
 
-**Production phase marker:** `37` (unchanged). **Phase 38 dry-run guardrails production-validated.** Live external HTTP delivery disabled by default; not live-validated.
+- **Evidence Mind** handles monitoring, digest generation, risk posture, and privacy-safe handoff preparation.
+- **External Mind (HelloMinds)** is intended to provide persistent reasoning context, memory, collaborative interpretation, and action planning.
+- The workflow depends on: **evidence intelligence → Mind interpretation → operator action**.
+- Phase 39F validated production HelloMinds transport; Phase 41+ focuses on closing the Mind-response loop.
+
+## Current capabilities (Phases 1–39F)
+
+**Strategic milestone:** Phase 39F production HelloMinds validation **complete**. `EXTERNAL_MIND_LIVE_SEND=false` is the safe production default.
 
 | Capability | Entry point / table |
 |------------|---------------------|
@@ -26,13 +33,13 @@ Lucient Evidence Mind POC — `POST /api/query` integration docs for **Animoca M
 | Mind digests | `evidence_mind_digests`, `/mind-digests` |
 | Watchtower narratives (deterministic templates only) | `evidence_mind_watchtower_narratives`, `/mind-digests/generate-narrative` |
 | Watchtower narrative diffs (deterministic comparison only) | `evidence_mind_watchtower_narrative_diffs`, `/mind-digests` diff detail |
-| External Mind handoff payloads | `external_mind_handoffs` — optional `watchtower_narrative` and `watchtower_narrative_diff` when narrative/diff exist |
+| External Mind handoff payloads | `external_mind_handoffs` — `test_sink` and `hellominds` |
 | Operator approval before send | Phase 34 — send blocked until `approved` |
-| Test-sink send + send audit | Default UI path — `test_sink` handoffs |
-| External Mind dry-run guardrails | Phase 38 — gated `animoca_mind` creation (backend); dry-run audit `external_dry_run_ok` |
-| Live external Animoca delivery | `ENABLE_EXTERNAL_MIND_SEND` + `EXTERNAL_MIND_LIVE_SEND`; not live-validated |
+| Test-sink send + send audit | Default safe path — `test_sink` handoffs |
+| HelloMinds handoff + dry-run send (operator UI) | `/mind-digests` with `handoff_destination=hellominds` |
+| HelloMinds production transport | Phase 39F validated — gated live send; live disabled again |
 
-**Validated production chain (Phases 29–37):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload (including `watchtower_narrative` and optional `watchtower_narrative_diff` when stored diff exists) → operator approval → test-sink send → send audit log.
+**Validated production chain (Phases 29–39F):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload → operator approval → test-sink or HelloMinds send (gated) → send audit log.
 
 ## Quick links
 
@@ -162,7 +169,7 @@ On PubMed failure or empty results, the API falls back to stubs and sets `lucien
 
 ## What this POC does not include
 
-Client-facing dashboard, live external Animoca Mind HTTP delivery (Phase 39 — controlled staging validation; Phase 38 dry-run guardrails validated), PDF handling, webhooks, non-PubMed regulatory sources, or real client data. Evidence change briefs are implemented and validated (Phase 28).
+Client-facing dashboard, multi-client production readiness, Mind-response loop closure (Phase 41), PDF handling, webhooks, non-PubMed regulatory sources, or real client data. HelloMinds live send is disabled in production (`EXTERNAL_MIND_LIVE_SEND=false`); Phase 39F validated one controlled live send. Evidence change briefs are implemented and validated (Phase 28).
 
 **Historical note (Phases 11–13):** early docs described Supabase as watchlist-only. Since Phases 14–27, Supabase also stores review items, audit events, notes, client claims, and claim mappings. See [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
 

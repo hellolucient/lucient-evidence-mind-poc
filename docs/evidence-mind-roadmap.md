@@ -4,18 +4,44 @@
 
 High-level phase plan, status tracking, and strategic direction for the Evidence Mind POC. For early-phase deliverables (Phases 1–20), see [DEVELOPMENT_PHASES.md](./DEVELOPMENT_PHASES.md). For Phases 21–29, see the summary there and the detailed validation records below.
 
-**Current phase marker (production):** `37`  
-**Strategic status:** Internal alpha validated — Phases 1–37 production-validated. **Phase 38 dry-run guardrails production-validated** (marker remains `37` until live external delivery is validated).
+**Strategic milestone:** Phase **39F** — controlled production HelloMinds validation **complete** (2026-06-22 UTC).  
+**Internal API metadata:** `CURRENT_WATCH_PHASE` remains `"37"` for payload compatibility until a dedicated marker bump.  
+**Production app:** https://lucient-evidence-mind-poc.vercel.app  
+**Safe production default:** `EXTERNAL_MIND_LIVE_SEND=false`
 
-> **Phase 38 summary:** Phase 38 added external Mind send config/readiness helpers, hardened dry-run/live transport, orchestration/audit semantics (`external_dry_run_ok`, `external_config_invalid`), and a gated backend path to create `animoca_mind` handoffs. **Dry-run guardrails are production-validated.** Live external HTTP delivery is implemented but **not live-validated** — it remains disabled unless both `ENABLE_EXTERNAL_MIND_SEND=true` and `EXTERNAL_MIND_LIVE_SEND=true`. Default operator UI still creates `test_sink` only; approval-before-send remains required; dry-run send does not POST externally.
+> **Phase 39F summary:** Controlled **production** validation of HelloMinds external Mind handoff **passed**. Workspace `demo-workspace-spa-menu`; digest `bc2ea900-6004-4711-b879-33c7bad87a2c`; handoff `0fd4ee13-740b-41cd-be4c-1139442bf082`; `destination=hellominds`; `payload_version=mind_digest_payload_v1`. Handoff created in production, visible in operator UI, manually approved by operator `trent.munday@gmail.com`. Dry-run send first (`external_dry_run_ok`; audit `provider=hellominds`, `transport_mode=dry_run`, `endpoint_host=api.build.hellominds.ai`). One gated live send after temporary `EXTERNAL_MIND_LIVE_SEND=true` (`external_sent`, HTTP 200; audit `transport_mode=live`). Final handoff `status=sent`, `review_status=approved`, `sent_at=2026-06-22T10:43:33.518Z`. `EXTERNAL_MIND_LIVE_SEND` returned to `false` and production redeployed. No secrets recorded here.
 
-> **Phase 39A summary:** HelloMinds Builder API local connectivity smoke test **passed** (2026-06-12 UTC). `GET /v1/humans/{humanId}/minds` returned HTTP 200 with a top-level array (2 Minds). Target Mind **lucient** (mindId suffix `df11`, `isEnabled: true`, model `xiaomi/mimo-v2.5`, species moca, `hasTelegram: true`) confirmed via `X-Access-Key`. No lucient app, Supabase, or Vercel env changes; no handoff payload, messaging conversation, or message sent. Marker remains `37`; `payload_version` unchanged. Detail: [hellominds-connectivity-phase-39a.md](./hellominds-connectivity-phase-39a.md).
+> **Phase 39E3 summary:** Controlled **local** live validation of HelloMinds external Mind handoff **passed** (2026-06-12 UTC). Digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf`; handoff `4a8effbb-37f8-4c56-9979-46741dbd5fdf`. Dry-run blocked correctly; gated live send succeeded. Detail below in [Phase 39E3](#phase-39e3--hellominds-external-mind-handoff-local-live-validation).
 
-> **Phase 39B summary:** HelloMinds messaging local smoke test **passed** (2026-06-12 UTC). Synthetic ping only via `POST /v1/messaging/conversation` (`alias` + `mindId`, HTTP 200), `POST /v1/messaging/message` (HTTP 200), and `GET /v1/messaging/history/{alias}` (HTTP 200; Mind reply observed). Caller-supplied test alias; `humanId` not required for conversation. No lucient app, Supabase, Vercel, sender, or adapter changes; no handoff payload. Marker remains `37`. Detail: [hellominds-connectivity-phase-39b.md](./hellominds-connectivity-phase-39b.md).
+> **Phase 39B summary:** HelloMinds messaging local smoke test **passed** (2026-06-12 UTC). Synthetic ping only. Detail: [hellominds-connectivity-phase-39b.md](./hellominds-connectivity-phase-39b.md).
 
-> **Phase 39E3 summary:** Controlled local live validation of HelloMinds external Mind handoff **passed** (2026-06-12 UTC). `hellominds` handoff created for digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf` (handoff `4a8effbb-37f8-4c56-9979-46741dbd5fdf`). Operator approval via break-glass review flow succeeded. Dry-run send blocked correctly (`external_dry_run_ok` while `EXTERNAL_MIND_LIVE_SEND=false`). Live send succeeded only after temporary `EXTERNAL_MIND_LIVE_SEND=true`; Supabase recorded `status=sent`, `review_status=approved`, `send_result=external_sent`, `http_status=200`. Send audit: `provider=hellominds`, `transport_mode=live`, `endpoint_host=api.build.hellominds.ai`. HelloMinds history HTTP 200; lucient Mind reply observed. `EXTERNAL_MIND_LIVE_SEND` returned to `false` after validation. Supabase destination constraint corrected via `20260612120000_add_external_mind_handoffs_hellominds_destination.sql`. Tests 484 pass; lint one pre-existing warning; typecheck unrelated pre-existing issues. Marker remains `37`.
+> **Phase 39A summary:** HelloMinds Builder API local connectivity smoke test **passed** (2026-06-12 UTC). Detail: [hellominds-connectivity-phase-39a.md](./hellominds-connectivity-phase-39a.md).
 
-> **Phase 37 summary:** Phase 37 added an optional privacy-safe `watchtower_narrative_diff` section to external Mind handoff payloads when a stored diff exists. Payload version remains `mind_digest_payload_v1`. No diff recomputation during handoff creation. No `metadata_json`, `source_counts_json`, or `referenced_entities_json` exposure. Send, approval, test-sink, and disabled-by-default external send behavior unchanged.
+> **Phase 38 summary:** External Mind dry-run guardrails production-validated. Gated `animoca_mind` creation; dry-run audit `external_dry_run_ok` without external POST when `EXTERNAL_MIND_LIVE_SEND=false`.
+
+> **Phase 37 summary:** Optional privacy-safe `watchtower_narrative_diff` section in handoff payloads when a stored diff exists. `payload_version` remains `mind_digest_payload_v1`.
+
+## External Mind operating model
+
+This POC demonstrates ecosystem-ready integration between lucient Evidence Mind and an external Mind layer (HelloMinds / Animoca Minds). The Mind is **not** an optional notification channel.
+
+| Component | Role |
+|-----------|------|
+| **Evidence Mind** | Evidence monitoring, digest generation, risk posture, privacy-safe handoff preparation, operator review, durable audit |
+| **External Mind** | Persistent reasoning context, memory, collaborative interpretation, downstream action planning |
+
+**Intended loop:** evidence intelligence → Mind interpretation → operator action.
+
+Phase 39F proved production transport to HelloMinds with HTTP 200 and durable audit records. The next product milestone is to make the Mind response part of the core loop — retrieving or surfacing HelloMinds interpretation back inside the operator workflow (Phase 41).
+
+### External Mind safety model
+
+- Send requires operator approval (`review_status=approved`).
+- Live delivery requires `EXTERNAL_MIND_LIVE_SEND=true` in addition to send config readiness.
+- `EXTERNAL_MIND_LIVE_SEND=false` is the safe production default.
+- Live send is performed only during intentional, temporary validation windows.
+- Operator UI provides HelloMinds dry-run send only; no live-send button.
+- Docs record validation IDs and audit metadata — not API keys, tokens, or full payloads.
 
 ### Recent phase status (quick reference)
 
@@ -35,10 +61,16 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | **35** | Evidence Mind watchtower narrative / persistent interpretation layer | **PASS / Production validated** |
 | **36** | Watchtower narrative history / diff layer | **PASS / Production validated** |
 | **37** | External Mind handoff narrative diff section | **PASS / Production validated** |
-| **38** | External Mind dry-run guardrails + gated `animoca_mind` handoff creation | **PASS / Dry-run production validated** (live send not validated) |
+| **38** | External Mind dry-run guardrails + gated `animoca_mind` handoff creation | **PASS / Dry-run production validated** |
 | **39A** | HelloMinds Builder API local connectivity smoke test | **PASS / Local validated** |
 | **39B** | HelloMinds messaging local smoke test | **PASS / Local validated** (synthetic ping only) |
 | **39E3** | HelloMinds external Mind handoff local live validation | **PASS / Local live validated** |
+| **39F** | HelloMinds external Mind handoff production validation | **PASS / Production validated** |
+| **40** | Documentation, safety hardening, external Mind operating model | Planned |
+| **41** | Mind-critical loop — HelloMinds response back into operator workflow | Planned |
+| **42** | Operator dashboard: digest → narrative → handoff → Mind response → action | Planned |
+| **43** | End-to-end demo scenario package | Planned |
+| **44** | Pilot workspace hardening (single-pilot operating model) | Planned |
 
 ---
 
@@ -46,8 +78,8 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 
 | Horizon | Phases | Status | Focus |
 |---------|--------|--------|-------|
-| **Completed** | 1–37 | PASS / Done | Evidence engine through watchtower narratives and narrative diffs, Mind digests, external Mind handoffs with optional narrative diff section, disabled-by-default send stub, send audit trail, operator handoff review/approval |
-| **Mind integration** | 38 (dry-run) / 39A–39B+ | 38 dry-run **PASS**; 39A list-Minds **PASS**; 39B messaging **PASS** | External send guardrails, gated `animoca_mind` creation, dry-run audit; HelloMinds Builder + messaging API shapes validated; Phase 39C adapter design next |
+| **Completed** | 1–39F | PASS / Done | Evidence engine through HelloMinds production transport validation |
+| **Mind loop closure** | 40–44 | Planned | Operating model docs, Mind response retrieval, operator dashboard, demo package, pilot hardening |
 
 ---
 
@@ -201,13 +233,14 @@ High-level phase plan, status tracking, and strategic direction for the Evidence
 | External Mind send orchestration / audit semantics | 38C | **PASS / Done** | `external_dry_run_ok`, `external_config_invalid`; Supabase migration applied |
 | Gated `animoca_mind` handoff creation (backend only) | 38D | **PASS / Done** | Optional `destination` on create-handoff route; UI still `test_sink` default |
 | Production validation: animoca_mind dry-run send | 38E | **PASS / Done** | Handoff `d9c2a14f-534b-4c46-b620-86d0637db0dd`; no external POST; audit `send_blocked` / `external_dry_run_ok` |
-| Production validation: live external HTTP delivery | 38 | **Not validated** | Awaits HelloMinds adapter and controlled live validation |
+| Production validation: HelloMinds live external HTTP delivery | 39F | **PASS / Production validated** | One controlled live send; `EXTERNAL_MIND_LIVE_SEND=false` restored |
+| Production validation: legacy `animoca_mind` generic HTTP live delivery | 38 | **Not validated** | HelloMinds is the primary external Mind path |
 | HelloMinds Builder API local connectivity (`GET /v1/humans/{humanId}/minds`) | 39A | **PASS / Done** | HTTP 200; 2 Minds; target **lucient** (mindId suffix `df11`, `isEnabled: true`); no app/Supabase/Vercel changes |
 | HelloMinds messaging local smoke test (conversation, message, history) | 39B | **PASS / Done** | Synthetic ping only; conversation `alias`+`mindId` HTTP 200; message HTTP 200; history HTTP 200; Mind reply observed; no app/sender/adapter/handoff changes |
 
 ---
 
-## Current System State After Phase 38 (marker remains `37`)
+## Current System State After Phase 39F
 
 The POC is a validated **internal alpha** for evidence monitoring and operator review. Production-validated capabilities include:
 
@@ -281,13 +314,16 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | External Mind dry-run readiness helpers (`ENABLE_EXTERNAL_MIND_SEND`, endpoint, API key, allowlist) | Working |
 | Gated `animoca_mind` handoff creation via backend route (dry-run-ready config required) | Working |
 | `animoca_mind` dry-run send (no external POST; handoff stays `ready`; audit `external_dry_run_ok`) | Working (production-validated) |
-| Live external HTTP delivery to Animoca endpoint | Implemented, **disabled by default**, **not live-validated** |
+| HelloMinds handoff creation via operator UI (`destination=hellominds`) | Working (production-validated Phase 39F) |
+| HelloMinds dry-run send via operator UI (approved handoffs; `EXTERNAL_MIND_LIVE_SEND=false`) | Working (production-validated Phase 39F) |
+| HelloMinds live transport (`hellominds` destination) | **Production-validated Phase 39F** — one controlled live send; `EXTERNAL_MIND_LIVE_SEND=false` restored |
+| Legacy `animoca_mind` generic HTTP live delivery | Implemented; not production-validated for live send |
 
-**Production capability (Phase 38):** `test_sink` remains the default operator path. `animoca_mind` handoffs can be created only through the gated backend path (`POST /mind-digests/create-handoff` with `destination=animoca_mind`) when external send is dry-run-ready (`ENABLE_EXTERNAL_MIND_SEND=true`, valid HTTPS endpoint, API key, allowlist if configured). `EXTERNAL_MIND_LIVE_SEND` is **not** required for creation or dry-run send. Approval-before-send remains required. Dry-run send keeps handoff `status=ready`, sets `send_result_json.result=external_dry_run_ok`, and records audit `event_type=send_blocked` with `metadata.transport_mode=dry_run`. Invalid config yields `external_config_invalid`. Live send requires **both** `ENABLE_EXTERNAL_MIND_SEND=true` and `EXTERNAL_MIND_LIVE_SEND=true` and has not yet been validated against a real/staging Animoca endpoint.
+**Production capability (Phases 38–39F):** `test_sink` remains the default safe operator path. Operators can create `hellominds` handoffs from `/mind-digests`, review/approve them, dry-run send while `EXTERNAL_MIND_LIVE_SEND=false`, and (during controlled validation windows only) perform gated live send. Approval-before-send remains required. Dry-run keeps handoff `status=ready` and records `external_dry_run_ok`. Live send requires `ENABLE_EXTERNAL_MIND_SEND=true` **and** `EXTERNAL_MIND_LIVE_SEND=true`. Production default after Phase 39F: `EXTERNAL_MIND_LIVE_SEND=false`.
 
-**Validated operator flow:** `/review-login` → magic link → `/auth/callback` → `/review-items`, with workspace scope enforced through `workspace_operator_memberships`. Status changes and note creation from the review queue UI write durable audit rows attributed by access mode (Supabase operator or break-glass). Authorized operators can manage workspace-scoped client claims and claim-to-watchlist mappings at `/client-claims`, view or generate evidence change briefs at `/evidence-briefs`, view or generate internal Mind digests at `/mind-digests`, generate evidence-constrained watchtower narratives from digests (deterministic templates only), view deterministic narrative diffs against the prior digest narrative when a diff record exists, create privacy-safe external Mind handoff payloads with optional `watchtower_narrative` when a narrative exists and optional `watchtower_narrative_diff` when a stored diff exists, review and approve payloads before send (Phase 34), and complete test-sink send with durable send audit history at `/mind-digests`. Operators with dry-run-ready server config can create `animoca_mind` handoffs via the gated backend create route and validate dry-run send (no external POST). Live external Animoca Mind HTTP delivery remains disabled by default (`EXTERNAL_MIND_LIVE_SEND=false`) and is not yet live-validated.
+**Validated operator flow:** `/review-login` → magic link → operator session → `/mind-digests`. Operators create privacy-safe handoffs (`test_sink` or `hellominds`), approve payloads, dry-run send HelloMinds handoffs from the UI, and complete test-sink send. Live HelloMinds send is not exposed in UI; it requires temporary env change during validation windows only.
 
-**Validated production chain (Phases 29–37):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload (including `watchtower_narrative` when present and optional `watchtower_narrative_diff` when stored diff exists) → operator approval → test-sink send → send audit log.
+**Validated production chain (Phases 29–39F):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload → operator approval → test-sink or HelloMinds send (gated) → send audit log.
 
 ---
 
@@ -303,11 +339,12 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 | Review queue has no note editing/deletion | Notes are append-only internal review notes |
 | Mind digests are internal-only (Phase 29–30) | No external Animoca Mind call; scheduled generation is internal/template-based only |
 | External Mind handoffs are payload-only (Phase 31) | Creates durable `mind_digest_payload_v1` packages; no external send, notifications, or LLM narrative |
-| External Mind send is disabled by default (Phase 32) | Test-sink send marks handoffs `sent` locally; dry-run external send (Phase 38) does not POST; live HTTP send requires `ENABLE_EXTERNAL_MIND_SEND=true` **and** `EXTERNAL_MIND_LIVE_SEND=true` (not live-validated) |
-| `animoca_mind` handoff creation is backend-gated (Phase 38D) | UI still creates `test_sink` only; `animoca_mind` requires dry-run-ready config via create-handoff route |
-| Live external Animoca delivery not validated (Phase 38) | Transport/orchestration implemented; controlled live test against approved endpoint pending (Phase 39) |
-| Send audit events are separate from handoff status (Phase 33) | Durable send history per attempt; still no real external Animoca delivery, notifications, or LLM narrative |
-| External Mind handoff send requires operator approval (Phase 34) | New handoffs start `pending_review`; only `approved` handoffs can send to test sink; no real Animoca delivery |
+| External Mind send is disabled by default (Phase 32) | Test-sink send marks handoffs `sent` locally; HelloMinds dry-run does not live-deliver when `EXTERNAL_MIND_LIVE_SEND=false` |
+| HelloMinds live send in production | Validated once (Phase 39F); `EXTERNAL_MIND_LIVE_SEND=false` restored; no UI live-send control |
+| `animoca_mind` generic HTTP path | Backend-gated; not the primary HelloMinds operator path |
+| Mind response loop not closed | HelloMinds may reply, but lucient does not yet retrieve/surface Mind interpretation in operator workflow (Phase 41) |
+| Not multi-client ready | Single demo workspace pilot model only |
+| Not a finished SaaS product | Internal operator POC |
 | Watchtower narratives are template-only (Phase 35) | Deterministic interpretation from digest snapshots; no LLM narrative; no external Mind call |
 | Watchtower narrative diffs are deterministic only (Phase 36–37) | Compares stored narrative snapshots; no LLM diff generation; handoff includes stored diff only (no recomputation at handoff time) |
 | Mind digest generation is template-only | Manual demo action and scheduled cron; LLM enrichment planned for later phases |
@@ -320,35 +357,41 @@ The POC is a validated **internal alpha** for evidence monitoring and operator r
 
 ---
 
-## Remaining Gaps Before Serious Mind Integration
+## Remaining Gaps Before Pilot-Scale Mind Integration
 
-Before Evidence Mind can operate as a client-facing evidence governance product integrated with Animoca Mind, these gaps must be closed in order:
+Before Evidence Mind can operate beyond a single-pilot POC integrated with HelloMinds, these gaps remain:
 
-1. **Evidence appraisal reliability** — appraisal rules and retrieval need deeper consistency before client-facing risk statements.
-2. **Client claim ingestion at scale** — durable registry exists, but claims are entered manually; future phases should extract claims from spa menus, product descriptions, labels, websites, marketing copy, and similar source material with operator review before registry insertion (planned as Phase 26.5 or Phase 32).
-3. **Watchlist operability** — claim-family watchlists remain developer-configured; clients cannot yet manage monitored topics.
-4. **Review governance workflow** — operator notes and status audit trail are in place; note editing/deletion and richer decision rationale fields remain future work.
-5. **Claim-to-evidence linkage** — durable claim-to-watchlist mappings validated in Phase 27.
-6. **Structured evidence briefs** — template-based brief generator validated in Phase 28; LLM enrichment and automatic watch-triggered generation remain future work.
-7. **Mind digest / feed** — internal durable Mind Digests, scheduled generation, watchtower narratives, deterministic narrative diffs, external Mind handoff payloads (with optional `watchtower_narrative` and `watchtower_narrative_diff`), disabled-by-default send stub, send audit trail, operator payload review before send, and **dry-run external send guardrails** validated in Phases 29–38; **controlled live external delivery** against an approved Animoca/staging endpoint remains the next step (Phase 39).
-8. **Client dashboard definition** — requirements for client-facing UX are undefined.
-9. **Reporting and export** — no exportable evidence reports or monitoring summaries.
-10. **Notifications** — no delivery layer for operator or client alerts.
+1. **Mind-response loop** — production transport validated (39F); lucient must retrieve or verify HelloMinds responses and surface them in operator workflow (Phase 41).
+2. **Evidence appraisal reliability** — appraisal rules and retrieval need deeper consistency before client-facing risk statements.
+3. **Client claim ingestion at scale** — durable registry exists; claims are entered manually.
+4. **Watchlist operability** — claim-family watchlists remain developer-configured.
+5. **Review governance workflow** — note editing/deletion and richer decision rationale remain future work.
+6. **Structured evidence briefs** — template-based generator validated; LLM enrichment and automatic watch-triggered generation remain future work.
+7. **Operator dashboard** — unified view of digest → narrative → handoff → Mind response → action status (Phase 42).
+8. **Pilot workspace hardening** — replace demo-only flows with a credible single-pilot operating model (Phase 44).
+9. **Client dashboard definition** — requirements for client-facing UX undefined.
+10. **Reporting, export, notifications** — not built.
 
 ---
 
-## Forward Roadmap — From Internal Alpha to Evidence Mind Operating System
+## Forward Roadmap — From Transport Validation to Mind-Critical Loop
 
-This section defines the proposed build sequence from the current internal alpha toward a Mind-integrated evidence operating system. Phases 26–37 are production-validated. **Phase 38 dry-run guardrails are production-validated; live external HTTP delivery remains disabled by default and awaits controlled validation.**
+Phases 1–39F are complete. HelloMinds production transport is validated with operator gates and durable audit. **Next focus:** close the Mind-response loop and harden the pilot operating model.
 
-**Next recommended phase — Phase 39 (or Phase 38F): Controlled live external delivery validation**
+| Phase | Name | Status |
+|-------|------|--------|
+| **40** | Documentation, safety hardening, external Mind operating model | Planned |
+| **41** | Mind-critical loop — receive or verify HelloMinds response; surface in operator workflow | Planned |
+| **42** | Operator dashboard: digest → narrative → handoff → Mind response → action status | Planned |
+| **43** | End-to-end demo scenario package (evidence watchtower + Mind reasoning workflow) | Planned |
+| **44** | Pilot workspace hardening — credible single-pilot operating model | Planned |
 
-1. Obtain an approved Animoca/staging endpoint.
-2. Set `EXTERNAL_MIND_ENDPOINT_ALLOWLIST` to the exact hostname.
-3. Set `EXTERNAL_MIND_LIVE_SEND=true` only for the validation window.
-4. Send one approved `animoca_mind` handoff via existing review + send routes.
-5. Verify `external_sent` audit result and downstream receipt.
-6. Immediately disable `EXTERNAL_MIND_LIVE_SEND` after the test unless production launch is approved.
+**Next recommended phase — Phase 40 + 41**
+
+1. Finalize operating-model documentation and safety runbooks (approval gates, live-send window procedure).
+2. Design HelloMinds response retrieval or verification path (history API, correlation by conversation alias / handoff ID).
+3. Surface Mind interpretation in `/mind-digests` or a dedicated operator view without exposing secrets.
+4. Define action-status tracking so operators can see whether Mind output led to review action.
 
 ### Completed near-term foundation (Phases 26–30)
 
@@ -1346,7 +1389,61 @@ Redacted record — no API keys, access tokens, or sensitive env values.
 
 - Controlled local validation only; not production/Vercel live validation.
 - `EXTERNAL_MIND_LIVE_SEND` remains `false` by default after validation.
-- Production phase marker remains `37`.
+- Production phase marker remains `37` for API metadata.
+
+---
+
+## Phase 39F — HelloMinds External Mind Handoff Production Validation
+
+**Status:** PASS / Production validated
+
+**Purpose:** Controlled **production** validation of lucient `hellominds` handoff creation, operator UI visibility, manual approval, dry-run send, and one gated live send via HelloMinds messaging transport on Vercel.
+
+### Production validation (completed)
+
+Redacted record — no API keys, access tokens, bearer tokens, Supabase service-role keys, or full payload contents.
+
+| Field | Value |
+|-------|-------|
+| Phase | 39F |
+| Result | **passed** |
+| Date (UTC) | 2026-06-22 |
+| Production app | https://lucient-evidence-mind-poc.vercel.app |
+| `workspace_id` | `demo-workspace-spa-menu` |
+| `digest_id` | `bc2ea900-6004-4711-b879-33c7bad87a2c` |
+| `handoff_id` | `0fd4ee13-740b-41cd-be4c-1139442bf082` |
+| `destination` | `hellominds` |
+| `payload_version` | `mind_digest_payload_v1` |
+| Handoff created in production | yes |
+| Visible in operator UI | yes (`handoff_destination=hellominds`) |
+| Operator approval | manual; operator `trent.munday@gmail.com` |
+| Dry-run send (`EXTERNAL_MIND_LIVE_SEND=false`) | `send_result=external_dry_run_ok` |
+| Dry-run audit metadata | `provider=hellominds`, `transport_mode=dry_run`, `dry_run_only=true`, `endpoint_host=api.build.hellominds.ai`, `status_before=ready`, `status_after=ready` |
+| Live-send window | temporary `EXTERNAL_MIND_LIVE_SEND=true` |
+| Live sends performed | 1 |
+| Live-send result | `external_sent` |
+| HTTP status | 200 |
+| Live-send audit metadata | `provider=hellominds`, `transport_mode=live`, `endpoint_host=api.build.hellominds.ai`, `transport_kind=sent`, `status_before=ready`, `status_after=sent` |
+| Final handoff state | `status=sent`, `review_status=approved`, `sent_at=2026-06-22T10:43:33.518Z`, `error_message=null`, `send_result_json.result=external_sent`, `send_result_json.http_status=200` |
+| Post-validation env | `EXTERNAL_MIND_LIVE_SEND=false`; production redeployed |
+
+### Operator UI validated
+
+- Explicit HelloMinds handoff creation from `/mind-digests`
+- Destination switcher (`test_sink` / `hellominds`)
+- Manual approve / reject / request-changes review actions
+- Dry-run send button for approved HelloMinds handoffs (authenticated session POST to `/mind-handoffs/send`)
+- No live-send UI control
+
+### Remaining limitations
+
+- Single controlled live send; not continuous production live delivery.
+- `EXTERNAL_MIND_LIVE_SEND=false` is the production default.
+- Mind response not yet retrieved or surfaced in lucient operator workflow (Phase 41).
+- Not multi-client ready; demo workspace pilot only.
+- Not a finished SaaS product.
+
+**Next recommended phase:** Phase 40 (documentation + safety hardening) and Phase 41 (Mind-response loop).
 
 ---
 
@@ -2296,18 +2393,19 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 ## Next Recommended Step
 
-**Phase 39C — HelloMinds transport adapter design** (not yet started; implementation requires explicit approval)
+**Phase 40 — Documentation, safety hardening, and external Mind operating model**
 
-Phase 39A and 39B validated HelloMinds Builder and messaging API shapes locally (marker remains `37`). Recommended next step:
+1. Maintain safety runbooks for approval gates and temporary live-send windows.
+2. Keep `EXTERNAL_MIND_LIVE_SEND=false` as production default unless a new validation window is authorized.
+3. Document operator procedures for HelloMinds dry-run vs live validation.
 
-1. Document adapter design: map lucient handoff send to `POST /v1/messaging/conversation` + `POST /v1/messaging/message`.
-2. Define env/config model (`X-Access-Key`, `mindId`, conversation alias strategy) separate from current Bearer single-POST sender.
-3. Plan messageText envelope for handoff content without committing client payloads to docs.
-4. Do **not** implement adapter code, toggle `EXTERNAL_MIND_LIVE_SEND`, or change sender until design is explicitly approved.
+**Phase 41 — Mind-critical loop (primary product milestone)**
 
-Controlled live lucient delivery via an approved adapter remains a later phase.
+1. Retrieve or verify HelloMinds response after send (history API / conversation alias correlation).
+2. Surface Mind interpretation in operator workflow without exposing secrets.
+3. Track action status: did operator act on Mind output?
 
-Other future directions: client claim extraction at scale; client-facing dashboard and reporting/export layer.
+Phases 42–44: operator dashboard, demo scenario package, pilot workspace hardening.
 
 ---
 
@@ -2355,22 +2453,23 @@ Other future directions: client claim extraction at scale; client-facing dashboa
 | 2026-06-12 | Phase 39A HelloMinds local connectivity smoke test passed; `GET /v1/humans/{humanId}/minds` HTTP 200; target Mind lucient (suffix `df11`); no app/Supabase/Vercel/handoff/messaging changes |
 | 2026-06-12 | Phase 39B HelloMinds messaging smoke test passed; synthetic ping only; conversation/message/history HTTP 200; Mind reply observed; no app/sender/adapter/handoff changes |
 | 2026-06-12 | Phase 39E3 HelloMinds external Mind handoff local live validation passed; digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf`, handoff `4a8effbb-37f8-4c56-9979-46741dbd5fdf`; dry-run blocked, gated live send succeeded; `EXTERNAL_MIND_LIVE_SEND` returned to false |
+| 2026-06-22 | Phase 39F HelloMinds production validation passed; digest `bc2ea900-6004-4711-b879-33c7bad87a2c`, handoff `0fd4ee13-740b-41cd-be4c-1139442bf082`; operator UI, dry-run, one gated live send (HTTP 200); `EXTERNAL_MIND_LIVE_SEND` returned to false |
 
 ---
 
 ## Documentation sync status
 
-**Last sync:** after Phase 39E3 HelloMinds handoff local live validation (2026-06-12).
+**Last sync:** after Phase 39F HelloMinds production validation (2026-06-22).
 
 | Doc | Role after sync |
 |-----|-----------------|
 | **`docs/evidence-mind-roadmap.md`** | **Canonical** — current phase status, validation records, next step |
 | **`docs/hellominds-connectivity-phase-39a.md`** | Phase 39A HelloMinds Builder API local smoke-test procedure and validation record |
 | **`docs/hellominds-connectivity-phase-39b.md`** | Phase 39B HelloMinds messaging smoke-test procedure and validation record |
-| **`docs/DEVELOPMENT_PHASES.md`** | Historical detail for Phases 1–20 + concise Phase 21–28 summary |
-| **`README.md`**, **`docs/README.md`** | Current capabilities snapshot + links to roadmap |
+| **`docs/DEVELOPMENT_PHASES.md`** | Historical detail for Phases 1–20 + concise Phase 21–39F summary |
+| **`README.md`**, **`docs/README.md`** | Current capabilities snapshot + external Mind operating model |
 | **`docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md`** | Updated for durable mapping architecture (Phase 27) |
 | **`docs/REVIEW_QUEUE_UI.md`**, **`docs/REVIEW_QUEUE_API.md`** | Original Phase 18–19 detail preserved; current-status notes added at top |
 | **Phase-specific guides** (e.g. Phase 11–13 watchlist/cron docs) | **Historical** — accurate for the phase they describe; do not imply current product phase |
 
-**Next build step:** Phase 39C — HelloMinds transport adapter design (docs/plan only; not yet started).
+**Next build step:** Phase 40 (documentation + safety hardening) and Phase 41 (Mind-response loop).

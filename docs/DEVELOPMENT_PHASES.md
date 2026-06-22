@@ -2,7 +2,7 @@
 
 lucient Evidence Mind is evolving from a one-off evidence query and brief system into a persistent evidence-monitoring and claim-intelligence platform for wellness claims. The phases below track what has been built, what has been validated in production, and what comes next so future work stays aligned with the platform direction.
 
-> **For current phase status (Phases 21–38), see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** Production phase marker: **37** (unchanged). Phase 38 dry-run guardrails are production-validated; live external HTTP delivery is not live-validated. This file provides historical detail for Phases 1–20 and a concise summary for Phases 21–28. When there is a conflict, the roadmap wins.
+> **For current phase status (Phases 21–39F), see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) — the canonical live roadmap.** Phase 39F production HelloMinds validation is complete. `EXTERNAL_MIND_LIVE_SEND=false` is the safe production default. This file provides historical detail for Phases 1–20 and a concise summary for Phases 21–39F. When there is a conflict, the roadmap wins.
 
 ---
 
@@ -514,16 +514,18 @@ Added controlled claim-family profiles, durable claim-to-watchlist mappings, map
 | **Phase 19** | Minimal internal review queue UI |
 | **Phase 20** | Simple internal route protection for `/review-items` |
 | **Phases 21–27** | Review API hardening, operator auth, audit trail, notes, client claims, claim-to-watchlist mapping — see [Phase 21–27 Summary Update](#phase-2127-summary-update) and [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) |
-| **Phases 28–38** | Evidence briefs, Mind digests, handoffs, test-sink send, send audit, operator approval, watchtower narratives, narrative diffs, handoff narrative diff section, external send dry-run guardrails, gated `animoca_mind` creation — see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) |
+| **Phases 28–39F** | Evidence briefs, Mind digests, handoffs, test-sink send, send audit, operator approval, watchtower narratives, narrative diffs, HelloMinds transport (local + production validation) — see [evidence-mind-roadmap.md](./evidence-mind-roadmap.md) |
 
 ---
 
-## Phase 38 — External Mind Dry-Run Guardrails (summary)
+## Phase 38–39F — External Mind transport (summary)
 
-**Status:** PASS / Dry-run production validated (live external HTTP delivery **not** validated)
+**Phase 38:** PASS / Dry-run production validated — external send guardrails, gated `animoca_mind` creation, dry-run audit `external_dry_run_ok`.
 
-Phase 38 added external Mind send configuration, hardened dry-run/live transport, orchestration/audit semantics (`external_dry_run_ok`, `external_config_invalid`), and a gated backend path to create `animoca_mind` handoffs. The default UI still creates `test_sink` only. Approval-before-send remains required. Dry-run send does not POST externally and keeps handoff status `ready`.
+**Phase 39A–39B:** PASS / Local validated — HelloMinds Builder API and messaging API shapes.
 
-**Production dry-run validation:** handoff `d9c2a14f-534b-4c46-b620-86d0637db0dd`, digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf`, `destination=animoca_mind`, `send_result_json.result=external_dry_run_ok`, audit `send_blocked` / `external_dry_run_ok`, `metadata.transport_mode=dry_run`, no external POST.
+**Phase 39E3:** PASS / Local live validated — controlled local HelloMinds handoff dry-run + gated live send.
 
-**Next recommended phase:** Phase 39 — controlled live external delivery validation against an approved Animoca/staging endpoint. Full detail: [evidence-mind-roadmap.md](./evidence-mind-roadmap.md#phase-38--external-mind-dry-run-guardrails--gated-animoca_mind-handoff-creation).
+**Phase 39F:** PASS / Production validated — controlled production HelloMinds validation on Vercel. Operator-created `hellominds` handoff, UI visibility, manual approval, dry-run send (`external_dry_run_ok`), one gated live send (`external_sent`, HTTP 200), durable audit records. `EXTERNAL_MIND_LIVE_SEND` returned to `false`.
+
+**Next recommended phases:** 40 (documentation + safety hardening), 41 (Mind-response loop). Full detail: [evidence-mind-roadmap.md](./evidence-mind-roadmap.md).
