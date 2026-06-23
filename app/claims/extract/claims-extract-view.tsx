@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import type { ClaimsExtractPageData } from "@/lib/review/claims-extract-page";
@@ -203,9 +204,9 @@ export function ClaimsExtractView({ pageData, authStatus }: ClaimsExtractViewPro
           {" · "}
           <a href="/client-claims">Client claims</a>
           {" · "}
-          <a href="/claims">Claim registry</a>
+          <Link href="/claims">Claim registry</Link>
           {" · "}
-          <a href="/claims/extract">Claim extraction</a>
+          <Link href="/claims/extract">Claim extraction</Link>
           {" · "}
           <a href="/evidence-briefs">Evidence briefs</a>
           {" · "}

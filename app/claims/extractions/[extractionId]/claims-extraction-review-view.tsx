@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import type { ClaimsExtractionReviewPageData } from "@/lib/review/claims-extraction-review-page";
@@ -351,9 +352,9 @@ export function ClaimsExtractionReviewView({
         <nav style={styles.nav}>
           <a href="/review-items">Review queue</a>
           {" · "}
-          <a href="/claims">Claim registry</a>
+          <Link href="/claims">Claim registry</Link>
           {" · "}
-          <a href="/claims/extract">Claim extraction</a>
+          <Link href="/claims/extract">Claim extraction</Link>
           {" · "}
           <a href="/evidence-briefs">Evidence briefs</a>
         </nav>
