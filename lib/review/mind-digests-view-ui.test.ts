@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatHelloMindsMindReplyExcerptForDisplay,
   formatHelloMindsReceiptStateLabel,
+  resolveHelloMindsMindReplyDisplay,
   isMindDigestsWatchtowerNarrativeDiffView,
   shapeMindDigestsWatchtowerNarrativeDiffView,
   WATCHTOWER_NARRATIVE_DIFF_PRIVATE_FIELDS,
@@ -78,5 +79,22 @@ describe("mind-digests-view-ui", () => {
     expect(formatHelloMindsMindReplyExcerptForDisplay("Plain text only")).toBe(
       "Plain text only"
     );
+  });
+
+  it("resolves stored main reply and cost report for display", () => {
+    const display = resolveHelloMindsMindReplyDisplay({
+      response_excerpt: "Operational analysis of the digest.",
+      metadata: {
+        cost_report_present: true,
+        cost_report_excerpt:
+          "💡 LUCIENT TASK COST REPORT 📊\n• Category: Monitoring/Digest Processing\n• Total Credits: 42",
+        cost_report_truncated: false,
+      },
+    });
+
+    expect(display.main_reply).toBe("Operational analysis of the digest.");
+    expect(display.cost_report_present).toBe(true);
+    expect(display.cost_report).toContain("Total Credits: 42");
+    expect(display.main_reply).not.toContain("Total Credits");
   });
 });

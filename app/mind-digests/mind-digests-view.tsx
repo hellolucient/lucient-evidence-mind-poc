@@ -5,6 +5,7 @@ import {
   formatHelloMindsReceiptStateLabel,
   formatWatchtowerNarrativeDiffLabel,
   formatWatchtowerNarrativeDiffSignalLabel,
+  resolveHelloMindsMindReplyDisplay,
 } from "@/lib/review/mind-digests-view-ui";
 
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
@@ -195,6 +196,12 @@ function formatHandoffDestinationLabel(
 
 export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) {
   const selectedDigestId = pageData.selectedDigest?.id ?? null;
+  const mindReplyDisplay = pageData.selectedDigestHandoffReceipt
+    ? resolveHelloMindsMindReplyDisplay({
+        response_excerpt: pageData.selectedDigestHandoffReceipt.response_excerpt,
+        metadata: pageData.selectedDigestHandoffReceipt.metadata,
+      })
+    : null;
 
   return (
     <main style={styles.page}>
@@ -931,13 +938,42 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                                   <div style={styles.detailLabel}>Latest Mind reply excerpt</div>
                                   <div style={{ ...styles.detailValue, ...styles.preformattedText }}>
                                     {formatHelloMindsMindReplyExcerptForDisplay(
-                                      pageData.selectedDigestHandoffReceipt.response_excerpt
+                                      mindReplyDisplay?.main_reply ??
+                                        pageData.selectedDigestHandoffReceipt.response_excerpt
                                     ) ??
                                       (pageData.selectedDigestHandoffReceipt.metadata
                                         ?.mind_reply_state === "no_reply_yet"
                                         ? "No Mind reply found yet. Delivery is confirmed, but the Mind response is not yet available in history."
                                         : "—")}
                                   </div>
+
+                                  {mindReplyDisplay?.cost_report_present &&
+                                  mindReplyDisplay.cost_report ? (
+                                    <details style={{ marginTop: "0.75rem" }}>
+                                      <summary
+                                        style={{
+                                          cursor: "pointer",
+                                          fontSize: "0.875rem",
+                                          color: "#334155",
+                                        }}
+                                      >
+                                        Lucient task cost report
+                                      </summary>
+                                      <p style={{ ...styles.note, marginTop: "0.35rem" }}>
+                                        Reported by the external Mind response.
+                                      </p>
+                                      <div
+                                        style={{ ...styles.detailValue, ...styles.preformattedText }}
+                                      >
+                                        {formatHelloMindsMindReplyExcerptForDisplay(
+                                          mindReplyDisplay.cost_report
+                                        )}
+                                        {mindReplyDisplay.cost_report_truncated
+                                          ? "\n\n(Truncated for display.)"
+                                          : ""}
+                                      </div>
+                                    </details>
+                                  ) : null}
 
                                   <div style={styles.detailLabel}>Latest fingerprint</div>
                                   <div style={styles.detailValue}>

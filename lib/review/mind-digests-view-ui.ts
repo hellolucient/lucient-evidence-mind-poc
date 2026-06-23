@@ -1,4 +1,8 @@
 import type { PrivacySafeWatchtowerNarrativeDiff } from "@/lib/watch/evidence-mind-watchtower-narrative-diff-store";
+import {
+  buildHelloMindsMindReplyDisplayFromStored,
+  convertHelloMindsMessageTextToPlainText,
+} from "@/lib/watch/external-mind-hellominds-message-format";
 
 export const WATCHTOWER_NARRATIVE_DIFF_PRIVATE_FIELDS = ["metadata_json"] as const;
 
@@ -54,22 +58,14 @@ export function formatHelloMindsMindReplyExcerptForDisplay(
     return null;
   }
 
-  let text = excerpt.replace(/<br\s*\/?>/gi, "\n");
-  text = text.replace(/<\/p>\s*<p[^>]*>/gi, "\n\n");
-  text = text.replace(/<[^>]+>/g, "");
-  text = text
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
+  return convertHelloMindsMessageTextToPlainText(excerpt);
+}
 
-  return text
-    .split("\n")
-    .map((line) => line.replace(/\s+/g, " ").trim())
-    .join("\n")
-    .trim();
+export function resolveHelloMindsMindReplyDisplay(input: {
+  response_excerpt: string | null | undefined;
+  metadata?: Record<string, unknown> | null;
+}) {
+  return buildHelloMindsMindReplyDisplayFromStored(input);
 }
 
 export function isMindDigestsWatchtowerNarrativeDiffView(

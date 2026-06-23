@@ -11,7 +11,10 @@ export const HELLOMINDS_PARTY_TYPE_HUMAN = 1;
 
 export const HELLOMINDS_HISTORY_RESPONSE_SOURCE = "hellominds_history_api" as const;
 
-export const HELLOMINDS_MIND_REPLY_EXCERPT_MAX_LENGTH = 500;
+import {
+  buildHelloMindsMindReplyExcerpts,
+  HELLOMINDS_MIND_REPLY_MAIN_EXCERPT_MAX_LENGTH,
+} from "@/lib/watch/external-mind-hellominds-message-format";
 
 export type HelloMindsHistoryAttachmentMetadata = {
   artifactId?: string;
@@ -64,6 +67,9 @@ export type HelloMindsHistorySummary = {
   latest_mind_reply: HelloMindsHistoryMessageRecord | null;
   latest_mind_reply_created_at: string | null;
   response_excerpt: string | null;
+  cost_report_present: boolean;
+  cost_report_excerpt: string | null;
+  cost_report_truncated: boolean;
   attachment_count: number;
   attachment_metadata: HelloMindsHistoryAttachmentMetadata[];
   mind_reply_state: "mind_reply_found" | "no_reply_yet";
@@ -162,18 +168,9 @@ export function parseHelloMindsHistoryMessages(parsed: unknown): HelloMindsHisto
 
 export function buildPrivacySafeHelloMindsMessageExcerpt(
   messageText: string | undefined,
-  maxLength = HELLOMINDS_MIND_REPLY_EXCERPT_MAX_LENGTH
+  maxLength = HELLOMINDS_MIND_REPLY_MAIN_EXCERPT_MAX_LENGTH
 ): string | null {
-  if (!messageText?.trim()) {
-    return null;
-  }
-
-  const normalized = messageText.trim().replace(/\s+/g, " ");
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, maxLength - 1)}…`;
+  return buildHelloMindsMindReplyExcerpts({ messageText, mainMaxLength: maxLength }).response_excerpt;
 }
 
 function compareCreatedAtDesc(
@@ -208,13 +205,19 @@ export function summarizeHelloMindsHistoryMessages(
 
   const attachmentMetadata = (latestMindReply?.attachments ?? []).slice();
   const attachmentCount = attachmentMetadata.length;
+  const excerpts = buildHelloMindsMindReplyExcerpts({
+    messageText: latestMindReply?.messageText,
+  });
 
   return {
     message_count: messages.length,
     latest_fingerprint: latestMessage?.fingerprint ?? null,
     latest_mind_reply: latestMindReply,
     latest_mind_reply_created_at: latestMindReply?.createdAt ?? null,
-    response_excerpt: buildPrivacySafeHelloMindsMessageExcerpt(latestMindReply?.messageText),
+    response_excerpt: excerpts.response_excerpt,
+    cost_report_present: excerpts.cost_report_present,
+    cost_report_excerpt: excerpts.cost_report_excerpt,
+    cost_report_truncated: excerpts.cost_report_truncated,
     attachment_count: attachmentCount,
     attachment_metadata: attachmentMetadata,
     mind_reply_state: latestMindReply ? "mind_reply_found" : "no_reply_yet",

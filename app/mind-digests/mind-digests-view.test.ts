@@ -358,7 +358,7 @@ describe("mind-digests-view", () => {
         http_status: 200,
         receipt_source: "hellominds_read_api",
         verified_at: "2026-06-23T10:00:00.000Z",
-        response_excerpt: "<p>Mind interpretation</p><br/><p>with safe HTML</p>",
+        response_excerpt: "Operational analysis of the digest.",
         created_at: "2026-06-23T10:00:00.000Z",
         updated_at: "2026-06-23T10:00:00.000Z",
         metadata: {
@@ -370,6 +370,10 @@ describe("mind-digests-view", () => {
           response_source: "hellominds_history_api",
           retrieval_timestamp: "2026-06-23T10:00:00.000Z",
           mind_reply_state: "mind_reply_found",
+          cost_report_present: true,
+          cost_report_excerpt:
+            "💡 LUCIENT TASK COST REPORT 📊\n• Category: Monitoring/Digest Processing\n• Total Credits: 42",
+          cost_report_truncated: false,
           attachment_metadata: [
             {
               artifactId: "artifact-001",
@@ -384,14 +388,52 @@ describe("mind-digests-view", () => {
     expect(html).toContain("Mind response retrieved from HelloMinds history API.");
     expect(html).not.toContain("Delivery receipt verified from send audit metadata.");
     expect(html).toContain("hellominds_history_api");
-    expect(html).toContain("Mind interpretation");
-    expect(html).toContain("with safe HTML");
-    expect(html).not.toContain("<p>");
-    expect(html).not.toContain("<br");
+    expect(html).toContain("Operational analysis of the digest.");
+    expect(html).toContain("Lucient task cost report");
+    expect(html).toContain("Reported by the external Mind response.");
+    expect(html).toContain("Total Credits: 42");
+    expect(html).toContain("<details");
+    expect(html).toContain("<summary");
     expect(html).toContain("reconstructed_from_handoff_id");
     expect(html).toContain("artifactId=artifact-001");
     expect(html).not.toContain("YmFzZTY0");
     expect(html).not.toContain("dangerouslySetInnerHTML");
+  });
+
+  it("renders Mind reply without cost report normally", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "hellominds",
+      selectedDigestHandoff: {
+        ...approvedHelloMindsHandoff,
+        status: "sent",
+        sent_at: "2026-06-22T13:00:00.000Z",
+      },
+      selectedDigestHandoffReceipt: {
+        id: "receipt-uuid-003",
+        workspace_id: "demo-workspace-spa-menu",
+        handoff_id: "handoff-uuid-hellominds",
+        digest_id: "digest-uuid-001",
+        destination: "hellominds",
+        provider: "hellominds",
+        conversation_id_suffix: "df11",
+        message_id_suffix: "ab12",
+        receipt_status: "fetched_from_hellominds",
+        http_status: 200,
+        receipt_source: "hellominds_read_api",
+        verified_at: "2026-06-23T10:00:00.000Z",
+        response_excerpt: "Plain Mind reply without billing details.",
+        created_at: "2026-06-23T10:00:00.000Z",
+        updated_at: "2026-06-23T10:00:00.000Z",
+        metadata: {
+          mind_reply_state: "mind_reply_found",
+          cost_report_present: false,
+        },
+      },
+    });
+
+    expect(html).toContain("Plain Mind reply without billing details.");
+    expect(html).not.toContain("Lucient task cost report");
   });
 
   it("does not render Verify delivery receipt for unsent hellominds handoffs", () => {

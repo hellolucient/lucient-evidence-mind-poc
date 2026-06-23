@@ -9,6 +9,13 @@ import {
   summarizeHelloMindsHistoryMessages,
 } from "@/lib/watch/external-mind-hellominds-history";
 
+const sampleMindReplyWithCostReport = `Operational analysis of the digest.
+
+💡 LUCIENT TASK COST REPORT 📊
+📊 This Task:
+• Category: Monitoring/Digest Processing
+• Total Credits: 42`;
+
 const originalFetch = global.fetch;
 const originalEnv = { ...process.env };
 
@@ -79,6 +86,23 @@ describe("external-mind-hellominds-history", () => {
     expect(summary.latest_fingerprint).toBe("fp-human-002");
     expect(summary.latest_mind_reply?.messageText).toBe("Latest Mind reply with more detail");
     expect(summary.response_excerpt).toBe("Latest Mind reply with more detail");
+  });
+
+  it("splits cost report from main Mind reply excerpt", () => {
+    const summary = summarizeHelloMindsHistoryMessages([
+      {
+        messageText: sampleMindReplyWithCostReport,
+        createdAt: "2026-06-23T10:00:00.000Z",
+        fingerprint: "fp-mind-003",
+        partyType: HELLOMINDS_PARTY_TYPE_MIND,
+      },
+    ]);
+
+    expect(summary.response_excerpt).toBe("Operational analysis of the digest.");
+    expect(summary.cost_report_present).toBe(true);
+    expect(summary.cost_report_excerpt).toContain("LUCIENT TASK COST REPORT");
+    expect(summary.cost_report_excerpt).toContain("Total Credits: 42");
+    expect(summary.response_excerpt).not.toContain("Total Credits");
   });
 
   it("returns no_reply_yet when only human or empty rows exist", () => {

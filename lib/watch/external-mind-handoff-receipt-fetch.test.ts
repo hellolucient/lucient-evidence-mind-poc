@@ -141,6 +141,31 @@ describe("fetchHelloMindsHandoffResponsePhase41B", () => {
     expect(JSON.stringify(upsertInput)).not.toContain("YmFzZTY0");
   });
 
+  it("stores cost report metadata separately from the main Mind reply excerpt", async () => {
+    mockFetchHelloMindsConversationHistory.mockResolvedValue({
+      ok: true,
+      httpStatus: 200,
+      messages: [
+        {
+          messageText:
+            "Operational analysis of the digest.\n\n💡 LUCIENT TASK COST REPORT 📊\n• Category: Monitoring/Digest Processing\n• Total Credits: 42",
+          createdAt: "2026-06-23T10:05:00.000Z",
+          fingerprint: "fp-mind-001",
+          partyType: HELLOMINDS_PARTY_TYPE_MIND,
+        },
+      ],
+    });
+
+    const result = await fetchHelloMindsHandoffResponsePhase41B(sentHandoff.id, operatorAccess);
+
+    expect(result.ok).toBe(true);
+    const upsertInput = mockUpsertExternalMindHandoffReceipt.mock.calls[0]?.[0];
+    expect(upsertInput.response_excerpt).toBe("Operational analysis of the digest.");
+    expect(upsertInput.metadata.cost_report_present).toBe(true);
+    expect(upsertInput.metadata.cost_report_excerpt).toContain("Total Credits: 42");
+    expect(upsertInput.response_excerpt).not.toContain("Total Credits");
+  });
+
   it("stores no_reply_yet when history has only human rows", async () => {
     mockFetchHelloMindsConversationHistory.mockResolvedValue({
       ok: true,
