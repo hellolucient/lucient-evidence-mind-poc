@@ -7,6 +7,7 @@ import {
   formatWatchtowerNarrativeDiffSignalLabel,
   resolveHelloMindsMindReplyDisplay,
 } from "@/lib/review/mind-digests-view-ui";
+import Link from "next/link";
 
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
@@ -222,7 +223,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
           {" · "}
           <a href="/mind-digests">Mind digests</a>
           {" · "}
-          <a href="/operator/mind-loop">Mind loop dashboard</a>
+          <Link href="/operator/mind-loop">Mind loop dashboard</Link>
         </nav>
       </header>
 
