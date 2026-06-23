@@ -23,6 +23,8 @@ const CLAIM_SOURCE_DOCUMENTS_TABLE = "claim_source_documents";
 const CLAIM_EXTRACTION_RUNS_TABLE = "claim_extraction_runs";
 const CANDIDATE_WELLNESS_CLAIMS_TABLE = "candidate_wellness_claims";
 const WELLNESS_CLAIMS_TABLE = "wellness_claims";
+const CLAIM_RESEARCH_RUNS_TABLE = "claim_research_runs";
+const CLAIM_RESEARCH_CITATIONS_TABLE = "claim_research_citations";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -90,4 +92,6 @@ export {
   CLAIM_EXTRACTION_RUNS_TABLE,
   CANDIDATE_WELLNESS_CLAIMS_TABLE,
   WELLNESS_CLAIMS_TABLE,
+  CLAIM_RESEARCH_RUNS_TABLE,
+  CLAIM_RESEARCH_CITATIONS_TABLE,
 };

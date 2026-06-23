@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type { ClaimsRegistryPageData } from "@/lib/review/claims-registry-page";
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 
@@ -84,9 +86,9 @@ export function ClaimsRegistryView({ pageData, authStatus }: ClaimsRegistryViewP
           {" · "}
           <a href="/client-claims">Client claims</a>
           {" · "}
-          <a href="/claims">Claim registry</a>
+          <Link href="/claims">Claim registry</Link>
           {" · "}
-          <a href="/claims/extract">Claim extraction</a>
+          <Link href="/claims/extract">Claim extraction</Link>
           {" · "}
           <a href="/evidence-briefs">Evidence briefs</a>
           {" · "}
@@ -124,7 +126,11 @@ export function ClaimsRegistryView({ pageData, authStatus }: ClaimsRegistryViewP
             <tbody>
               {pageData.claims.map((claim) => (
                 <tr key={claim.claim_id}>
-                  <td style={styles.td}>{claim.claim_text}</td>
+                  <td style={styles.td}>
+                    <Link href={`/claims/${encodeURIComponent(claim.claim_id)}`}>
+                      {claim.claim_text}
+                    </Link>
+                  </td>
                   <td style={styles.td}>{claim.workspace_id}</td>
                   <td style={styles.td}>{claim.claim_family ?? "—"}</td>
                   <td style={styles.td}>{claim.subject ?? "—"}</td>
