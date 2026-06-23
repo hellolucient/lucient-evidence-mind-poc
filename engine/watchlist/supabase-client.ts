@@ -22,6 +22,7 @@ const EXTERNAL_MIND_HANDOFF_RECEIPTS_TABLE = "external_mind_handoff_receipts";
 const CLAIM_SOURCE_DOCUMENTS_TABLE = "claim_source_documents";
 const CLAIM_EXTRACTION_RUNS_TABLE = "claim_extraction_runs";
 const CANDIDATE_WELLNESS_CLAIMS_TABLE = "candidate_wellness_claims";
+const WELLNESS_CLAIMS_TABLE = "wellness_claims";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -88,4 +89,5 @@ export {
   CLAIM_SOURCE_DOCUMENTS_TABLE,
   CLAIM_EXTRACTION_RUNS_TABLE,
   CANDIDATE_WELLNESS_CLAIMS_TABLE,
+  WELLNESS_CLAIMS_TABLE,
 };

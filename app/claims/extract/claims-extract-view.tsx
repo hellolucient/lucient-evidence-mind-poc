@@ -203,6 +203,8 @@ export function ClaimsExtractView({ pageData, authStatus }: ClaimsExtractViewPro
           {" · "}
           <a href="/client-claims">Client claims</a>
           {" · "}
+          <a href="/claims">Claim registry</a>
+          {" · "}
           <a href="/claims/extract">Claim extraction</a>
           {" · "}
           <a href="/evidence-briefs">Evidence briefs</a>
@@ -222,7 +224,10 @@ export function ClaimsExtractView({ pageData, authStatus }: ClaimsExtractViewPro
       {extractionId ? (
         <div style={styles.success}>
           Extraction complete. Run ID: <code>{extractionId}</code> ·{" "}
-          {candidateClaims.length} candidate claim{candidateClaims.length === 1 ? "" : "s"} found.
+          {candidateClaims.length} candidate claim{candidateClaims.length === 1 ? "" : "s"} found.{" "}
+          <a href={`/claims/extractions/${encodeURIComponent(extractionId)}`}>
+            Review candidates
+          </a>
         </div>
       ) : null}
 
@@ -344,7 +349,13 @@ export function ClaimsExtractView({ pageData, authStatus }: ClaimsExtractViewPro
             <tbody>
               {pageData.recentExtractions.map((entry) => (
                 <tr key={entry.extraction_id}>
-                  <td style={styles.td}>{entry.source_title}</td>
+                  <td style={styles.td}>
+                    <a
+                      href={`/claims/extractions/${encodeURIComponent(entry.extraction_id)}`}
+                    >
+                      {entry.source_title}
+                    </a>
+                  </td>
                   <td style={styles.td}>{entry.source_type}</td>
                   <td style={styles.td}>{entry.candidate_claim_count}</td>
                   <td style={styles.td}>{entry.status}</td>
