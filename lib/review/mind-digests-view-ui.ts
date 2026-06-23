@@ -23,6 +23,55 @@ export function formatWatchtowerNarrativeDiffSignalLabel(signal: string): string
   return formatWatchtowerNarrativeDiffLabel(signal);
 }
 
+export type HelloMindsReceiptStateInput = {
+  receipt_source: string;
+  receipt_status: string;
+} | null;
+
+export function formatHelloMindsReceiptStateLabel(receipt: HelloMindsReceiptStateInput): string {
+  if (!receipt) {
+    return "No receipt verification recorded yet.";
+  }
+
+  if (
+    receipt.receipt_source === "hellominds_read_api" &&
+    receipt.receipt_status === "fetched_from_hellominds"
+  ) {
+    return "Mind response retrieved from HelloMinds history API.";
+  }
+
+  if (receipt.receipt_source === "send_event_metadata") {
+    return "Delivery receipt verified from send audit metadata.";
+  }
+
+  return "Receipt recorded.";
+}
+
+export function formatHelloMindsMindReplyExcerptForDisplay(
+  excerpt: string | null | undefined
+): string | null {
+  if (!excerpt?.trim()) {
+    return null;
+  }
+
+  let text = excerpt.replace(/<br\s*\/?>/gi, "\n");
+  text = text.replace(/<\/p>\s*<p[^>]*>/gi, "\n\n");
+  text = text.replace(/<[^>]+>/g, "");
+  text = text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+
+  return text
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .join("\n")
+    .trim();
+}
+
 export function isMindDigestsWatchtowerNarrativeDiffView(
   value: Record<string, unknown>
 ): value is MindDigestsWatchtowerNarrativeDiffView {

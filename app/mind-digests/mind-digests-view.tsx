@@ -1,6 +1,8 @@
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import type { MindDigestsPageData } from "@/lib/review/mind-digests-page";
 import {
+  formatHelloMindsMindReplyExcerptForDisplay,
+  formatHelloMindsReceiptStateLabel,
   formatWatchtowerNarrativeDiffLabel,
   formatWatchtowerNarrativeDiffSignalLabel,
 } from "@/lib/review/mind-digests-view-ui";
@@ -131,6 +133,10 @@ const styles = {
     whiteSpace: "pre-wrap" as const,
     wordBreak: "break-word" as const,
     marginTop: "0.5rem",
+  } as const,
+  preformattedText: {
+    whiteSpace: "pre-wrap" as const,
+    wordBreak: "break-word" as const,
   } as const,
   chipList: {
     display: "flex",
@@ -855,9 +861,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                         <>
                           <div style={styles.detailLabel}>Receipt state</div>
                           <div style={styles.detailValue}>
-                            {pageData.selectedDigestHandoffReceipt
-                              ? "Delivery receipt verified from send audit metadata."
-                              : "No receipt verification recorded yet."}
+                            {formatHelloMindsReceiptStateLabel(pageData.selectedDigestHandoffReceipt)}
                           </div>
 
                           {pageData.selectedDigestHandoffReceipt ? (
@@ -925,8 +929,10 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                                   </div>
 
                                   <div style={styles.detailLabel}>Latest Mind reply excerpt</div>
-                                  <div style={styles.detailValue}>
-                                    {pageData.selectedDigestHandoffReceipt.response_excerpt ??
+                                  <div style={{ ...styles.detailValue, ...styles.preformattedText }}>
+                                    {formatHelloMindsMindReplyExcerptForDisplay(
+                                      pageData.selectedDigestHandoffReceipt.response_excerpt
+                                    ) ??
                                       (pageData.selectedDigestHandoffReceipt.metadata
                                         ?.mind_reply_state === "no_reply_yet"
                                         ? "No Mind reply found yet. Delivery is confirmed, but the Mind response is not yet available in history."
@@ -1053,7 +1059,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                             ) : null}
                             <input type="hidden" name="handoff_destination" value="hellominds" />
                             <button type="submit" style={styles.buttonSecondary}>
-                              Verify HelloMinds receipt
+                              Verify delivery receipt
                             </button>
                             <p style={{ ...styles.note, marginTop: "0.35rem", marginBottom: 0 }}>
                               Phase 41A records a delivery receipt derived from stored send audit metadata.
@@ -1076,7 +1082,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                             ) : null}
                             <input type="hidden" name="handoff_destination" value="hellominds" />
                             <button type="submit" style={styles.buttonSecondary}>
-                              Fetch HelloMinds response
+                              Fetch latest HelloMinds response
                             </button>
                             <p style={{ ...styles.note, marginTop: "0.35rem", marginBottom: 0 }}>
                               Phase 41B calls the HelloMinds message history API read-only. It does not

@@ -328,12 +328,12 @@ describe("mind-digests-view", () => {
     expect(html).toContain("Mind receipt");
     expect(html).toContain("Delivery receipt verified from send audit metadata.");
     expect(html).toContain("Derived from send audit metadata");
-    expect(html).toContain("Verify HelloMinds receipt");
-    expect(html).toContain("Fetch HelloMinds response");
+    expect(html).toContain("Verify delivery receipt");
+    expect(html).toContain("Fetch latest HelloMinds response");
     expect(html).toContain("does not retrieve a Mind response");
     expect(html).toContain("Phase 41B calls the HelloMinds message history API read-only");
-    expect(html).not.toContain("Mind response retrieved");
-    expect(html).not.toContain("Response retrieved from HelloMinds");
+    expect(html).not.toContain("Mind response retrieved from HelloMinds history API.");
+    expect(html).not.toContain("dangerouslySetInnerHTML");
   });
 
   it("renders fetched Mind response details from HelloMinds history receipt", () => {
@@ -358,7 +358,7 @@ describe("mind-digests-view", () => {
         http_status: 200,
         receipt_source: "hellominds_read_api",
         verified_at: "2026-06-23T10:00:00.000Z",
-        response_excerpt: "Mind interpretation excerpt",
+        response_excerpt: "<p>Mind interpretation</p><br/><p>with safe HTML</p>",
         created_at: "2026-06-23T10:00:00.000Z",
         updated_at: "2026-06-23T10:00:00.000Z",
         metadata: {
@@ -381,14 +381,20 @@ describe("mind-digests-view", () => {
       },
     });
 
+    expect(html).toContain("Mind response retrieved from HelloMinds history API.");
+    expect(html).not.toContain("Delivery receipt verified from send audit metadata.");
     expect(html).toContain("hellominds_history_api");
-    expect(html).toContain("Mind interpretation excerpt");
+    expect(html).toContain("Mind interpretation");
+    expect(html).toContain("with safe HTML");
+    expect(html).not.toContain("<p>");
+    expect(html).not.toContain("<br");
     expect(html).toContain("reconstructed_from_handoff_id");
     expect(html).toContain("artifactId=artifact-001");
     expect(html).not.toContain("YmFzZTY0");
+    expect(html).not.toContain("dangerouslySetInnerHTML");
   });
 
-  it("does not render Verify HelloMinds receipt for unsent hellominds handoffs", () => {
+  it("does not render Verify delivery receipt for unsent hellominds handoffs", () => {
     const html = renderView({
       ...basePageData,
       selectedHandoffDestination: "hellominds",
@@ -396,10 +402,10 @@ describe("mind-digests-view", () => {
     });
 
     expect(html).not.toContain("Mind receipt");
-    expect(html).not.toContain("Verify HelloMinds receipt");
+    expect(html).not.toContain("Verify delivery receipt");
   });
 
-  it("does not render Verify HelloMinds receipt for test_sink handoffs", () => {
+  it("does not render Verify delivery receipt for test_sink handoffs", () => {
     const html = renderView({
       ...basePageData,
       selectedHandoffDestination: "test_sink",
@@ -410,7 +416,7 @@ describe("mind-digests-view", () => {
       },
     });
 
-    expect(html).not.toContain("Verify HelloMinds receipt");
+    expect(html).not.toContain("Verify delivery receipt");
   });
 
   it("shows destination-specific empty state when hellominds handoff is missing", () => {

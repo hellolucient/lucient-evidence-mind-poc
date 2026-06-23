@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatHelloMindsMindReplyExcerptForDisplay,
+  formatHelloMindsReceiptStateLabel,
   isMindDigestsWatchtowerNarrativeDiffView,
   shapeMindDigestsWatchtowerNarrativeDiffView,
   WATCHTOWER_NARRATIVE_DIFF_PRIVATE_FIELDS,
@@ -47,5 +49,34 @@ describe("mind-digests-view-ui", () => {
         metadata_json: { secret: true },
       } as Record<string, unknown>)
     ).toBe(false);
+  });
+
+  it("formats HelloMinds receipt state labels by source", () => {
+    expect(formatHelloMindsReceiptStateLabel(null)).toBe(
+      "No receipt verification recorded yet."
+    );
+    expect(
+      formatHelloMindsReceiptStateLabel({
+        receipt_source: "send_event_metadata",
+        receipt_status: "delivery_confirmed_from_send_event",
+      })
+    ).toBe("Delivery receipt verified from send audit metadata.");
+    expect(
+      formatHelloMindsReceiptStateLabel({
+        receipt_source: "hellominds_read_api",
+        receipt_status: "fetched_from_hellominds",
+      })
+    ).toBe("Mind response retrieved from HelloMinds history API.");
+  });
+
+  it("formats HelloMinds Mind reply excerpts as readable plain text", () => {
+    expect(
+      formatHelloMindsMindReplyExcerptForDisplay(
+        "<p>Line one</p><br/><p>Line two</p>"
+      )
+    ).toBe("Line one\n\nLine two");
+    expect(formatHelloMindsMindReplyExcerptForDisplay("Plain text only")).toBe(
+      "Plain text only"
+    );
   });
 });
