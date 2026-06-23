@@ -80,6 +80,7 @@ describe("external-mind-handoff-send-audit", () => {
           endpoint_host: "api.build.hellominds.ai",
           conversation_id_suffix: "ab12",
           message_id_suffix: "cd34",
+          conversation_alias: "lucient-em-ho-handoff-uuid-001",
           artifact_count: 0,
         },
       })
@@ -89,6 +90,7 @@ describe("external-mind-handoff-send-audit", () => {
       provider: "hellominds",
       http_status: 200,
       endpoint_host: "api.build.hellominds.ai",
+      conversation_alias: "lucient-em-ho-handoff-uuid-001",
       conversation_id_suffix: "ab12",
       message_id_suffix: "cd34",
       artifact_count: 0,

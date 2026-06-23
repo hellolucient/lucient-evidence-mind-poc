@@ -103,9 +103,18 @@ export function getHelloMindsTargetMindId(): string | null {
   return value ? value : null;
 }
 
-export function getHelloMindsConversationAliasPrefix(): string {
+/** Returns the explicitly configured alias prefix, or null when unset. */
+export function getConfiguredHelloMindsConversationAliasPrefix(): string | null {
   const value = process.env.EXTERNAL_MIND_HELLOMINDS_CONVERSATION_ALIAS_PREFIX?.trim();
-  return value && value.length > 0 ? value : DEFAULT_HELLOMINDS_CONVERSATION_ALIAS_PREFIX;
+  return value && value.length > 0 ? value : null;
+}
+
+export function getHelloMindsConversationAliasPrefix(): string {
+  return getConfiguredHelloMindsConversationAliasPrefix() ?? DEFAULT_HELLOMINDS_CONVERSATION_ALIAS_PREFIX;
+}
+
+export function isHelloMindsReadApiConfigured(): boolean {
+  return Boolean(getHelloMindsBaseUrl() && getHelloMindsAccessKey());
 }
 
 export function getHelloMindsEndpointAllowlist(): string[] {

@@ -253,6 +253,7 @@ export async function executeHelloMindsTransport(
         dry_run_only: true,
         provider: "hellominds",
         message_text_char_count: messageText.length,
+        conversation_alias: conversationAlias,
         conversation_alias_length: conversationAlias.length,
         ...buildHelloMindsEndpointHostMetadata(),
       },
@@ -331,6 +332,8 @@ export async function executeHelloMindsTransport(
       http_status: messageResponse.httpStatus,
       timeout_ms: timeoutMs,
       ...buildHelloMindsEndpointHostMetadata(),
+      conversation_alias: conversationAlias,
+      conversation_alias_length: conversationAlias.length,
       ...(typeof messageResponse.artifactCount === "number"
         ? { artifact_count: messageResponse.artifactCount }
         : {}),
@@ -343,6 +346,7 @@ export async function executeHelloMindsTransport(
       payload_version: payloadVersion,
       timestamp,
       http_status: messageResponse.httpStatus,
+      conversation_alias: conversationAlias,
     }),
   };
 }

@@ -59,6 +59,7 @@ const basePageData: MindDigestsPageData = {
   handoffFlash: null,
   sendFlash: null,
   receiptFlash: null,
+  fetchFlash: null,
   reviewFlash: null,
   narrativeFlash: null,
   statusOptions: ["ready_for_review"],
@@ -328,9 +329,63 @@ describe("mind-digests-view", () => {
     expect(html).toContain("Delivery receipt verified from send audit metadata.");
     expect(html).toContain("Derived from send audit metadata");
     expect(html).toContain("Verify HelloMinds receipt");
+    expect(html).toContain("Fetch HelloMinds response");
     expect(html).toContain("does not retrieve a Mind response");
+    expect(html).toContain("Phase 41B calls the HelloMinds message history API read-only");
     expect(html).not.toContain("Mind response retrieved");
     expect(html).not.toContain("Response retrieved from HelloMinds");
+  });
+
+  it("renders fetched Mind response details from HelloMinds history receipt", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "hellominds",
+      selectedDigestHandoff: {
+        ...approvedHelloMindsHandoff,
+        status: "sent",
+        sent_at: "2026-06-22T13:00:00.000Z",
+      },
+      selectedDigestHandoffReceipt: {
+        id: "receipt-uuid-002",
+        workspace_id: "demo-workspace-spa-menu",
+        handoff_id: "handoff-uuid-hellominds",
+        digest_id: "digest-uuid-001",
+        destination: "hellominds",
+        provider: "hellominds",
+        conversation_id_suffix: "df11",
+        message_id_suffix: "ab12",
+        receipt_status: "fetched_from_hellominds",
+        http_status: 200,
+        receipt_source: "hellominds_read_api",
+        verified_at: "2026-06-23T10:00:00.000Z",
+        response_excerpt: "Mind interpretation excerpt",
+        created_at: "2026-06-23T10:00:00.000Z",
+        updated_at: "2026-06-23T10:00:00.000Z",
+        metadata: {
+          conversation_alias: "lucient-em-ho-handoff-uuid-hellominds",
+          alias_source: "reconstructed_from_handoff_id",
+          message_count: 2,
+          latest_fingerprint: "fp-mind-001",
+          latest_mind_reply_created_at: "2026-06-23T10:05:00.000Z",
+          response_source: "hellominds_history_api",
+          retrieval_timestamp: "2026-06-23T10:00:00.000Z",
+          mind_reply_state: "mind_reply_found",
+          attachment_metadata: [
+            {
+              artifactId: "artifact-001",
+              mimeType: "application/pdf",
+              extension: "pdf",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(html).toContain("hellominds_history_api");
+    expect(html).toContain("Mind interpretation excerpt");
+    expect(html).toContain("reconstructed_from_handoff_id");
+    expect(html).toContain("artifactId=artifact-001");
+    expect(html).not.toContain("YmFzZTY0");
   });
 
   it("does not render Verify HelloMinds receipt for unsent hellominds handoffs", () => {

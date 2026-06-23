@@ -13,6 +13,7 @@ const CREATE_HANDOFF_PATH = "/mind-digests/create-handoff";
 const SEND_HANDOFF_PATH = "/mind-handoffs/send";
 const REVIEW_HANDOFF_PATH = "/mind-handoffs/review";
 const VERIFY_RECEIPT_PATH = "/mind-handoffs/verify-receipt";
+const FETCH_RESPONSE_PATH = "/mind-handoffs/fetch-response";
 
 const styles = {
   page: {
@@ -274,6 +275,18 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
 
       {pageData.receiptFlash?.kind === "error" ? (
         <div style={styles.error}>{pageData.receiptFlash.message}</div>
+      ) : null}
+
+      {pageData.fetchFlash?.kind === "success" ? (
+        <div style={styles.success}>
+          {pageData.fetchFlash.mind_reply_state === "mind_reply_found"
+            ? `HelloMinds Mind reply retrieved (${pageData.fetchFlash.message_count} message${pageData.fetchFlash.message_count === 1 ? "" : "s"}).`
+            : "No Mind reply found yet. Delivery is confirmed, but the Mind response is not yet available in history."}
+        </div>
+      ) : null}
+
+      {pageData.fetchFlash?.kind === "error" ? (
+        <div style={styles.error}>{pageData.fetchFlash.message}</div>
       ) : null}
 
       {pageData.generateFlash?.kind === "success" ? (
@@ -867,6 +880,124 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                                 {pageData.selectedDigestHandoffReceipt.receipt_status}
                               </div>
 
+                              {typeof pageData.selectedDigestHandoffReceipt.metadata
+                                ?.conversation_alias === "string" ? (
+                                <>
+                                  <div style={styles.detailLabel}>Conversation alias</div>
+                                  <div style={styles.detailValue}>
+                                    {pageData.selectedDigestHandoffReceipt.metadata.conversation_alias}
+                                    {typeof pageData.selectedDigestHandoffReceipt.metadata
+                                      .alias_source === "string"
+                                      ? ` (${pageData.selectedDigestHandoffReceipt.metadata.alias_source})`
+                                      : ""}
+                                  </div>
+                                </>
+                              ) : null}
+
+                              {pageData.selectedDigestHandoffReceipt.receipt_source ===
+                              "hellominds_read_api" ? (
+                                <>
+                                  <div style={styles.detailLabel}>Response source</div>
+                                  <div style={styles.detailValue}>
+                                    {typeof pageData.selectedDigestHandoffReceipt.metadata
+                                      ?.response_source === "string"
+                                      ? pageData.selectedDigestHandoffReceipt.metadata.response_source
+                                      : "hellominds_history_api"}
+                                  </div>
+
+                                  <div style={styles.detailLabel}>Message count</div>
+                                  <div style={styles.detailValue}>
+                                    {typeof pageData.selectedDigestHandoffReceipt.metadata
+                                      ?.message_count === "number"
+                                      ? pageData.selectedDigestHandoffReceipt.metadata.message_count
+                                      : "—"}
+                                  </div>
+
+                                  <div style={styles.detailLabel}>Latest Mind reply timestamp</div>
+                                  <div style={styles.detailValue}>
+                                    {typeof pageData.selectedDigestHandoffReceipt.metadata
+                                      ?.latest_mind_reply_created_at === "string"
+                                      ? formatTimestamp(
+                                          pageData.selectedDigestHandoffReceipt.metadata
+                                            .latest_mind_reply_created_at
+                                        )
+                                      : "—"}
+                                  </div>
+
+                                  <div style={styles.detailLabel}>Latest Mind reply excerpt</div>
+                                  <div style={styles.detailValue}>
+                                    {pageData.selectedDigestHandoffReceipt.response_excerpt ??
+                                      (pageData.selectedDigestHandoffReceipt.metadata
+                                        ?.mind_reply_state === "no_reply_yet"
+                                        ? "No Mind reply found yet. Delivery is confirmed, but the Mind response is not yet available in history."
+                                        : "—")}
+                                  </div>
+
+                                  <div style={styles.detailLabel}>Latest fingerprint</div>
+                                  <div style={styles.detailValue}>
+                                    {typeof pageData.selectedDigestHandoffReceipt.metadata
+                                      ?.latest_fingerprint === "string"
+                                      ? pageData.selectedDigestHandoffReceipt.metadata.latest_fingerprint
+                                      : "—"}
+                                  </div>
+
+                                  <div style={styles.detailLabel}>Retrieval timestamp</div>
+                                  <div style={styles.detailValue}>
+                                    {typeof pageData.selectedDigestHandoffReceipt.metadata
+                                      ?.retrieval_timestamp === "string"
+                                      ? formatTimestamp(
+                                          pageData.selectedDigestHandoffReceipt.metadata
+                                            .retrieval_timestamp
+                                        )
+                                      : pageData.selectedDigestHandoffReceipt.verified_at
+                                        ? formatTimestamp(
+                                            pageData.selectedDigestHandoffReceipt.verified_at
+                                          )
+                                        : "—"}
+                                  </div>
+
+                                  {Array.isArray(
+                                    pageData.selectedDigestHandoffReceipt.metadata?.attachment_metadata
+                                  ) &&
+                                  pageData.selectedDigestHandoffReceipt.metadata.attachment_metadata
+                                    .length > 0 ? (
+                                    <>
+                                      <div style={styles.detailLabel}>Attachments</div>
+                                      <div style={styles.detailValue}>
+                                        {pageData.selectedDigestHandoffReceipt.metadata.attachment_metadata.map(
+                                          (attachment, index) => {
+                                            const record = attachment as Record<string, unknown>;
+                                            const parts = [
+                                              typeof record.artifactId === "string"
+                                                ? `artifactId=${record.artifactId}`
+                                                : null,
+                                              typeof record.mimeType === "string"
+                                                ? `mimeType=${record.mimeType}`
+                                                : null,
+                                              typeof record.extension === "string"
+                                                ? `extension=${record.extension}`
+                                                : null,
+                                              typeof record.slug === "string"
+                                                ? `slug=${record.slug}`
+                                                : null,
+                                              typeof record.logicalType === "string"
+                                                ? `logicalType=${record.logicalType}`
+                                                : null,
+                                            ].filter(Boolean);
+
+                                            return (
+                                              <div key={`attachment-${index}`}>
+                                                {parts.length > 0 ? parts.join(" · ") : "metadata only"}
+                                              </div>
+                                            );
+                                          }
+                                        )}
+                                      </div>
+                                    </>
+                                  ) : null}
+                                </>
+                              ) : null}
+
                               <div style={styles.detailLabel}>HTTP status</div>
                               <div style={styles.detailValue}>
                                 {pageData.selectedDigestHandoffReceipt.http_status ?? "—"}
@@ -927,6 +1058,29 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                             <p style={{ ...styles.note, marginTop: "0.35rem", marginBottom: 0 }}>
                               Phase 41A records a delivery receipt derived from stored send audit metadata.
                               It does not send another handoff and does not retrieve a Mind response.
+                            </p>
+                          </form>
+
+                          <form action={FETCH_RESPONSE_PATH} method="post" style={{ marginTop: "0.75rem" }}>
+                            <input
+                              type="hidden"
+                              name="handoff_id"
+                              value={pageData.selectedDigestHandoff.id}
+                            />
+                            {pageData.selectedDigest ? (
+                              <input
+                                type="hidden"
+                                name="digest_id"
+                                value={pageData.selectedDigest.id}
+                              />
+                            ) : null}
+                            <input type="hidden" name="handoff_destination" value="hellominds" />
+                            <button type="submit" style={styles.buttonSecondary}>
+                              Fetch HelloMinds response
+                            </button>
+                            <p style={{ ...styles.note, marginTop: "0.35rem", marginBottom: 0 }}>
+                              Phase 41B calls the HelloMinds message history API read-only. It does not
+                              send another handoff and does not require EXTERNAL_MIND_LIVE_SEND.
                             </p>
                           </form>
                         </>

@@ -24,6 +24,7 @@ export type ExternalMindHandoffTransportMetadata = {
   dry_run_only?: boolean;
   http_status?: number;
   message_text_char_count?: number;
+  conversation_alias?: string;
   conversation_alias_length?: number;
   conversation_id_suffix?: string;
   message_id_suffix?: string;
@@ -63,11 +64,12 @@ export { isExternalMindSendEnabled };
  * Phase 31 legacy helper retained for handoff creation path.
  * Phase 32 send orchestration uses executeExternalMindHandoffTransport instead.
  */
-export async function sendExternalMindHandoffIfEnabled(_input: {
+export async function sendExternalMindHandoffIfEnabled(input: {
   handoffId: string;
   destination: ExternalMindHandoffDestination;
   payloadVersion: string;
 }): Promise<ExternalMindHandoffSendResult> {
+  void input;
   if (!isExternalMindSendEnabled()) {
     return { ok: true, sent: false, reason: "external_send_disabled" };
   }

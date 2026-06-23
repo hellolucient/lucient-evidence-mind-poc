@@ -8,6 +8,7 @@ const mockCreateMindHandoffFromDigest = vi.fn();
 const mockGetLatestHandoffForDigest = vi.fn();
 const mockSendExternalMindHandoff = vi.fn();
 const mockVerifyExternalMindHandoffReceiptPhase41A = vi.fn();
+const mockFetchHelloMindsHandoffResponsePhase41B = vi.fn();
 const mockReviewExternalMindHandoff = vi.fn();
 const mockIsExternalMindHandoffPersistenceConfigured = vi.fn();
 const mockIsExternalMindHandoffSendEventPersistenceConfigured = vi.fn();
@@ -43,6 +44,11 @@ vi.mock("@/lib/watch/external-mind-handoff-send", () => ({
 vi.mock("@/lib/watch/external-mind-handoff-receipt-verify", () => ({
   verifyExternalMindHandoffReceiptPhase41A: (...args: unknown[]) =>
     mockVerifyExternalMindHandoffReceiptPhase41A(...args),
+}));
+
+vi.mock("@/lib/watch/external-mind-handoff-receipt-fetch", () => ({
+  fetchHelloMindsHandoffResponsePhase41B: (...args: unknown[]) =>
+    mockFetchHelloMindsHandoffResponsePhase41B(...args),
 }));
 
 vi.mock("@/lib/watch/external-mind-handoff-receipt-store", () => ({
@@ -115,6 +121,7 @@ import {
   processDemoDigestGenerationSubmission,
   processMindHandoffCreationSubmission,
   processMindHandoffReceiptVerificationSubmission,
+  processMindHandoffResponseFetchSubmission,
   processMindHandoffReviewSubmission,
   processMindHandoffSendSubmission,
   processMindWatchtowerNarrativeSubmission,
@@ -327,6 +334,43 @@ describe("mind-digests-page", () => {
     expect(submission.redirectPath).toContain("receipt_status=delivery_confirmed_from_send_event");
     expect(submission.redirectPath).toContain("receipt_source=send_event_metadata");
     expect(mockVerifyExternalMindHandoffReceiptPhase41A).toHaveBeenCalledWith(
+      "handoff-uuid-hellominds",
+      operatorAccess
+    );
+    expect(mockSendExternalMindHandoff).not.toHaveBeenCalled();
+  });
+
+  it("fetches HelloMinds response via Phase 41B without calling send", async () => {
+    mockFetchHelloMindsHandoffResponsePhase41B.mockResolvedValue({
+      ok: true,
+      receipt: {
+        id: "receipt-uuid-002",
+        receipt_status: "fetched_from_hellominds",
+        receipt_source: "hellominds_read_api",
+      },
+      conversation_alias: "lucient-em-ho-handoff-uuid-hellominds",
+      alias_source: "reconstructed_from_handoff_id",
+      message_count: 1,
+      latest_fingerprint: "fp-mind-001",
+      latest_mind_reply_created_at: "2026-06-23T10:05:00.000Z",
+      response_excerpt: "Mind reply excerpt",
+      mind_reply_state: "mind_reply_found",
+      response_source: "hellominds_history_api",
+      retrieved_at: "2026-06-23T10:00:00.000Z",
+    });
+
+    const submission = await processMindHandoffResponseFetchSubmission(
+      operatorAccess,
+      "handoff-uuid-hellominds",
+      "digest-uuid-001",
+      "hellominds"
+    );
+
+    expect(submission.result.ok).toBe(true);
+    expect(submission.redirectPath).toContain("fetch_ok=1");
+    expect(submission.redirectPath).toContain("mind_reply_state=mind_reply_found");
+    expect(submission.redirectPath).toContain("alias_source=reconstructed_from_handoff_id");
+    expect(mockFetchHelloMindsHandoffResponsePhase41B).toHaveBeenCalledWith(
       "handoff-uuid-hellominds",
       operatorAccess
     );

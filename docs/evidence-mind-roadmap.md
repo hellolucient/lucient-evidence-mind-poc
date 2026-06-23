@@ -2403,10 +2403,10 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 **Phase 41A (implemented):** operator-gated **HelloMinds receipt verification** inside `/mind-digests`, storing a durable receipt record derived from existing privacy-safe send audit metadata. This closes the first part of the loop (“delivery confirmed inside the operator workflow”) without claiming to retrieve any Mind response.
 
-**Phase 41B (future):** retrieve a real HelloMinds-side response/history record (if a safe read endpoint exists and is configured), store a privacy-safe excerpt/summary, and surface it in the operator workflow.
+**Phase 41B (implemented):** read-only **HelloMinds message history retrieval** via `GET /v1/messaging/history/{alias}?limit=50`, using the conversation alias (stored on send when available, or reconstructed from `${prefix}-ho-${handoffId}` when prefix is configured). Stores a privacy-safe Mind-reply excerpt and safe metadata in `external_mind_handoff_receipts` (`receipt_source=hellominds_read_api`, `receipt_status=fetched_from_hellominds`). Does not send, does not require `EXTERNAL_MIND_LIVE_SEND`, and does not store secrets or base64 attachment bodies.
 
-1. Verify delivery/receipt status (41A: from send audit metadata; 41B+: from HelloMinds read/history).
-2. Surface Mind interpretation in operator workflow without exposing secrets (41B+ only).
+1. Verify delivery/receipt status (41A: from send audit metadata; 41B: from HelloMinds history read API).
+2. Surface Mind interpretation in operator workflow without exposing secrets (41B).
 3. Track action status: did operator act on Mind output?
 
 Phases 42–44: operator dashboard, demo scenario package, pilot workspace hardening.

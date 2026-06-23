@@ -22,6 +22,11 @@ export type PrivacySafeExternalMindHandoffSendResult = {
   timestamp: string;
   test_sink_only?: boolean;
   http_status?: number;
+  /**
+   * HelloMinds conversation alias used for subsequent read-only history retrieval (Phase 41B).
+   * This is not a secret; do not store access keys or raw API responses here.
+   */
+  conversation_alias?: string;
 };
 
 export function buildPrivacySafeSendResult(input: {
@@ -31,6 +36,7 @@ export function buildPrivacySafeSendResult(input: {
   timestamp?: string;
   test_sink_only?: boolean;
   http_status?: number;
+  conversation_alias?: string;
 }): PrivacySafeExternalMindHandoffSendResult {
   return {
     result: input.result,
@@ -39,6 +45,9 @@ export function buildPrivacySafeSendResult(input: {
     timestamp: input.timestamp ?? new Date().toISOString(),
     ...(input.test_sink_only ? { test_sink_only: true } : {}),
     ...(typeof input.http_status === "number" ? { http_status: input.http_status } : {}),
+    ...(typeof input.conversation_alias === "string" && input.conversation_alias.trim()
+      ? { conversation_alias: input.conversation_alias.trim() }
+      : {}),
   };
 }
 
@@ -68,6 +77,10 @@ export function isPrivacySafeExternalMindHandoffSendResult(
   }
 
   if ("test_sink_only" in record && typeof record.test_sink_only !== "boolean") {
+    return false;
+  }
+
+  if ("conversation_alias" in record && typeof record.conversation_alias !== "string") {
     return false;
   }
 

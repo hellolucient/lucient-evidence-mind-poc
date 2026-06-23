@@ -97,6 +97,14 @@ export function buildPrivacySafeMetadata(input: {
     metadata.artifact_count = transport.artifact_count;
   }
 
+  if (transport?.conversation_alias) {
+    metadata.conversation_alias = transport.conversation_alias;
+  }
+
+  if (typeof transport?.conversation_alias_length === "number") {
+    metadata.conversation_alias_length = transport.conversation_alias_length;
+  }
+
   if (transport?.conversation_id_suffix) {
     metadata.conversation_id_suffix = transport.conversation_id_suffix;
   }

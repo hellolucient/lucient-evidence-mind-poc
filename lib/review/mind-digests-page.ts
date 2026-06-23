@@ -37,6 +37,7 @@ import {
   type PrivacySafeExternalMindHandoffReceipt,
 } from "@/lib/watch/external-mind-handoff-receipt-store";
 import { verifyExternalMindHandoffReceiptPhase41A } from "@/lib/watch/external-mind-handoff-receipt-verify";
+import { fetchHelloMindsHandoffResponsePhase41B } from "@/lib/watch/external-mind-handoff-receipt-fetch";
 import type { PrivacySafeExternalMindHandoffWithPayload } from "@/lib/watch/external-mind-handoff-store";
 import {
   isExternalMindHandoffPersistenceConfigured,
@@ -101,6 +102,15 @@ export type MindDigestsReceiptFlash =
   | { kind: "success"; status: string; source: string }
   | { kind: "error"; error: string; message: string };
 
+export type MindDigestsFetchFlash =
+  | {
+      kind: "success";
+      mind_reply_state: string;
+      alias_source: string;
+      message_count: number;
+    }
+  | { kind: "error"; error: string; message: string };
+
 export type MindDigestsReviewFlash =
   | { kind: "success"; action: ExternalMindHandoffReviewAction }
   | { kind: "error"; error: string; message: string };
@@ -135,6 +145,7 @@ export type MindDigestsPageData = {
   handoffFlash: MindDigestsHandoffFlash | null;
   sendFlash: MindDigestsSendFlash | null;
   receiptFlash: MindDigestsReceiptFlash | null;
+  fetchFlash: MindDigestsFetchFlash | null;
   reviewFlash: MindDigestsReviewFlash | null;
   narrativeFlash: MindDigestsNarrativeFlash | null;
   statusOptions: readonly string[];
@@ -281,6 +292,30 @@ export function parseMindDigestsReceiptFlash(
   return null;
 }
 
+export function parseMindDigestsFetchFlash(
+  params: Record<string, string | string[] | undefined>
+): MindDigestsFetchFlash | null {
+  if (readParam(params, "fetch_ok")) {
+    return {
+      kind: "success",
+      mind_reply_state: readParam(params, "mind_reply_state") ?? "unknown",
+      alias_source: readParam(params, "alias_source") ?? "unknown",
+      message_count: Number.parseInt(readParam(params, "message_count") ?? "0", 10) || 0,
+    };
+  }
+
+  const error = readParam(params, "fetch_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message: readParam(params, "fetch_message") ?? `HelloMinds response fetch error: ${error}`,
+    };
+  }
+
+  return null;
+}
+
 export function parseMindDigestsReviewFlash(
   params: Record<string, string | string[] | undefined>
 ): MindDigestsReviewFlash | null {
@@ -399,6 +434,7 @@ export async function buildMindDigestsPageData(
       handoffFlash: parseMindDigestsHandoffFlash(params),
       sendFlash: parseMindDigestsSendFlash(params),
       receiptFlash: parseMindDigestsReceiptFlash(params),
+      fetchFlash: parseMindDigestsFetchFlash(params),
       reviewFlash: parseMindDigestsReviewFlash(params),
       narrativeFlash: parseMindDigestsNarrativeFlash(params),
       statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
@@ -516,6 +552,7 @@ export async function buildMindDigestsPageData(
     handoffFlash: parseMindDigestsHandoffFlash(params),
     sendFlash: parseMindDigestsSendFlash(params),
     receiptFlash: parseMindDigestsReceiptFlash(params),
+    fetchFlash: parseMindDigestsFetchFlash(params),
     reviewFlash: parseMindDigestsReviewFlash(params),
     narrativeFlash: parseMindDigestsNarrativeFlash(params),
     statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
@@ -644,6 +681,33 @@ export async function processMindHandoffReceiptVerificationSubmission(
 
   return {
     redirectPath: `/mind-digests?${digestQuery}receipt_ok=1&receipt_status=${encodeURIComponent(result.receipt.receipt_status)}&receipt_source=${encodeURIComponent(result.receipt.receipt_source)}`,
+    result,
+  };
+}
+
+export type MindHandoffResponseFetchSubmissionResult = {
+  redirectPath: string;
+  result: Awaited<ReturnType<typeof fetchHelloMindsHandoffResponsePhase41B>>;
+};
+
+export async function processMindHandoffResponseFetchSubmission(
+  access: ReviewQueueAccessContext,
+  handoffId: string,
+  digestId?: string,
+  handoffDestination?: ExternalMindHandoffDestination
+): Promise<MindHandoffResponseFetchSubmissionResult> {
+  const result = await fetchHelloMindsHandoffResponsePhase41B(handoffId, access);
+  const digestQuery = digestId ? `${buildMindDigestsDigestQuery(digestId, handoffDestination)}&` : "";
+
+  if (!result.ok) {
+    return {
+      redirectPath: `/mind-digests?${digestQuery}fetch_error=${encodeURIComponent(result.error)}&fetch_message=${encodeURIComponent(result.message)}`,
+      result,
+    };
+  }
+
+  return {
+    redirectPath: `/mind-digests?${digestQuery}fetch_ok=1&mind_reply_state=${encodeURIComponent(result.mind_reply_state)}&alias_source=${encodeURIComponent(result.alias_source)}&message_count=${encodeURIComponent(String(result.message_count))}`,
     result,
   };
 }

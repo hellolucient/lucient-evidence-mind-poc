@@ -86,6 +86,7 @@ export type ExternalMindHandoffSendReceiptMetadata = {
   transport_kind?: string;
   endpoint_host?: string;
   http_status?: number;
+  conversation_alias?: string;
   conversation_id_suffix?: string;
   message_id_suffix?: string;
 };
@@ -347,6 +348,7 @@ function pickReceiptMetadata(
   picked.transport_kind = getString("transport_kind");
   picked.endpoint_host = getString("endpoint_host");
   picked.http_status = getNumber("http_status");
+  picked.conversation_alias = getString("conversation_alias");
   picked.conversation_id_suffix = getString("conversation_id_suffix");
   picked.message_id_suffix = getString("message_id_suffix");
 
