@@ -64,4 +64,16 @@ describe("claim research migration", () => {
     );
     expect(sql).toContain("claim_research_runs_claim_created_idx");
   });
+
+  it("follow-up migration allows pubmed_live_v1 for already-deployed databases", () => {
+    const migrationPath = join(
+      process.cwd(),
+      "supabase/migrations/20260623213000_allow_pubmed_live_research_mode.sql"
+    );
+    const sql = readFileSync(migrationPath, "utf8");
+
+    expect(sql).toContain("DROP CONSTRAINT IF EXISTS claim_research_runs_mode_check");
+    expect(sql).toContain("pubmed_live_v1");
+    expect(sql).toContain("Phase 44C-REAL");
+  });
 });
