@@ -99,6 +99,17 @@ const styles = {
     padding: "0.15rem 0.4rem",
     marginLeft: "0.5rem",
   } as const,
+  liveBadge: {
+    display: "inline-block",
+    fontSize: "0.6875rem",
+    fontWeight: 600,
+    color: "#065f46",
+    background: "#d1fae5",
+    border: "1px solid #6ee7b7",
+    borderRadius: "4px",
+    padding: "0.15rem 0.4rem",
+    marginLeft: "0.5rem",
+  } as const,
   citationCard: {
     border: "1px solid #e2e8f0",
     borderRadius: "6px",
@@ -141,11 +152,13 @@ function formatTimestamp(value: string): string {
 
 function ResearchResultSection({ run }: { run: PrivacySafeClaimResearchRun }) {
   const isDemoMode = run.research_mode === "mock_evidence_v1";
+  const isLiveMode = run.research_mode === "pubmed_live_v1";
 
   return (
     <section style={styles.section}>
       <h2 style={{ marginTop: 0, fontSize: "1rem" }}>
         Latest research result
+        {isLiveMode ? <span style={styles.liveBadge}>PubMed live mode</span> : null}
         {isDemoMode ? <span style={styles.demoBadge}>Controlled demo mode</span> : null}
       </h2>
       <div style={styles.metaGrid}>
@@ -196,7 +209,15 @@ function ResearchResultSection({ run }: { run: PrivacySafeClaimResearchRun }) {
           <span style={styles.metaLabel}>Citations</span>
           {run.citations.map((citation) => (
             <div key={citation.citation_id} style={styles.citationCard}>
-              <strong>{citation.title}</strong>
+              {citation.url ? (
+                <strong>
+                  <a href={citation.url} target="_blank" rel="noreferrer">
+                    {citation.title}
+                  </a>
+                </strong>
+              ) : (
+                <strong>{citation.title}</strong>
+              )}
               <div style={{ color: "#64748b", marginTop: "0.25rem" }}>
                 {citation.source}
                 {citation.publication_year ? ` · ${citation.publication_year}` : ""}

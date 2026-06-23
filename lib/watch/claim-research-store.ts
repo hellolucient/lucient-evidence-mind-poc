@@ -486,7 +486,7 @@ export async function runControlledClaimResearchForClaim(
     return { ok: false, error: "claim_not_research_eligible" };
   }
 
-  const researchOutput = runControlledClaimResearch(claim);
+  const researchOutput = await runControlledClaimResearch(claim);
   if (!researchOutput.ok) {
     const failedRun = await insertFailedResearchRun(
       claim,

@@ -21,6 +21,7 @@ describe("claim research constants", () => {
     expect(CLAIM_RESEARCH_RUN_STATUSES).toEqual(["completed", "failed"]);
     expect(CLAIM_RESEARCH_MODES).toEqual([
       "controlled_pubmed_v1",
+      "pubmed_live_v1",
       "mock_evidence_v1",
       "existing_engine_v1",
     ]);
@@ -58,7 +59,9 @@ describe("claim research migration", () => {
     expect(sql).toContain("CREATE TABLE IF NOT EXISTS public.claim_research_citations");
     expect(sql).toContain("evidence_posture");
     expect(sql).toContain("safer_wording");
-    expect(sql).toContain("research_mode IN ('controlled_pubmed_v1', 'mock_evidence_v1', 'existing_engine_v1')");
+    expect(sql).toContain(
+      "research_mode IN ('controlled_pubmed_v1', 'pubmed_live_v1', 'mock_evidence_v1', 'existing_engine_v1')"
+    );
     expect(sql).toContain("claim_research_runs_claim_created_idx");
   });
 });

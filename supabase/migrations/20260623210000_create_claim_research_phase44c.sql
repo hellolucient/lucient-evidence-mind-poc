@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.claim_research_runs (
     status IN ('completed', 'failed')
   ),
   CONSTRAINT claim_research_runs_mode_check CHECK (
-    research_mode IN ('controlled_pubmed_v1', 'mock_evidence_v1', 'existing_engine_v1')
+    research_mode IN ('controlled_pubmed_v1', 'pubmed_live_v1', 'mock_evidence_v1', 'existing_engine_v1')
   ),
   CONSTRAINT claim_research_runs_evidence_posture_check CHECK (
     evidence_posture IS NULL OR evidence_posture IN (

@@ -4,6 +4,7 @@ export type ClaimResearchRunStatus = (typeof CLAIM_RESEARCH_RUN_STATUSES)[number
 
 export const CLAIM_RESEARCH_MODES = [
   "controlled_pubmed_v1",
+  "pubmed_live_v1",
   "mock_evidence_v1",
   "existing_engine_v1",
 ] as const;

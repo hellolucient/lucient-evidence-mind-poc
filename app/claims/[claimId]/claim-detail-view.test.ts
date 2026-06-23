@@ -91,4 +91,23 @@ describe("claim detail view", () => {
     expect(html).toContain("Run evidence research");
     expect(html).toContain("Magnesium supplementation and sleep quality");
   });
+
+  it("shows PubMed live mode badge for pubmed_live_v1 runs", () => {
+    const html = renderToStaticMarkup(
+      createElement(ClaimDetailView, {
+        pageData: {
+          ...pageData,
+          latestResearchRun: {
+            ...pageData.latestResearchRun,
+            research_mode: "pubmed_live_v1",
+            research_notes: "PubMed live mode (pubmed_live_v1): demo test.",
+          },
+        },
+        authStatus,
+      })
+    );
+
+    expect(html).toContain("PubMed live mode");
+    expect(html).not.toContain("Controlled demo mode</span>PubMed");
+  });
 });

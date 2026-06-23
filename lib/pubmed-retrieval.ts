@@ -48,6 +48,15 @@ export type PubMedSearchResult = {
   query_strategy: QueryStrategy;
 };
 
+export type PubMedCitationMetadata = {
+  pmid: string;
+  title: string;
+  journal: string | null;
+  publication_year: number | null;
+  url: string;
+  doi: string | null;
+};
+
 export function shouldUsePubMed(filters?: PubMedFetchFilters): boolean {
   return (
     filters?.use_real_pubmed === true &&
@@ -292,6 +301,42 @@ function parsePublicationYear(pubdate?: string): number | null {
 
   const match = pubdate.match(/\b(19|20)\d{2}\b/);
   return match ? Number(match[0]) : null;
+}
+
+export async function fetchPubMedCitationMetadata(
+  query: string,
+  options: { maxResults: number; recencyYears?: number }
+): Promise<PubMedCitationMetadata[]> {
+  const maxResults =
+    typeof options.maxResults === "number" && Number.isFinite(options.maxResults)
+      ? Math.max(1, Math.min(10, Math.floor(options.maxResults)))
+      : 5;
+  const pmids = await searchPubMedPmids(query, maxResults, options.recencyYears);
+  if (pmids.length === 0) {
+    return [];
+  }
+
+  const summaries = await fetchPubMedSummaries(pmids.slice(0, maxResults));
+  return summaries
+    .map((article) => {
+      const pmid = article.uid?.trim();
+      if (!pmid) {
+        return null;
+      }
+      const title = article.title?.trim() || `PubMed record ${pmid}`;
+      const journal = article.fulljournalname ?? article.source ?? null;
+      const publication_year = parsePublicationYear(article.pubdate ?? article.epubdate);
+      const doi = extractDoi(article);
+      return {
+        pmid,
+        title,
+        journal,
+        publication_year,
+        url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+        doi,
+      };
+    })
+    .filter((item): item is PubMedCitationMetadata => item !== null);
 }
 
 function buildCitation(article: ESummaryArticle): string {
