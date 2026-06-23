@@ -221,6 +221,8 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
           <a href="/evidence-briefs">Evidence briefs</a>
           {" · "}
           <a href="/mind-digests">Mind digests</a>
+          {" · "}
+          <a href="/operator/mind-loop">Mind loop dashboard</a>
         </nav>
       </header>
 
