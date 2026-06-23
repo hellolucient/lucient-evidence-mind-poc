@@ -13,7 +13,7 @@ Lucient Evidence Mind POC — evidence watchtower integrated with an external Mi
 - The workflow depends on: **evidence intelligence → Mind interpretation → operator action**.
 - Phase 39F validated production HelloMinds transport; Phase 41+ focuses on closing the Mind-response loop.
 
-## Current capabilities (Phases 1–39F)
+## Current capabilities (Phases 1–41A)
 
 **Strategic milestone:** Phase 39F production HelloMinds validation **complete**. `EXTERNAL_MIND_LIVE_SEND=false` is the safe production default.
 
@@ -38,6 +38,7 @@ Lucient Evidence Mind POC — evidence watchtower integrated with an external Mi
 | Test-sink send + send audit | Default safe path — `test_sink` handoffs |
 | HelloMinds handoff + dry-run send (operator UI) | `/mind-digests` with `handoff_destination=hellominds` |
 | HelloMinds production transport | Phase 39F validated — gated live send; live disabled again |
+| Mind receipt verification (HelloMinds) | Phase 41A — operator-gated receipt record derived from send audit metadata (no HelloMinds read) |
 
 **Validated production chain (Phases 29–39F):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload → operator approval → test-sink or HelloMinds send (gated) → send audit log.
 

@@ -7,10 +7,13 @@ const mockGenerateDemoEvidenceMindDigest = vi.fn();
 const mockCreateMindHandoffFromDigest = vi.fn();
 const mockGetLatestHandoffForDigest = vi.fn();
 const mockSendExternalMindHandoff = vi.fn();
+const mockVerifyExternalMindHandoffReceiptPhase41A = vi.fn();
 const mockReviewExternalMindHandoff = vi.fn();
 const mockIsExternalMindHandoffPersistenceConfigured = vi.fn();
 const mockIsExternalMindHandoffSendEventPersistenceConfigured = vi.fn();
 const mockListExternalMindHandoffSendEventsForHandoff = vi.fn();
+const mockIsExternalMindHandoffReceiptPersistenceConfigured = vi.fn();
+const mockGetExternalMindHandoffReceiptForHandoff = vi.fn();
 const mockIsWatchtowerNarrativePersistenceConfigured = vi.fn();
 const mockIsWatchtowerNarrativeDiffPersistenceConfigured = vi.fn();
 const mockGetLatestWatchtowerNarrativeForDigest = vi.fn();
@@ -35,6 +38,18 @@ vi.mock("@/lib/watch/external-mind-handoff-review", async (importOriginal) => {
 vi.mock("@/lib/watch/external-mind-handoff-send", () => ({
   sendExternalMindHandoff: (...args: unknown[]) => mockSendExternalMindHandoff(...args),
   externalMindHandoffSendErrorMessage: (error: string) => error,
+}));
+
+vi.mock("@/lib/watch/external-mind-handoff-receipt-verify", () => ({
+  verifyExternalMindHandoffReceiptPhase41A: (...args: unknown[]) =>
+    mockVerifyExternalMindHandoffReceiptPhase41A(...args),
+}));
+
+vi.mock("@/lib/watch/external-mind-handoff-receipt-store", () => ({
+  isExternalMindHandoffReceiptPersistenceConfigured: (...args: unknown[]) =>
+    mockIsExternalMindHandoffReceiptPersistenceConfigured(...args),
+  getExternalMindHandoffReceiptForHandoff: (...args: unknown[]) =>
+    mockGetExternalMindHandoffReceiptForHandoff(...args),
 }));
 
 vi.mock("@/lib/watch/external-mind-handoff-store", () => ({
@@ -99,6 +114,7 @@ import {
   parseMindDigestsHandoffDestination,
   processDemoDigestGenerationSubmission,
   processMindHandoffCreationSubmission,
+  processMindHandoffReceiptVerificationSubmission,
   processMindHandoffReviewSubmission,
   processMindHandoffSendSubmission,
   processMindWatchtowerNarrativeSubmission,
@@ -137,6 +153,8 @@ beforeEach(() => {
   mockIsEvidenceMindDigestPersistenceConfigured.mockReturnValue(true);
   mockIsExternalMindHandoffPersistenceConfigured.mockReturnValue(true);
   mockIsExternalMindHandoffSendEventPersistenceConfigured.mockReturnValue(true);
+  mockIsExternalMindHandoffReceiptPersistenceConfigured.mockReturnValue(true);
+  mockGetExternalMindHandoffReceiptForHandoff.mockResolvedValue({ receipt: null });
   mockIsWatchtowerNarrativePersistenceConfigured.mockReturnValue(true);
   mockIsWatchtowerNarrativeDiffPersistenceConfigured.mockReturnValue(true);
   mockGetLatestWatchtowerNarrativeForDigest.mockResolvedValue({
@@ -220,6 +238,15 @@ beforeEach(() => {
     handoff: { id: "handoff-uuid-001", status: "sent" },
     sendResult: { result: "test_sink_sent" },
   });
+  mockVerifyExternalMindHandoffReceiptPhase41A.mockResolvedValue({
+    ok: true,
+    receipt: {
+      id: "receipt-uuid-001",
+      receipt_status: "delivery_confirmed_from_send_event",
+      receipt_source: "send_event_metadata",
+    },
+    derived_from: "send_audit_metadata",
+  });
   mockReviewExternalMindHandoff.mockResolvedValue({
     ok: true,
     handoff: { id: "handoff-uuid-001", review_status: "approved" },
@@ -285,6 +312,25 @@ describe("mind-digests-page", () => {
       operatorAccess,
       "hellominds"
     );
+  });
+
+  it("verifies receipt via Phase 41A without calling send", async () => {
+    const submission = await processMindHandoffReceiptVerificationSubmission(
+      operatorAccess,
+      "handoff-uuid-hellominds",
+      "digest-uuid-001",
+      "hellominds"
+    );
+
+    expect(submission.result.ok).toBe(true);
+    expect(submission.redirectPath).toContain("receipt_ok=1");
+    expect(submission.redirectPath).toContain("receipt_status=delivery_confirmed_from_send_event");
+    expect(submission.redirectPath).toContain("receipt_source=send_event_metadata");
+    expect(mockVerifyExternalMindHandoffReceiptPhase41A).toHaveBeenCalledWith(
+      "handoff-uuid-hellominds",
+      operatorAccess
+    );
+    expect(mockSendExternalMindHandoff).not.toHaveBeenCalled();
   });
 
   it("defaults handoff destination parsing to test_sink", () => {

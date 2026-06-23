@@ -21,7 +21,7 @@ The product becomes more defensible when the workflow depends on this loop:
 
 Phase 39F validated production transport to HelloMinds (HTTP 200, durable audit records). The immediate next step is not more transport testing alone — it is **closing the loop** by retrieving or surfacing the Mind’s response back inside the operator workflow.
 
-## Current capabilities (Phases 1–39F)
+## Current capabilities (Phases 1–41A)
 
 **Strategic milestone:** Phase 39F — controlled production HelloMinds validation **complete**. Internal API metadata `CURRENT_WATCH_PHASE` remains `"37"` for payload compatibility; see [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) for canonical phase status.
 
@@ -48,6 +48,7 @@ Phase 39F validated production transport to HelloMinds (HTTP 200, durable audit 
 | HelloMinds handoff creation (operator UI) | Explicit `hellominds` destination from `/mind-digests` |
 | HelloMinds dry-run send (operator UI) | Approved `hellominds` handoffs while `EXTERNAL_MIND_LIVE_SEND=false` |
 | HelloMinds production transport | **Validated Phase 39F** — controlled dry-run + one gated live send; live send disabled again |
+| Mind receipt verification (HelloMinds) | **Phase 41A** — operator-gated receipt record derived from send audit metadata (no HelloMinds read) |
 
 **Validated production chain (Phases 29–39F):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload → operator approval → test-sink or HelloMinds send (gated) → send audit log.
 
@@ -316,7 +317,7 @@ Use the curl examples above with your Vercel URL and API key. PubMed mode requir
 - Webhooks or client-facing alert delivery
 - Non-PubMed regulatory source integration
 - Operator UI live-send control for HelloMinds (`EXTERNAL_MIND_LIVE_SEND` remains `false` in production)
-- Mind-response loop closure — retrieving or surfacing HelloMinds interpretation back into operator workflow (Phase 41)
+- Full Mind-response loop closure — retrieving HelloMinds interpretation back into operator workflow (Phase 41B+)
 - Real client data — demo workspace IDs and synthetic queries only
 
 PubMed retrieval and Phase 7 appraisal are **conservative and automated only** — not proof that a claim is supported.

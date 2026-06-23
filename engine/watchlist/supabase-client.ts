@@ -18,6 +18,7 @@ const EVIDENCE_MIND_WATCHTOWER_NARRATIVE_DIFFS_TABLE =
   "evidence_mind_watchtower_narrative_diffs";
 const EXTERNAL_MIND_HANDOFFS_TABLE = "external_mind_handoffs";
 const EXTERNAL_MIND_HANDOFF_SEND_EVENTS_TABLE = "external_mind_handoff_send_events";
+const EXTERNAL_MIND_HANDOFF_RECEIPTS_TABLE = "external_mind_handoff_receipts";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -80,4 +81,5 @@ export {
   EVIDENCE_MIND_WATCHTOWER_NARRATIVE_DIFFS_TABLE,
   EXTERNAL_MIND_HANDOFFS_TABLE,
   EXTERNAL_MIND_HANDOFF_SEND_EVENTS_TABLE,
+  EXTERNAL_MIND_HANDOFF_RECEIPTS_TABLE,
 };

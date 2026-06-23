@@ -19,6 +19,7 @@ const basePageData: MindDigestsPageData = {
   handoffsConfigured: true,
   narrativesConfigured: true,
   diffsConfigured: true,
+  receiptsConfigured: true,
   filters: {},
   digests: [],
   selectedDigest: {
@@ -44,6 +45,7 @@ const basePageData: MindDigestsPageData = {
   selectedDigestItems: [],
   selectedDigestHandoff: null,
   selectedDigestHandoffSendEvents: [],
+  selectedDigestHandoffReceipt: null,
   selectedHandoffDestination: "test_sink",
   selectedDigestNarrative: null,
   selectedDigestWatchtowerNarrativeDiff: null,
@@ -56,6 +58,7 @@ const basePageData: MindDigestsPageData = {
   generateFlash: null,
   handoffFlash: null,
   sendFlash: null,
+  receiptFlash: null,
   reviewFlash: null,
   narrativeFlash: null,
   statusOptions: ["ready_for_review"],
@@ -286,6 +289,73 @@ describe("mind-digests-view", () => {
     });
 
     expect(html).not.toContain("Dry-run send HelloMinds handoff</button>");
+  });
+
+  it("renders a Mind receipt section for sent hellominds handoffs and labels it as audit-derived", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "hellominds",
+      selectedDigestHandoff: {
+        ...approvedHelloMindsHandoff,
+        status: "sent",
+        sent_at: "2026-06-22T13:00:00.000Z",
+      },
+      selectedDigestHandoffReceipt: {
+        id: "receipt-uuid-001",
+        workspace_id: "demo-workspace-spa-menu",
+        handoff_id: "handoff-uuid-hellominds",
+        digest_id: "digest-uuid-001",
+        destination: "hellominds",
+        provider: "hellominds",
+        conversation_id_suffix: "df11",
+        message_id_suffix: "df11",
+        receipt_status: "delivery_confirmed_from_send_event",
+        http_status: 200,
+        receipt_source: "send_event_metadata",
+        verified_at: "2026-06-23T09:00:00.000Z",
+        response_excerpt: null,
+        created_at: "2026-06-23T09:00:00.000Z",
+        updated_at: "2026-06-23T09:00:00.000Z",
+        metadata: {
+          endpoint_host: "api.build.hellominds.ai",
+          transport_mode: "live",
+          provider: "hellominds",
+        },
+      },
+    });
+
+    expect(html).toContain("Mind receipt");
+    expect(html).toContain("Delivery receipt verified from send audit metadata.");
+    expect(html).toContain("Derived from send audit metadata");
+    expect(html).toContain("Verify HelloMinds receipt");
+    expect(html).toContain("does not retrieve a Mind response");
+    expect(html).not.toContain("Mind response retrieved");
+    expect(html).not.toContain("Response retrieved from HelloMinds");
+  });
+
+  it("does not render Verify HelloMinds receipt for unsent hellominds handoffs", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "hellominds",
+      selectedDigestHandoff: approvedHelloMindsHandoff,
+    });
+
+    expect(html).not.toContain("Mind receipt");
+    expect(html).not.toContain("Verify HelloMinds receipt");
+  });
+
+  it("does not render Verify HelloMinds receipt for test_sink handoffs", () => {
+    const html = renderView({
+      ...basePageData,
+      selectedHandoffDestination: "test_sink",
+      selectedDigestHandoff: {
+        ...pendingHelloMindsHandoff,
+        destination: "test_sink",
+        status: "sent",
+      },
+    });
+
+    expect(html).not.toContain("Verify HelloMinds receipt");
   });
 
   it("shows destination-specific empty state when hellominds handoff is missing", () => {

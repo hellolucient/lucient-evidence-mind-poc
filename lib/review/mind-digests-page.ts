@@ -31,6 +31,12 @@ import {
   listExternalMindHandoffSendEventsForHandoff,
   type PrivacySafeExternalMindHandoffSendEvent,
 } from "@/lib/watch/external-mind-handoff-send-event-store";
+import {
+  getExternalMindHandoffReceiptForHandoff,
+  isExternalMindHandoffReceiptPersistenceConfigured,
+  type PrivacySafeExternalMindHandoffReceipt,
+} from "@/lib/watch/external-mind-handoff-receipt-store";
+import { verifyExternalMindHandoffReceiptPhase41A } from "@/lib/watch/external-mind-handoff-receipt-verify";
 import type { PrivacySafeExternalMindHandoffWithPayload } from "@/lib/watch/external-mind-handoff-store";
 import {
   isExternalMindHandoffPersistenceConfigured,
@@ -91,6 +97,10 @@ export type MindDigestsSendFlash =
   | { kind: "success"; result?: string }
   | { kind: "error"; error: string; message: string };
 
+export type MindDigestsReceiptFlash =
+  | { kind: "success"; status: string; source: string }
+  | { kind: "error"; error: string; message: string };
+
 export type MindDigestsReviewFlash =
   | { kind: "success"; action: ExternalMindHandoffReviewAction }
   | { kind: "error"; error: string; message: string };
@@ -104,12 +114,14 @@ export type MindDigestsPageData = {
   handoffsConfigured: boolean;
   narrativesConfigured: boolean;
   diffsConfigured: boolean;
+  receiptsConfigured: boolean;
   filters: MindDigestsPageFilters;
   digests: PrivacySafeEvidenceMindDigest[];
   selectedDigest: PrivacySafeEvidenceMindDigest | null;
   selectedDigestItems: PrivacySafeEvidenceMindDigestItem[];
   selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null;
   selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[];
+  selectedDigestHandoffReceipt: PrivacySafeExternalMindHandoffReceipt | null;
   selectedHandoffDestination: MindDigestsHandoffDestinationOption;
   selectedDigestNarrative: PrivacySafeWatchtowerNarrative | null;
   selectedDigestWatchtowerNarrativeDiff: MindDigestsWatchtowerNarrativeDiffView | null;
@@ -122,6 +134,7 @@ export type MindDigestsPageData = {
   generateFlash: MindDigestsGenerateFlash | null;
   handoffFlash: MindDigestsHandoffFlash | null;
   sendFlash: MindDigestsSendFlash | null;
+  receiptFlash: MindDigestsReceiptFlash | null;
   reviewFlash: MindDigestsReviewFlash | null;
   narrativeFlash: MindDigestsNarrativeFlash | null;
   statusOptions: readonly string[];
@@ -245,6 +258,29 @@ export function parseMindDigestsSendFlash(
   return null;
 }
 
+export function parseMindDigestsReceiptFlash(
+  params: Record<string, string | string[] | undefined>
+): MindDigestsReceiptFlash | null {
+  if (readParam(params, "receipt_ok")) {
+    return {
+      kind: "success",
+      status: readParam(params, "receipt_status") ?? "verified",
+      source: readParam(params, "receipt_source") ?? "send_event_metadata",
+    };
+  }
+
+  const error = readParam(params, "receipt_error");
+  if (error) {
+    return {
+      kind: "error",
+      error,
+      message: readParam(params, "receipt_message") ?? `Receipt verification error: ${error}`,
+    };
+  }
+
+  return null;
+}
+
 export function parseMindDigestsReviewFlash(
   params: Record<string, string | string[] | undefined>
 ): MindDigestsReviewFlash | null {
@@ -306,6 +342,8 @@ export function mindDigestsErrorMessage(error: string): string {
       return "The external_mind_handoffs table is missing. Apply the Phase 31 migration in Supabase.";
     case "external_mind_handoff_send_events_table_missing":
       return "The external_mind_handoff_send_events table is missing. Apply the Phase 33 migration in Supabase.";
+    case "external_mind_handoff_receipts_table_missing":
+      return "The external_mind_handoff_receipts table is missing. Apply the Phase 41A migration in Supabase.";
     case "handoff_not_found":
       return "External Mind handoff not found.";
     case "evidence_mind_watchtower_narratives_table_missing":
@@ -328,6 +366,7 @@ export async function buildMindDigestsPageData(
   const narrativesConfigured = isWatchtowerNarrativePersistenceConfigured();
   const diffsConfigured = isWatchtowerNarrativeDiffPersistenceConfigured();
   const sendEventsConfigured = isExternalMindHandoffSendEventPersistenceConfigured();
+  const receiptsConfigured = isExternalMindHandoffReceiptPersistenceConfigured();
   const defaultWorkspaceId =
     access.mode === "operator"
       ? (access.workspaceIds[0] ?? DEMO_WORKSPACE_ID)
@@ -339,12 +378,14 @@ export async function buildMindDigestsPageData(
       handoffsConfigured: false,
       narrativesConfigured: false,
       diffsConfigured: false,
+      receiptsConfigured: false,
       filters,
       digests: [],
       selectedDigest: null,
       selectedDigestItems: [],
       selectedDigestHandoff: null,
       selectedDigestHandoffSendEvents: [],
+      selectedDigestHandoffReceipt: null,
       selectedHandoffDestination,
       selectedDigestNarrative: null,
       selectedDigestWatchtowerNarrativeDiff: null,
@@ -357,6 +398,7 @@ export async function buildMindDigestsPageData(
       generateFlash: parseMindDigestsGenerateFlash(params),
       handoffFlash: parseMindDigestsHandoffFlash(params),
       sendFlash: parseMindDigestsSendFlash(params),
+      receiptFlash: parseMindDigestsReceiptFlash(params),
       reviewFlash: parseMindDigestsReviewFlash(params),
       narrativeFlash: parseMindDigestsNarrativeFlash(params),
       statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
@@ -370,6 +412,7 @@ export async function buildMindDigestsPageData(
   let selectedDigestItems: PrivacySafeEvidenceMindDigestItem[] = [];
   let selectedDigestHandoff: PrivacySafeExternalMindHandoffWithPayload | null = null;
   let selectedDigestHandoffSendEvents: PrivacySafeExternalMindHandoffSendEvent[] = [];
+  let selectedDigestHandoffReceipt: PrivacySafeExternalMindHandoffReceipt | null = null;
   let selectedDigestNarrative: PrivacySafeWatchtowerNarrative | null = null;
   let selectedDigestWatchtowerNarrativeDiff: MindDigestsWatchtowerNarrativeDiffView | null = null;
   let detailError: string | null = null;
@@ -400,6 +443,17 @@ export async function buildMindDigestsPageData(
           selectedDigestHandoffSendEvents = eventsResult.events;
           if (eventsResult.error && eventsResult.error !== "forbidden") {
             detailError = detailError ?? eventsResult.error;
+          }
+        }
+
+        if (selectedDigestHandoff && receiptsConfigured) {
+          const receiptResult = await getExternalMindHandoffReceiptForHandoff(
+            selectedDigestHandoff.id,
+            access
+          );
+          selectedDigestHandoffReceipt = receiptResult.receipt;
+          if (receiptResult.error && receiptResult.error !== "forbidden") {
+            detailError = detailError ?? receiptResult.error;
           }
         }
       }
@@ -441,12 +495,14 @@ export async function buildMindDigestsPageData(
     handoffsConfigured,
     narrativesConfigured,
     diffsConfigured,
+    receiptsConfigured,
     filters,
     digests: listResult.digests,
     selectedDigest,
     selectedDigestItems,
     selectedDigestHandoff,
     selectedDigestHandoffSendEvents,
+    selectedDigestHandoffReceipt,
     selectedHandoffDestination,
     selectedDigestNarrative,
     selectedDigestWatchtowerNarrativeDiff,
@@ -459,6 +515,7 @@ export async function buildMindDigestsPageData(
     generateFlash: parseMindDigestsGenerateFlash(params),
     handoffFlash: parseMindDigestsHandoffFlash(params),
     sendFlash: parseMindDigestsSendFlash(params),
+    receiptFlash: parseMindDigestsReceiptFlash(params),
     reviewFlash: parseMindDigestsReviewFlash(params),
     narrativeFlash: parseMindDigestsNarrativeFlash(params),
     statusOptions: EVIDENCE_MIND_DIGEST_STATUSES,
@@ -560,6 +617,33 @@ export async function processMindHandoffSendSubmission(
 
   return {
     redirectPath: `/mind-digests?${digestQuery}send_ok=1&send_result=${encodeURIComponent(result.sendResult.result)}`,
+    result,
+  };
+}
+
+export type MindHandoffReceiptVerificationSubmissionResult = {
+  redirectPath: string;
+  result: Awaited<ReturnType<typeof verifyExternalMindHandoffReceiptPhase41A>>;
+};
+
+export async function processMindHandoffReceiptVerificationSubmission(
+  access: ReviewQueueAccessContext,
+  handoffId: string,
+  digestId?: string,
+  handoffDestination?: ExternalMindHandoffDestination
+): Promise<MindHandoffReceiptVerificationSubmissionResult> {
+  const result = await verifyExternalMindHandoffReceiptPhase41A(handoffId, access);
+  const digestQuery = digestId ? `${buildMindDigestsDigestQuery(digestId, handoffDestination)}&` : "";
+
+  if (!result.ok) {
+    return {
+      redirectPath: `/mind-digests?${digestQuery}receipt_error=${encodeURIComponent(result.error)}&receipt_message=${encodeURIComponent(result.message)}`,
+      result,
+    };
+  }
+
+  return {
+    redirectPath: `/mind-digests?${digestQuery}receipt_ok=1&receipt_status=${encodeURIComponent(result.receipt.receipt_status)}&receipt_source=${encodeURIComponent(result.receipt.receipt_source)}`,
     result,
   };
 }

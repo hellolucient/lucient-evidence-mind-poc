@@ -2401,8 +2401,12 @@ Implementation should extend `lib/internal-review-access.ts` (or add `lib/operat
 
 **Phase 41 — Mind-critical loop (primary product milestone)**
 
-1. Retrieve or verify HelloMinds response after send (history API / conversation alias correlation).
-2. Surface Mind interpretation in operator workflow without exposing secrets.
+**Phase 41A (implemented):** operator-gated **HelloMinds receipt verification** inside `/mind-digests`, storing a durable receipt record derived from existing privacy-safe send audit metadata. This closes the first part of the loop (“delivery confirmed inside the operator workflow”) without claiming to retrieve any Mind response.
+
+**Phase 41B (future):** retrieve a real HelloMinds-side response/history record (if a safe read endpoint exists and is configured), store a privacy-safe excerpt/summary, and surface it in the operator workflow.
+
+1. Verify delivery/receipt status (41A: from send audit metadata; 41B+: from HelloMinds read/history).
+2. Surface Mind interpretation in operator workflow without exposing secrets (41B+ only).
 3. Track action status: did operator act on Mind output?
 
 Phases 42–44: operator dashboard, demo scenario package, pilot workspace hardening.

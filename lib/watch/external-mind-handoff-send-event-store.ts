@@ -80,6 +80,16 @@ export type ExternalMindHandoffSendEventListFilters = {
   digest_id?: string;
 };
 
+export type ExternalMindHandoffSendReceiptMetadata = {
+  provider?: string;
+  transport_mode?: string;
+  transport_kind?: string;
+  endpoint_host?: string;
+  http_status?: number;
+  conversation_id_suffix?: string;
+  message_id_suffix?: string;
+};
+
 export const SEND_EVENT_PRIVATE_FIELDS = [
   "id",
   "workspace_id",
@@ -317,4 +327,75 @@ export async function listExternalMindHandoffSendEventsForDigest(
   }
 
   return listExternalMindHandoffSendEvents(access, { digest_id: digestId });
+}
+
+function pickReceiptMetadata(
+  metadata: Record<string, unknown> | null | undefined
+): ExternalMindHandoffSendReceiptMetadata | null {
+  if (!metadata) {
+    return null;
+  }
+
+  const picked: ExternalMindHandoffSendReceiptMetadata = {};
+  const getString = (key: string): string | undefined =>
+    typeof metadata[key] === "string" ? (metadata[key] as string) : undefined;
+  const getNumber = (key: string): number | undefined =>
+    typeof metadata[key] === "number" ? (metadata[key] as number) : undefined;
+
+  picked.provider = getString("provider");
+  picked.transport_mode = getString("transport_mode");
+  picked.transport_kind = getString("transport_kind");
+  picked.endpoint_host = getString("endpoint_host");
+  picked.http_status = getNumber("http_status");
+  picked.conversation_id_suffix = getString("conversation_id_suffix");
+  picked.message_id_suffix = getString("message_id_suffix");
+
+  return Object.values(picked).some((value) => value !== undefined) ? picked : null;
+}
+
+export async function getLatestExternalMindHandoffSendReceiptMetadataForHandoff(
+  handoffId: string,
+  access: ReviewQueueAccessContext
+): Promise<{ metadata: ExternalMindHandoffSendReceiptMetadata | null; error?: string }> {
+  if (!handoffId.trim()) {
+    return { metadata: null, error: "required_fields_missing" };
+  }
+
+  if (!isExternalMindHandoffSendEventPersistenceConfigured()) {
+    return { metadata: null, error: "supabase_not_configured" };
+  }
+
+  try {
+    const client = createSupabaseServerClient();
+    const { data, error } = await client
+      .from(EXTERNAL_MIND_HANDOFF_SEND_EVENTS_TABLE)
+      .select("workspace_id, event_type, result, metadata, created_at")
+      .eq("handoff_id", handoffId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      return { metadata: null, error: normalizeStoreError(error) };
+    }
+
+    const rows = (data ?? []) as Pick<
+      ExternalMindHandoffSendEventRow,
+      "workspace_id" | "event_type" | "result" | "metadata" | "created_at"
+    >[];
+
+    const allowed = rows.filter((row) => canAccessReviewItemWorkspace(access, row.workspace_id));
+    const succeeded = allowed.find(
+      (row) => row.event_type === "send_succeeded" && row.result === "external_sent"
+    );
+    const candidate = succeeded ?? allowed[0];
+    const raw = candidate?.metadata ?? null;
+
+    if (raw && !isPrivacySafeExternalMindHandoffSendEventMetadata(raw)) {
+      return { metadata: null, error: "metadata_not_privacy_safe" };
+    }
+
+    return { metadata: pickReceiptMetadata(raw) };
+  } catch (err) {
+    return { metadata: null, error: normalizeStoreError(err) };
+  }
 }

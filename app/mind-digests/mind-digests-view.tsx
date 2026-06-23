@@ -12,6 +12,7 @@ const GENERATE_NARRATIVE_PATH = "/mind-digests/generate-narrative";
 const CREATE_HANDOFF_PATH = "/mind-digests/create-handoff";
 const SEND_HANDOFF_PATH = "/mind-handoffs/send";
 const REVIEW_HANDOFF_PATH = "/mind-handoffs/review";
+const VERIFY_RECEIPT_PATH = "/mind-handoffs/verify-receipt";
 
 const styles = {
   page: {
@@ -263,6 +264,16 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
 
       {pageData.sendFlash?.kind === "error" ? (
         <div style={styles.error}>{pageData.sendFlash.message}</div>
+      ) : null}
+
+      {pageData.receiptFlash?.kind === "success" ? (
+        <div style={styles.success}>
+          Receipt verified ({pageData.receiptFlash.status} · {pageData.receiptFlash.source}).
+        </div>
+      ) : null}
+
+      {pageData.receiptFlash?.kind === "error" ? (
+        <div style={styles.error}>{pageData.receiptFlash.message}</div>
       ) : null}
 
       {pageData.generateFlash?.kind === "success" ? (
@@ -571,6 +582,11 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
             the safe default. HelloMinds creates a production-format payload for validation — it
             does not send or approve automatically.
           </p>
+          <p style={styles.note}>
+            Evidence Mind produces the structured evidence digest; the external Mind layer provides
+            the persistent reasoning/memory/action context. Phase 41 verifies that the sent digest is
+            linked back into the operator workflow.
+          </p>
 
           {pageData.handoffsConfigured ? (
             <>
@@ -816,6 +832,110 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
                           : ""}
                       </div>
                     </>
+                  ) : null}
+
+                  {pageData.selectedDigestHandoff.destination === "hellominds" &&
+                  pageData.selectedDigestHandoff.status === "sent" ? (
+                    <div style={{ marginTop: "1rem" }}>
+                      <h4 style={{ fontSize: "0.875rem", marginTop: 0 }}>Mind receipt</h4>
+                      {pageData.receiptsConfigured ? (
+                        <>
+                          <div style={styles.detailLabel}>Receipt state</div>
+                          <div style={styles.detailValue}>
+                            {pageData.selectedDigestHandoffReceipt
+                              ? "Delivery receipt verified from send audit metadata."
+                              : "No receipt verification recorded yet."}
+                          </div>
+
+                          {pageData.selectedDigestHandoffReceipt ? (
+                            <>
+                              <div style={styles.detailLabel}>Provider</div>
+                              <div style={styles.detailValue}>
+                                {pageData.selectedDigestHandoffReceipt.provider}
+                              </div>
+
+                              <div style={styles.detailLabel}>Receipt source</div>
+                              <div style={styles.detailValue}>
+                                {pageData.selectedDigestHandoffReceipt.receipt_source ===
+                                "send_event_metadata"
+                                  ? "Derived from send audit metadata"
+                                  : "HelloMinds read API"}
+                              </div>
+
+                              <div style={styles.detailLabel}>Receipt status</div>
+                              <div style={styles.detailValue}>
+                                {pageData.selectedDigestHandoffReceipt.receipt_status}
+                              </div>
+
+                              <div style={styles.detailLabel}>HTTP status</div>
+                              <div style={styles.detailValue}>
+                                {pageData.selectedDigestHandoffReceipt.http_status ?? "—"}
+                              </div>
+
+                              <div style={styles.detailLabel}>Endpoint host</div>
+                              <div style={styles.detailValue}>
+                                {typeof pageData.selectedDigestHandoffReceipt.metadata?.endpoint_host ===
+                                "string"
+                                  ? pageData.selectedDigestHandoffReceipt.metadata.endpoint_host
+                                  : "—"}
+                              </div>
+
+                              <div style={styles.detailLabel}>Transport mode</div>
+                              <div style={styles.detailValue}>
+                                {typeof pageData.selectedDigestHandoffReceipt.metadata?.transport_mode ===
+                                "string"
+                                  ? pageData.selectedDigestHandoffReceipt.metadata.transport_mode
+                                  : "—"}
+                              </div>
+
+                              <div style={styles.detailLabel}>Conversation ID suffix</div>
+                              <div style={styles.detailValue}>
+                                {pageData.selectedDigestHandoffReceipt.conversation_id_suffix ?? "—"}
+                              </div>
+
+                              <div style={styles.detailLabel}>Message ID suffix</div>
+                              <div style={styles.detailValue}>
+                                {pageData.selectedDigestHandoffReceipt.message_id_suffix ?? "—"}
+                              </div>
+
+                              <div style={styles.detailLabel}>Verified at</div>
+                              <div style={styles.detailValue}>
+                                {pageData.selectedDigestHandoffReceipt.verified_at
+                                  ? formatTimestamp(pageData.selectedDigestHandoffReceipt.verified_at)
+                                  : "—"}
+                              </div>
+                            </>
+                          ) : null}
+
+                          <form action={VERIFY_RECEIPT_PATH} method="post" style={{ marginTop: "0.5rem" }}>
+                            <input
+                              type="hidden"
+                              name="handoff_id"
+                              value={pageData.selectedDigestHandoff.id}
+                            />
+                            {pageData.selectedDigest ? (
+                              <input
+                                type="hidden"
+                                name="digest_id"
+                                value={pageData.selectedDigest.id}
+                              />
+                            ) : null}
+                            <input type="hidden" name="handoff_destination" value="hellominds" />
+                            <button type="submit" style={styles.buttonSecondary}>
+                              Verify HelloMinds receipt
+                            </button>
+                            <p style={{ ...styles.note, marginTop: "0.35rem", marginBottom: 0 }}>
+                              Phase 41A records a delivery receipt derived from stored send audit metadata.
+                              It does not send another handoff and does not retrieve a Mind response.
+                            </p>
+                          </form>
+                        </>
+                      ) : (
+                        <p style={{ ...styles.note, marginTop: "0.5rem" }}>
+                          Receipt persistence is not configured.
+                        </p>
+                      )}
+                    </div>
                   ) : null}
 
                   <div style={styles.detailLabel}>Payload preview</div>
