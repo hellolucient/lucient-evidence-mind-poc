@@ -23,6 +23,7 @@ import {
   formatMindLoopMindResponseStatusLabel,
   formatMindLoopRiskPosture,
   formatMindLoopSendStatusLabel,
+  formatMindLoopShortId,
   formatMindLoopStageLabel,
   matchesMindLoopLoopStatusFilter,
   parseHelloMindsCostReportSummary,
@@ -30,15 +31,18 @@ import {
   resolveMindLoopStage,
   resolveMindLoopTaskCostStatus,
   computeMindLoopSummaryTiles,
+  buildMindLoopTimeline,
   type MindLoopLoopStatusFilter,
   type MindLoopStage,
   type MindLoopSummaryTiles,
   type MindLoopTaskCostStatus,
+  type MindLoopTimelineEntry,
   truncateMindLoopExcerpt,
 } from "@/lib/review/mind-loop-ui";
 import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 import {
   listEvidenceMindDigests,
+  getEvidenceMindDigestById,
   type EvidenceMindDigestListFilters,
   type PrivacySafeEvidenceMindDigest,
 } from "@/lib/watch/evidence-mind-digest-store";
@@ -49,6 +53,18 @@ import {
 } from "@/lib/watch/external-mind-handoff-store";
 
 export const MIND_LOOP_API_ROUTE = "/api/operator/mind-loop" as const;
+export const mindLoopDetailApiRoute = (digestId: string) =>
+  `/api/operator/mind-loop/${encodeURIComponent(digestId)}` as const;
+
+export type MindLoopDetailFilters = {
+  destination?: ExternalMindHandoffDestination;
+};
+
+export type MindLoopDetailItem = MindLoopListItem & {
+  digest_id_short: string;
+  handoff_id_short: string | null;
+  timeline: MindLoopTimelineEntry[];
+};
 
 export type MindLoopListFilters = EvidenceMindDigestListFilters & {
   destination?: ExternalMindHandoffDestination;
@@ -369,4 +385,110 @@ export function isPrivacySafeMindLoopListPayload(payload: Record<string, unknown
   }
 
   return true;
+}
+
+export function parseMindLoopDetailFilters(searchParams: URLSearchParams): MindLoopDetailFilters {
+  const destination = searchParams.get("destination");
+
+  return {
+    destination:
+      destination === "hellominds" ||
+      destination === "test_sink" ||
+      destination === "animoca_mind" ||
+      destination === "internal_export"
+        ? destination
+        : "hellominds",
+  };
+}
+
+function buildMindLoopDetailItem(input: {
+  digest: PrivacySafeEvidenceMindDigest;
+  handoff: PrivacySafeExternalMindHandoff | null;
+  receipt: {
+    receipt_status: string;
+    response_excerpt: string | null;
+    metadata: Record<string, unknown> | null;
+    updated_at: string;
+    verified_at: string | null;
+  } | null;
+}): MindLoopDetailItem {
+  const listItem = buildMindLoopListItem(input);
+
+  return {
+    ...listItem,
+    digest_id_short: formatMindLoopShortId(listItem.digest_id) ?? listItem.digest_id,
+    handoff_id_short: formatMindLoopShortId(listItem.handoff_id),
+    timeline: buildMindLoopTimeline({
+      digest_created_at: input.digest.created_at,
+      handoff: input.handoff
+        ? {
+            created_at: input.handoff.created_at,
+            approved_at: input.handoff.approved_at,
+            sent_at: input.handoff.sent_at,
+            review_status: input.handoff.review_status,
+            status: input.handoff.status,
+          }
+        : null,
+      receipt: input.receipt
+        ? {
+            receipt_status: input.receipt.receipt_status,
+            verified_at: input.receipt.verified_at,
+          }
+        : null,
+      delivery_status_label: listItem.delivery_status_label,
+      mind_response_status_label: listItem.mind_response_status_label,
+      task_cost_status: listItem.task_cost_status,
+      retrieval_timestamp: listItem.retrieval_timestamp,
+    }),
+  };
+}
+
+export async function buildMindLoopDetailApiResponse(
+  digestId: string,
+  filters: MindLoopDetailFilters,
+  access: ReviewQueueAccessContext
+) {
+  const destination = filters.destination ?? "hellominds";
+  const digestResult = await getEvidenceMindDigestById(digestId, access);
+
+  if (digestResult.error === "forbidden") {
+    return {
+      ok: false as const,
+      error: "digest_not_found",
+      status: 404,
+    };
+  }
+
+  if (!digestResult.digest) {
+    return {
+      ok: false as const,
+      error: digestResult.error ?? "digest_not_found",
+      status: 404,
+    };
+  }
+
+  const handoffResult = await listExternalMindHandoffs(access, {
+    digest_id: digestId,
+    destination,
+  });
+
+  const handoff = handoffResult.handoffs[0] ?? null;
+  const receiptResult = handoff
+    ? await getExternalMindHandoffReceiptForHandoff(handoff.id, access)
+    : { receipt: null };
+
+  const item = buildMindLoopDetailItem({
+    digest: digestResult.digest,
+    handoff,
+    receipt: receiptResult.receipt,
+  });
+
+  return {
+    ok: true as const,
+    phase: CURRENT_WATCH_PHASE,
+    route: mindLoopDetailApiRoute(digestId),
+    destination,
+    item,
+    detail_error: handoffResult.error ?? null,
+  };
 }

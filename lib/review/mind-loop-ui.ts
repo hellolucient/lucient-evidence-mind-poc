@@ -563,3 +563,173 @@ export function formatMindLoopTimestamp(value: string | null | undefined): strin
     minute: "2-digit",
   });
 }
+
+export function formatMindLoopShortId(value: string | null | undefined): string | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length <= 12) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, 8)}…${trimmed.slice(-4)}`;
+}
+
+export type MindLoopTimelineStage =
+  | "digest_created"
+  | "handoff_created"
+  | "approved"
+  | "sent"
+  | "delivery_verified"
+  | "mind_response_retrieved"
+  | "cost_report_parsed";
+
+export type MindLoopTimelineStatus = "complete" | "pending" | "unavailable";
+
+export type MindLoopTimelineEntry = {
+  stage: MindLoopTimelineStage;
+  label: string;
+  status: MindLoopTimelineStatus;
+  timestamp: string | null;
+  description: string;
+};
+
+export type MindLoopTimelineInput = {
+  digest_created_at: string;
+  handoff: {
+    created_at: string;
+    approved_at: string | null;
+    sent_at: string | null;
+    review_status: string | null;
+    status: string | null;
+  } | null;
+  receipt: {
+    receipt_status: string | null;
+    verified_at: string | null;
+  } | null;
+  delivery_status_label: string;
+  mind_response_status_label: string;
+  task_cost_status: MindLoopTaskCostStatus;
+  retrieval_timestamp: string | null;
+};
+
+export function buildMindLoopTimeline(input: MindLoopTimelineInput): MindLoopTimelineEntry[] {
+  const handoff = input.handoff;
+  const isApproved = handoff?.review_status === "approved";
+  const isSent = handoff?.status === "sent";
+  const deliveryVerified = input.delivery_status_label === "Verified";
+  const mindRetrieved = input.mind_response_status_label === "Retrieved";
+
+  const entries: MindLoopTimelineEntry[] = [
+    {
+      stage: "digest_created",
+      label: "Digest created",
+      status: "complete",
+      timestamp: input.digest_created_at,
+      description: "Evidence Mind digest record created.",
+    },
+    {
+      stage: "handoff_created",
+      label: "Handoff created",
+      status: handoff ? "complete" : "unavailable",
+      timestamp: handoff?.created_at ?? null,
+      description: handoff
+        ? "External Mind handoff record created for this digest."
+        : "No external Mind handoff created yet.",
+    },
+    {
+      stage: "approved",
+      label: "Approved",
+      status: !handoff
+        ? "unavailable"
+        : isApproved
+          ? "complete"
+          : handoff.review_status === "pending_review" ||
+              handoff.review_status === "changes_requested"
+            ? "pending"
+            : "unavailable",
+      timestamp: isApproved ? (handoff?.approved_at ?? null) : null,
+      description: !handoff
+        ? "Approval is not applicable without a handoff."
+        : isApproved
+          ? "Handoff approved for send."
+          : handoff.review_status === "pending_review" ||
+              handoff.review_status === "changes_requested"
+            ? "Handoff is awaiting operator approval."
+            : "Handoff was not approved.",
+    },
+    {
+      stage: "sent",
+      label: "Sent",
+      status: !handoff
+        ? "unavailable"
+        : isSent
+          ? "complete"
+          : isApproved
+            ? "pending"
+            : "unavailable",
+      timestamp: isSent ? (handoff.sent_at ?? null) : null,
+      description: !handoff
+        ? "Send is not applicable without a handoff."
+        : isSent
+          ? "Handoff was sent to the external Mind destination."
+          : isApproved
+            ? "Approved handoff has not been sent yet."
+            : "Handoff must be approved before send.",
+    },
+    {
+      stage: "delivery_verified",
+      label: "Delivery verified",
+      status: !isSent
+        ? "unavailable"
+        : deliveryVerified
+          ? "complete"
+          : "pending",
+      timestamp: deliveryVerified ? (input.receipt?.verified_at ?? null) : null,
+      description: !isSent
+        ? "Delivery verification requires a sent handoff."
+        : deliveryVerified
+          ? "Delivery receipt verified from durable records."
+          : "Handoff was sent but delivery is not verified yet.",
+    },
+    {
+      stage: "mind_response_retrieved",
+      label: "Mind response retrieved",
+      status: !deliveryVerified
+        ? "unavailable"
+        : mindRetrieved
+          ? "complete"
+          : "pending",
+      timestamp: mindRetrieved ? input.retrieval_timestamp : null,
+      description: !deliveryVerified
+        ? "Mind response retrieval requires verified delivery."
+        : mindRetrieved
+          ? "Latest Mind reply stored from durable records."
+          : "Delivery is verified but Mind response has not been retrieved.",
+    },
+    {
+      stage: "cost_report_parsed",
+      label: "Cost report parsed",
+      status: !mindRetrieved
+        ? "unavailable"
+        : input.task_cost_status === "available"
+          ? "complete"
+          : input.task_cost_status === "malformed"
+            ? "unavailable"
+            : "pending",
+      timestamp:
+        input.task_cost_status === "available" ? input.retrieval_timestamp : null,
+      description: !mindRetrieved
+        ? "Cost summary requires a retrieved Mind response."
+        : input.task_cost_status === "available"
+          ? "Task cost summary parsed safely from stored excerpt."
+          : input.task_cost_status === "malformed"
+            ? "A cost report excerpt was stored but could not be parsed safely."
+            : "Mind response is stored but no cost report summary is available.",
+    },
+  ];
+
+  return entries;
+}

@@ -11,6 +11,7 @@ import {
   type MindLoopSummaryTiles,
 } from "@/lib/review/mind-loop-ui";
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
+import Link from "next/link";
 
 import { ReviewQueueAuthPanel } from "../../review-items/review-queue-auth-panel";
 
@@ -349,9 +350,9 @@ function FilterBar({ pageData }: { pageData: MindLoopPageData }) {
           <button type="submit" style={styles.filterButton}>
             Apply filters
           </button>
-          <a href="/operator/mind-loop" style={styles.filterReset}>
+          <Link href="/operator/mind-loop" style={styles.filterReset}>
             Reset
-          </a>
+          </Link>
         </div>
       </form>
     </section>
@@ -359,6 +360,7 @@ function FilterBar({ pageData }: { pageData: MindLoopPageData }) {
 }
 
 function MindLoopTableRow({ item }: { item: MindLoopListItem }) {
+  const detailHref = `/operator/mind-loop/${encodeURIComponent(item.digest_id)}`;
   const digestHref = `/mind-digests?digest_id=${encodeURIComponent(item.digest_id)}`;
   const rowStyle = item.needs_attention ? styles.attentionRow : styles.completeRow;
   const taskCostLabel = formatMindLoopTaskCostDisplay({
@@ -371,10 +373,12 @@ function MindLoopTableRow({ item }: { item: MindLoopListItem }) {
   return (
     <tr style={rowStyle}>
       <td style={styles.td}>
-        <div style={styles.periodPrimary}>{item.digest_period_label}</div>
-        <a href={digestHref} style={styles.digestLink}>
-          Open digest →
-        </a>
+        <Link href={detailHref} style={{ ...styles.periodPrimary, textDecoration: "none", color: "#2563eb" }}>
+          {item.digest_period_label}
+        </Link>
+        <Link href={detailHref} style={styles.digestLink}>
+          View loop detail →
+        </Link>
         <div style={styles.stageHint}>{item.loop_stage_label}</div>
       </td>
       <td style={{ ...styles.td, ...styles.attentionCell }}>
@@ -498,7 +502,7 @@ export function MindLoopDashboard({ pageData, authStatus }: MindLoopDashboardPro
           {" · "}
           <a href="/mind-digests">Mind digests</a>
           {" · "}
-          <a href="/operator/mind-loop">Mind loop dashboard</a>
+          <Link href="/operator/mind-loop">Mind loop dashboard</Link>
           {" · "}
           <a href="/evidence-briefs">Evidence briefs</a>
         </nav>
