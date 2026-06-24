@@ -54,6 +54,7 @@ Apply migration manually in Supabase SQL Editor if not using CLI migrations.
 | `POST` | `/api/mind-extraction-jobs/[id]/approve` |
 | `POST` | `/api/mind-extraction-jobs/[id]/send` |
 | `POST` | `/api/mind-extraction-jobs/[id]/fetch-response` |
+| `POST` | `/api/mind-extraction-jobs/[id]/load-demo-fixture-response` |
 | `POST` | `/api/mind-extraction-jobs/[id]/parse` |
 | `GET` | `/api/mind-extraction-jobs/[id]` |
 
@@ -91,6 +92,22 @@ All routes require operator session or break-glass token (same auth model as rev
 | Safe storage | No raw secrets, bearer tokens, full provider payloads, or unsafe HTML stored |
 | Safe rendering | Mind text via `renderSafeMindTextBlock()` — plain text escape + HTML strip; no `dangerouslySetInnerHTML` |
 
+## Demo fixture response (Phase 45V)
+
+Dry-run sends (`EXTERNAL_MIND_LIVE_SEND=false`) record job state as `sent` but **do not** deliver to HelloMinds and **do not** create a real external Mind reply. Fetching history after dry-run send will not return extraction JSON.
+
+For grant-demo and local validation without live Mind, use the operator-triggered demo fixture path:
+
+| Item | Detail |
+|------|--------|
+| Route | `POST /api/mind-extraction-jobs/[id]/load-demo-fixture-response` |
+| UI | `/source-intake` → **Load demo Mind extraction fixture** |
+| When | Job status is `sent` or `response_fetched` (after approve + send dry-run) |
+| Behavior | Writes Magnesium Calm Ritual C1–C6 fixture JSON to `mind_response_text`; sets `response_fetched`; **no external Mind call** |
+| Parse | Use existing **Parse response** route — same parser, no fake parse path |
+
+**Live Mind validation** requires a controlled window with `EXTERNAL_MIND_LIVE_SEND=true` (and HelloMinds configured). Use live send only for intentional validation; turn live send off afterward. The UI does not expose live-send controls.
+
 ## Prompt contracts
 
 ### `mind_claim_extraction_json_v1`
@@ -121,6 +138,7 @@ Explicitly distinguishes ingredient, treatment, delivery-route, and branded ritu
 - [x] Risk brief parse creates exactly one structured brief (idempotent)
 - [x] Send blocked before approval
 - [x] Send dry-run when `EXTERNAL_MIND_LIVE_SEND=false`
+- [x] Demo fixture response loads C1–C6 without external Mind call
 - [x] No auto retry, batch send, or scheduled behavior
 
 Tests: `lib/watch/mind-claim-intelligence-phase45.test.ts`, `mind-claim-extraction-job-service.test.ts`, `mind-claim-risk-brief-job-service.test.ts`
@@ -134,7 +152,7 @@ Tests: `lib/watch/mind-claim-intelligence-phase45.test.ts`, `mind-claim-extracti
    > Magnesium Calm Ritual: A deeply relaxing treatment designed to calm the nervous system, support deep sleep, reduce stress hormones, and restore balance.
 
 4. **Save source document** → **Create Mind extraction job** → **Approve** → **Send** (dry-run with `EXTERNAL_MIND_LIVE_SEND=false`).
-5. After a live Mind reply exists: **Fetch Mind response** → **Parse response**.
+5. **Load demo Mind extraction fixture** (or, after a live Mind reply exists: **Fetch Mind response**) → **Parse response**.
 6. Review candidate claims C1–C6 in the table; **Accept** desired claims into `client_claims`.
 7. Open `/client-claims`; for an active claim use the **Mind Claim Risk Brief** panel.
 8. Run create → approve → send → fetch → parse workflow.

@@ -1,0 +1,121 @@
+import { MIND_CLAIM_EXTRACTION_CONTRACT_VERSION } from "@/lib/review/mind-claim-intelligence-constants";
+
+export const MIND_CLAIM_EXTRACTION_DEMO_FIXTURE_CONTRACT_VERSION =
+  MIND_CLAIM_EXTRACTION_CONTRACT_VERSION;
+
+export const MIND_CLAIM_EXTRACTION_HIGH_RECALL_DOCTRINE_NOTE =
+  "When a stronger physiological, structure/function, or disease-related claim reasonably implies a softer experiential, behavioral, or functional-wellness outcome, both claims are extracted separately.";
+
+/** Demo-only Magnesium Calm Ritual C1–C6 extraction response. Not a live Mind reply. */
+export const MIND_CLAIM_EXTRACTION_DEMO_FIXTURE = {
+  contract_version: MIND_CLAIM_EXTRACTION_DEMO_FIXTURE_CONTRACT_VERSION,
+  source_summary: "Spa magnesium ritual copy with relaxation and stress claims.",
+  claims: [
+    {
+      claim_id: "C1",
+      claim_text: "deeply relaxing treatment",
+      exact_source_phrase: "A deeply relaxing treatment",
+      subject: "Magnesium Calm Ritual treatment",
+      predicate: "is",
+      object_or_outcome: "deeply relaxing",
+      claim_family: "spa_relaxation",
+      claim_type: "experiential",
+      evidence_sensitivity: "low",
+      risk_level: "low",
+      regulatory_sensitivity: "low",
+      confidence: 0.9,
+      reason_for_extraction: "Explicit experiential treatment claim.",
+      suggested_review_status: "accept",
+    },
+    {
+      claim_id: "C2",
+      claim_text: "calm the nervous system",
+      exact_source_phrase: "calm the nervous system",
+      subject: "treatment",
+      predicate: "calms",
+      object_or_outcome: "nervous system",
+      claim_family: "nervous_system",
+      claim_type: "physiological",
+      evidence_sensitivity: "medium",
+      risk_level: "medium",
+      regulatory_sensitivity: "medium",
+      confidence: 0.85,
+      reason_for_extraction: "Physiological nervous system claim.",
+      suggested_review_status: "operator_review",
+    },
+    {
+      claim_id: "C3",
+      claim_text: "support deep sleep",
+      exact_source_phrase: "support deep sleep",
+      subject: "treatment",
+      predicate: "supports",
+      object_or_outcome: "deep sleep",
+      claim_family: "sleep",
+      claim_type: "structure_function",
+      evidence_sensitivity: "medium",
+      risk_level: "medium",
+      regulatory_sensitivity: "medium",
+      confidence: 0.82,
+      reason_for_extraction: "Sleep support structure/function claim.",
+      suggested_review_status: "operator_review",
+    },
+    {
+      claim_id: "C4",
+      claim_text: "reduce stress hormones",
+      exact_source_phrase: "reduce stress hormones",
+      subject: "treatment",
+      predicate: "reduces",
+      object_or_outcome: "stress hormones",
+      claim_family: "stress_hormones",
+      claim_type: "physiological",
+      evidence_sensitivity: "high",
+      risk_level: "high",
+      regulatory_sensitivity: "high",
+      confidence: 0.8,
+      reason_for_extraction: "Hormonal physiological claim.",
+      suggested_review_status: "edit",
+    },
+    {
+      claim_id: "C5",
+      claim_text: "restore balance",
+      exact_source_phrase: "restore balance",
+      subject: "treatment",
+      predicate: "restores",
+      object_or_outcome: "balance",
+      claim_family: "general_wellness",
+      claim_type: "general_wellness",
+      evidence_sensitivity: "low",
+      risk_level: "low",
+      regulatory_sensitivity: "low",
+      confidence: 0.75,
+      reason_for_extraction: "Soft balance/wellness claim.",
+      suggested_review_status: "accept",
+    },
+    {
+      claim_id: "C6",
+      claim_text: "reduces stress",
+      exact_source_phrase: "reduce stress hormones",
+      subject: "treatment",
+      predicate: "reduces",
+      object_or_outcome: "stress",
+      claim_family: "stress",
+      claim_type: "experiential",
+      evidence_sensitivity: "medium",
+      risk_level: "medium",
+      regulatory_sensitivity: "medium",
+      confidence: 0.78,
+      reason_for_extraction: "Implied softer experiential stress outcome from hormone wording.",
+      suggested_review_status: "operator_review",
+    },
+  ],
+  implied_claims_policy_applied: true,
+  notes: MIND_CLAIM_EXTRACTION_HIGH_RECALL_DOCTRINE_NOTE,
+  cost_report: {
+    reported_by_mind: false,
+    summary: "Demo fixture response (no external Mind call).",
+  },
+} as const;
+
+export function buildMindClaimExtractionDemoFixtureResponseText(): string {
+  return JSON.stringify(MIND_CLAIM_EXTRACTION_DEMO_FIXTURE);
+}

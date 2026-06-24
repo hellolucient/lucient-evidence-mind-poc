@@ -1,4 +1,5 @@
 import type { ReviewQueueAccessContext } from "@/lib/operator-auth";
+import { MIND_CLAIM_EXTRACTION_CONTRACT_VERSION } from "@/lib/review/mind-claim-intelligence-constants";
 import { sanitizeOperatorEmail } from "@/lib/review/review-queue-auth-status";
 import { mapReviewQueueAccessToAuditFields } from "@/lib/review/review-item-status-audit";
 import {
@@ -25,6 +26,7 @@ import {
 } from "@/lib/watch/external-mind-hellominds-message-format";
 import { recordMindClaimIntelligenceAuditEvent } from "@/lib/watch/mind-claim-intelligence-audit-store";
 import { sanitizeMindParseError } from "@/lib/watch/mind-json-parser";
+import { buildMindClaimExtractionDemoFixtureResponseText } from "@/lib/watch/mind-claim-extraction-demo-fixture";
 import { getSourceIntakeDocumentById } from "@/lib/watch/source-intake-store";
 
 export type MindClaimExtractionJobActionResult =
@@ -290,6 +292,71 @@ export async function fetchMindClaimExtractionJobResponse(
       metadata: {
         conversation_alias: conversationAlias,
         mind_reply_state: summary.mind_reply_state,
+      },
+    },
+    access
+  );
+
+  return { ok: true, job: update.job };
+}
+
+/** Demo-only fixture load. No HelloMinds or external transport calls. */
+export async function loadMindClaimExtractionDemoFixtureResponse(
+  jobId: string,
+  access: ReviewQueueAccessContext,
+  options?: { operatorEmail?: string | null }
+): Promise<MindClaimExtractionJobActionResult> {
+  const lookup = await getMindClaimExtractionJobById(jobId, access);
+  if (lookup.error === "forbidden") {
+    return { ok: false, error: "forbidden", message: "You do not have access to this workspace." };
+  }
+
+  if (!lookup.job) {
+    return {
+      ok: false,
+      error: lookup.error ?? "extraction_job_not_found",
+      message: "Mind extraction job not found.",
+    };
+  }
+
+  if (lookup.job.status !== "sent" && lookup.job.status !== "response_fetched") {
+    return {
+      ok: false,
+      error: "invalid_job_state",
+      message: "Demo fixture response can only be loaded for sent extraction jobs.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const actor = buildActor(access, options?.operatorEmail);
+  const fixtureText = buildMindClaimExtractionDemoFixtureResponseText();
+
+  const update = await updateMindClaimExtractionJob(jobId, access, {
+    status: "response_fetched",
+    response_fetched_at: now,
+    mind_response_text: fixtureText,
+    cost_report: {
+      reported_by_mind: false,
+      summary: "Demo fixture response (no external Mind call).",
+    },
+  });
+
+  if (!update.ok) {
+    return { ok: false, error: update.error, message: "Unable to store demo fixture response." };
+  }
+
+  await auditExtractionEvent(
+    {
+      workspace_id: lookup.job.workspace_id,
+      job_id: jobId,
+      event_type: "demo_fixture_response_loaded",
+      event_summary:
+        "Demo fixture Mind extraction response loaded. No external Mind call was performed.",
+      actor,
+      metadata: {
+        response_source: "demo_fixture",
+        external_call_performed: false,
+        fixture_contract_version: MIND_CLAIM_EXTRACTION_CONTRACT_VERSION,
       },
     },
     access

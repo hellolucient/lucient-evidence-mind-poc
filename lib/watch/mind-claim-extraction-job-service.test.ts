@@ -8,6 +8,7 @@ const mockCountCandidates = vi.fn();
 const mockInsertCandidates = vi.fn();
 const mockSend = vi.fn();
 const mockAudit = vi.fn();
+const mockFetchHistory = vi.fn();
 
 vi.mock("@/lib/watch/mind-claim-extraction-job-store", () => ({
   getMindClaimExtractionJobById: (...args: unknown[]) => mockGetJob(...args),
@@ -19,6 +20,11 @@ vi.mock("@/lib/watch/mind-claim-extraction-job-store", () => ({
 vi.mock("@/lib/watch/mind-claim-hellominds-transport", () => ({
   sendMindClaimHelloMindsMessage: (...args: unknown[]) => mockSend(...args),
   buildMindClaimHelloMindsConversationAlias: () => "lucient-em-mce-job-1",
+}));
+
+vi.mock("@/lib/watch/external-mind-hellominds-history", () => ({
+  fetchHelloMindsConversationHistory: (...args: unknown[]) => mockFetchHistory(...args),
+  summarizeHelloMindsHistoryMessages: vi.fn(),
 }));
 
 vi.mock("@/lib/watch/source-intake-store", () => ({
@@ -41,9 +47,11 @@ vi.mock("@/lib/watch/mind-claim-intelligence-audit-store", () => ({
 }));
 
 import {
+  loadMindClaimExtractionDemoFixtureResponse,
   parseMindClaimExtractionJobResponse,
   sendMindClaimExtractionJob,
 } from "@/lib/watch/mind-claim-extraction-job-service";
+import { buildMindClaimExtractionDemoFixtureResponseText } from "@/lib/watch/mind-claim-extraction-demo-fixture";
 
 const access: ReviewQueueAccessContext = {
   authorized: true,
@@ -230,5 +238,165 @@ describe("no batch send or scheduled behavior", () => {
     await sendMindClaimExtractionJob("job-1", access);
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockSend.mock.calls[0]?.[0]).toMatchObject({ jobId: "job-1" });
+  });
+});
+
+describe("demo fixture response load", () => {
+  const fixtureText = buildMindClaimExtractionDemoFixtureResponseText();
+
+  it("does not call external transport", async () => {
+    mockGetJob.mockResolvedValue({
+      job: { ...approvedJob, status: "sent", sent_at: "2026-06-24T00:00:00.000Z" },
+    });
+    mockUpdateJob.mockResolvedValue({
+      ok: true,
+      job: {
+        ...approvedJob,
+        status: "response_fetched",
+        mind_response_text: fixtureText,
+        response_fetched_at: "2026-06-24T00:00:00.000Z",
+      },
+    });
+
+    const result = await loadMindClaimExtractionDemoFixtureResponse("job-1", access);
+    expect(result.ok).toBe(true);
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockFetchHistory).not.toHaveBeenCalled();
+  });
+
+  it("sets status=response_fetched and writes fixture text", async () => {
+    mockGetJob.mockResolvedValue({
+      job: { ...approvedJob, status: "sent", sent_at: "2026-06-24T00:00:00.000Z" },
+    });
+    mockUpdateJob.mockResolvedValue({
+      ok: true,
+      job: {
+        ...approvedJob,
+        status: "response_fetched",
+        mind_response_text: fixtureText,
+        response_fetched_at: "2026-06-24T00:00:00.000Z",
+      },
+    });
+
+    await loadMindClaimExtractionDemoFixtureResponse("job-1", access);
+
+    expect(mockUpdateJob).toHaveBeenCalledWith(
+      "job-1",
+      access,
+      expect.objectContaining({
+        status: "response_fetched",
+        mind_response_text: fixtureText,
+        response_fetched_at: expect.any(String),
+      })
+    );
+  });
+
+  it("writes demo_fixture_response_loaded audit event", async () => {
+    mockGetJob.mockResolvedValue({
+      job: { ...approvedJob, status: "sent", sent_at: "2026-06-24T00:00:00.000Z" },
+    });
+    mockUpdateJob.mockResolvedValue({
+      ok: true,
+      job: { ...approvedJob, status: "response_fetched", mind_response_text: fixtureText },
+    });
+
+    await loadMindClaimExtractionDemoFixtureResponse("job-1", access);
+
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: "demo_fixture_response_loaded",
+        event_summary:
+          "Demo fixture Mind extraction response loaded. No external Mind call was performed.",
+        metadata: {
+          response_source: "demo_fixture",
+          external_call_performed: false,
+          fixture_contract_version: "mind_claim_extraction_json_v1",
+        },
+      }),
+      access
+    );
+  });
+
+  it("rejects invalid job state", async () => {
+    mockGetJob.mockResolvedValue({ job: { ...approvedJob, status: "approved" } });
+
+    const result = await loadMindClaimExtractionDemoFixtureResponse("job-1", access);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("invalid_job_state");
+    }
+    expect(mockUpdateJob).not.toHaveBeenCalled();
+  });
+
+  it("parsing fixture creates exactly six candidate claims", async () => {
+    mockGetJob.mockResolvedValue({
+      job: {
+        ...approvedJob,
+        status: "response_fetched",
+        mind_response_text: fixtureText,
+      },
+    });
+    mockCountCandidates.mockResolvedValue(0);
+    mockInsertCandidates.mockResolvedValue({ ok: true, count: 6 });
+    mockUpdateJob.mockResolvedValue({
+      ok: true,
+      job: { ...approvedJob, status: "parsed", parsed_at: "2026-06-24T00:00:00.000Z" },
+    });
+
+    const result = await parseMindClaimExtractionJobResponse("job-1", access);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.candidate_claim_count).toBe(6);
+      expect(result.idempotent).toBe(false);
+    }
+    expect(mockInsertCandidates).toHaveBeenCalledTimes(1);
+    const insertedClaims = mockInsertCandidates.mock.calls[0]?.[0]?.claims as Array<{
+      external_claim_id: string;
+    }>;
+    expect(insertedClaims).toHaveLength(6);
+    expect(insertedClaims.map((claim) => claim.external_claim_id)).toEqual([
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6",
+    ]);
+  });
+
+  it("repeated parse of fixture remains idempotent", async () => {
+    mockGetJob.mockResolvedValue({
+      job: {
+        ...approvedJob,
+        status: "response_fetched",
+        mind_response_text: fixtureText,
+      },
+    });
+    mockCountCandidates.mockResolvedValue(0);
+    mockInsertCandidates.mockResolvedValue({ ok: true, count: 6 });
+    mockUpdateJob.mockResolvedValue({
+      ok: true,
+      job: { ...approvedJob, status: "parsed", parsed_at: "2026-06-24T00:00:00.000Z" },
+    });
+
+    await parseMindClaimExtractionJobResponse("job-1", access);
+
+    mockGetJob.mockResolvedValue({
+      job: {
+        ...approvedJob,
+        status: "parsed",
+        mind_response_text: fixtureText,
+        parsed_at: "2026-06-24T00:00:00.000Z",
+      },
+    });
+    mockCountCandidates.mockResolvedValue(6);
+
+    const second = await parseMindClaimExtractionJobResponse("job-1", access);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.idempotent).toBe(true);
+      expect(second.candidate_claim_count).toBe(6);
+    }
+    expect(mockInsertCandidates).toHaveBeenCalledTimes(1);
   });
 });

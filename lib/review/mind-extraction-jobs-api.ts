@@ -11,6 +11,7 @@ import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 import {
   approveMindClaimExtractionJob,
   fetchMindClaimExtractionJobResponse,
+  loadMindClaimExtractionDemoFixtureResponse,
   parseMindClaimExtractionJobResponse,
   sendMindClaimExtractionJob,
 } from "@/lib/watch/mind-claim-extraction-job-service";
@@ -183,6 +184,18 @@ export async function buildFetchMindExtractionJobResponseApiResponse(
 ) {
   return mapJobActionResult(
     await fetchMindClaimExtractionJobResponse(jobId, access, { operatorEmail: body.operator_email })
+  );
+}
+
+export async function buildLoadMindExtractionDemoFixtureResponseApiResponse(
+  jobId: string,
+  body: { operator_email?: string | null },
+  access: ReviewQueueAccessContext
+) {
+  return mapJobActionResult(
+    await loadMindClaimExtractionDemoFixtureResponse(jobId, access, {
+      operatorEmail: body.operator_email,
+    })
   );
 }
 

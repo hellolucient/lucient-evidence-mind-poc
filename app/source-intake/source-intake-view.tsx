@@ -231,7 +231,7 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
   }
 
   async function runJobAction(
-    action: "create" | "approve" | "send" | "fetch" | "parse",
+    action: "create" | "approve" | "send" | "fetch" | "load-demo-fixture" | "parse",
     jobId?: string
   ) {
     setBusy(true);
@@ -267,6 +267,7 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         approve: `/api/mind-extraction-jobs/${id}/approve`,
         send: `/api/mind-extraction-jobs/${id}/send`,
         fetch: `/api/mind-extraction-jobs/${id}/fetch-response`,
+        "load-demo-fixture": `/api/mind-extraction-jobs/${id}/load-demo-fixture-response`,
         parse: `/api/mind-extraction-jobs/${id}/parse`,
       };
 
@@ -290,7 +291,9 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
       setStatusMessage(
         action === "send"
           ? "Send completed (dry-run when EXTERNAL_MIND_LIVE_SEND=false)."
-          : `Extraction job ${action} completed.`
+          : action === "load-demo-fixture"
+            ? "Demo fixture response loaded. This is not a live Mind response."
+            : `Extraction job ${action} completed.`
       );
     } catch {
       setErrorMessage("Mind extraction workflow request failed.");
@@ -442,6 +445,17 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         >
           Fetch Mind response
         </button>
+        <button
+          type="button"
+          style={{ ...styles.buttonSecondary, ...(busy ? styles.buttonDisabled : {}) }}
+          disabled={busy || !extractionJob || !["sent", "response_fetched"].includes(extractionJob.status)}
+          onClick={() => runJobAction("load-demo-fixture")}
+        >
+          Load demo Mind extraction fixture
+        </button>
+        <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
+          This loads a demo fixture response. It is not a live Mind response.
+        </p>
         <button
           type="button"
           style={{ ...styles.buttonSecondary, ...(busy ? styles.buttonDisabled : {}) }}
