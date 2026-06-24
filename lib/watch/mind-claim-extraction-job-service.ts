@@ -239,7 +239,11 @@ export async function fetchMindClaimExtractionJobResponse(
     };
   }
 
-  if (lookup.job.status !== "sent" && lookup.job.status !== "response_fetched") {
+  if (
+    lookup.job.status !== "sent" &&
+    lookup.job.status !== "waiting_for_reply" &&
+    lookup.job.status !== "response_fetched"
+  ) {
     return {
       ok: false,
       error: "invalid_job_state",
@@ -263,13 +267,42 @@ export async function fetchMindClaimExtractionJobResponse(
     ? convertHelloMindsMessageTextToPlainText(latestMindReplyText)
     : null;
   const split = plainText ? splitHelloMindsMindReplyPlainText(plainText) : null;
-  const now = new Date().toISOString();
   const actor = buildActor(access, options?.operatorEmail);
+
+  const usableReplyBody = (split?.main_reply_plain ?? plainText)?.trim() || null;
+  const now = new Date().toISOString();
+
+  if (!usableReplyBody) {
+    const update = await updateMindClaimExtractionJob(jobId, access, {
+      status: lookup.job.status === "response_fetched" ? lookup.job.status : "waiting_for_reply",
+    });
+
+    if (!update.ok) {
+      return { ok: false, error: update.error, message: "Unable to record fetch check." };
+    }
+
+    await auditExtractionEvent(
+      {
+        workspace_id: lookup.job.workspace_id,
+        job_id: jobId,
+        event_type: "no_reply_yet",
+        event_summary: "HelloMinds history fetched; no Mind reply yet.",
+        actor,
+        metadata: {
+          conversation_alias: conversationAlias,
+          mind_reply_state: summary.mind_reply_state,
+        },
+      },
+      access
+    );
+
+    return { ok: true, job: update.job };
+  }
 
   const update = await updateMindClaimExtractionJob(jobId, access, {
     status: "response_fetched",
     response_fetched_at: now,
-    mind_response_text: split?.main_reply_plain ?? plainText,
+    mind_response_text: usableReplyBody,
     cost_report: split?.cost_report_plain
       ? { reported_by_mind: true, summary: split.cost_report_plain }
       : null,
@@ -284,10 +317,7 @@ export async function fetchMindClaimExtractionJobResponse(
       workspace_id: lookup.job.workspace_id,
       job_id: jobId,
       event_type: "response_fetched",
-      event_summary:
-        summary.mind_reply_state === "mind_reply_found"
-          ? "Mind response fetched from HelloMinds history."
-          : "HelloMinds history fetched; no Mind reply yet.",
+      event_summary: "Mind response fetched from HelloMinds history.",
       actor,
       metadata: {
         conversation_alias: conversationAlias,
@@ -319,11 +349,24 @@ export async function loadMindClaimExtractionDemoFixtureResponse(
     };
   }
 
-  if (lookup.job.status !== "sent" && lookup.job.status !== "response_fetched") {
+  if (
+    lookup.job.status !== "sent" &&
+    lookup.job.status !== "waiting_for_reply" &&
+    lookup.job.status !== "response_fetched"
+  ) {
     return {
       ok: false,
       error: "invalid_job_state",
       message: "Non-live fixture response can only be loaded for sent extraction jobs.",
+    };
+  }
+
+  if (lookup.job.external_thread_id || lookup.job.external_message_id) {
+    return {
+      ok: false,
+      error: "fixture_blocked_live_external_ids",
+      message:
+        "This job already has live external identifiers. Loading a fixture would overwrite the stored response for this job. Create a separate dry-run job for fixture testing.",
     };
   }
 
@@ -400,7 +443,7 @@ export async function parseMindClaimExtractionJobResponse(
     return {
       ok: false,
       error: "mind_response_missing",
-      message: "Fetch Mind response before parsing.",
+      message: "No Mind response text is available to parse.",
     };
   }
 

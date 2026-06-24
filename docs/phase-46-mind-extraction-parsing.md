@@ -137,3 +137,53 @@ Risk brief jobs remain re-parsable when `mind_response_text` exists. Operators d
 - External transport unchanged
 - No live-send behavior changes
 
+---
+
+# Phase 46C — Live Workflow Hardening
+
+**Status:** Implemented (POC)  
+**Scope:** Operator UX/state clarity for Mind extraction + risk brief live/dry-run workflows (no intelligence behavior changes)
+
+## Production validation outcome
+
+Live validation confirmed:
+
+- Live Mind claim extraction send/fetch/parse/store succeeded after Phase 46A parser hardening.
+- Live Mind risk brief send/fetch/parse/store/render succeeded after Phase 46B parser hardening.
+- `EXTERNAL_MIND_LIVE_SEND=false` remains the default safe mode; live send remains operator-gated.
+
+## Phase 46C changes
+
+### No-reply fetch handling
+
+When fetching HelloMinds history:
+
+- If a usable Mind reply body is found → job transitions to `response_fetched` and stores `mind_response_text`.
+- If no usable reply body is found → job remains `sent`-like and transitions to `waiting_for_reply`, with an audit event `no_reply_yet`.
+
+This prevents misleading `response_fetched` UI states when no external reply exists yet.
+
+### Parse is blocked unless response text exists
+
+Parse is disabled in the UI and enforced server-side unless `mind_response_text` exists.
+
+Server error message is explicit:
+
+```text
+No Mind response text is available to parse.
+```
+
+### Fixture safety during live validation
+
+Fixture buttons remain available and clearly labeled as non-live. If a job has live external identifiers (`external_thread_id` / `external_message_id`), fixture loading is blocked to avoid overwriting a live response. Operators should create a separate dry-run job for fixture testing.
+
+### Display text entity decoding (safe)
+
+Harmless HTML entities are decoded for display (for example apostrophes), without rendering HTML or using `dangerouslySetInnerHTML`. Potentially dangerous markup remains escaped for safe rendering.
+
+## Unchanged safety constraints
+
+- `EXTERNAL_MIND_LIVE_SEND=false` default preserved; live send remains operator-gated
+- No background auto-send, polling, cron, batch send, or scheduled sending added
+- No RLS weakening and no secrets stored
+

@@ -5,10 +5,6 @@ import {
   getSupabaseEnvConfig,
 } from "@/engine/watchlist/supabase-client";
 import { canAccessReviewItemWorkspace, type ReviewQueueAccessContext } from "@/lib/operator-auth";
-import {
-  isSupportedCandidateClaimReviewStatus,
-  type CandidateClaimReviewStatus,
-} from "@/lib/review/mind-claim-intelligence-constants";
 import { sanitizeWatchRunErrorMessage } from "@/lib/watch/watch-run-logger";
 import type { ParsedMindClaimExtractionCandidate } from "@/lib/watch/mind-claim-extraction-contract";
 
@@ -196,6 +192,43 @@ export async function getMindClaimExtractionJobById(
 
     if (!data) {
       return { job: null, error: "extraction_job_not_found" };
+    }
+
+    const row = data as MindClaimExtractionJobRow;
+    if (!canAccessReviewItemWorkspace(access, row.workspace_id)) {
+      return { job: null, error: "forbidden" };
+    }
+
+    return { job: toPrivacySafeMindClaimExtractionJob(row) };
+  } catch (error) {
+    return { job: null, error: normalizeStoreError(error) };
+  }
+}
+
+export async function getLatestMindClaimExtractionJobBySourceDocumentId(
+  sourceDocumentId: string,
+  access: ReviewQueueAccessContext
+): Promise<{ job: PrivacySafeMindClaimExtractionJob | null; error?: string }> {
+  if (!isMindClaimExtractionPersistenceConfigured()) {
+    return { job: null, error: "supabase_not_configured" };
+  }
+
+  try {
+    const client = createSupabaseServerClient();
+    const { data, error } = await client
+      .from(MIND_CLAIM_EXTRACTION_JOBS_TABLE)
+      .select("*")
+      .eq("source_document_id", sourceDocumentId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return { job: null, error: normalizeStoreError(error) };
+    }
+
+    if (!data) {
+      return { job: null };
     }
 
     const row = data as MindClaimExtractionJobRow;

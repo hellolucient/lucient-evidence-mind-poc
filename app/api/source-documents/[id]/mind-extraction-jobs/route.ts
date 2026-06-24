@@ -5,10 +5,34 @@ import {
   isReviewQueueAccessContext,
 } from "@/lib/operator-auth";
 import { buildCreateMindExtractionJobApiResponse } from "@/lib/review/mind-extraction-jobs-api";
+import { getLatestMindClaimExtractionJobBySourceDocumentId } from "@/lib/watch/mind-claim-extraction-job-store";
 
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
+  const route = `/api/source-documents/${id}/mind-extraction-jobs`;
+
+  const auth = await authorizeReviewQueueApiRequest(
+    { authorization: request.headers.get("authorization") },
+    route
+  );
+
+  if (!isReviewQueueAccessContext(auth)) {
+    return NextResponse.json(auth.body ?? { ok: false, error: "unauthorized" }, {
+      status: auth.status,
+    });
+  }
+
+  const lookup = await getLatestMindClaimExtractionJobBySourceDocumentId(id, auth);
+  if (lookup.error === "forbidden") {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+
+  return NextResponse.json({ ok: true, job: lookup.job }, { status: 200 });
+}
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;

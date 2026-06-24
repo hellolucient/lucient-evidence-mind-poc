@@ -84,10 +84,49 @@ async function postJson(url: string, body: Record<string, unknown> = {}) {
 export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: MindRiskBriefPanelProps) {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
+  const [hasResponseText, setHasResponseText] = useState(false);
+  const [lastFetchNoReply, setLastFetchNoReply] = useState(false);
   const [briefs, setBriefs] = useState<RiskBrief[]>([]);
   const [auditEvents, setAuditEvents] = useState<Array<{ event_type: string; event_summary: string; created_at: string }>>([]);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+
+  function isPending(key: string) {
+    return pending[key] === true;
+  }
+
+  async function runPending(key: string, fn: () => Promise<void>) {
+    if (pending[key]) {
+      return;
+    }
+    setPending((prev) => ({ ...prev, [key]: true }));
+    try {
+      await fn();
+    } finally {
+      setPending((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  function humanJobStatus(status: string | null | undefined): string {
+    switch (status) {
+      case "pending_approval":
+        return "Pending approval";
+      case "approved":
+        return "Approved";
+      case "sent":
+        return "Sent — waiting for Mind reply";
+      case "waiting_for_reply":
+        return "Waiting for Mind reply";
+      case "response_fetched":
+        return "Response fetched — ready to parse";
+      case "parse_failed":
+        return "Parse failed";
+      case "parsed":
+        return "Parsed";
+      default:
+        return status ?? "—";
+    }
+  }
 
   async function refreshBriefs() {
     const response = await fetch(`/api/client-claims/${encodeURIComponent(claimUuid)}/mind-risk-briefs`, {
@@ -107,57 +146,63 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
   async function runAction(
     action: "create" | "approve" | "send" | "fetch" | "load-demo-fixture" | "parse"
   ) {
-    setBusy(true);
     setError(null);
+    setLastFetchNoReply(false);
 
-    try {
-      if (action === "create") {
-        const { response, data } = await postJson(
-          `/api/client-claims/${encodeURIComponent(claimUuid)}/mind-risk-brief-jobs`,
-          { created_by: operatorEmail ?? undefined }
-        );
-        if (!response.ok || !data.ok) {
-          setError(String(data.error ?? "Failed to create risk brief job."));
+    await runPending(`job_${action}`, async () => {
+      try {
+        if (action === "create") {
+          const { response, data } = await postJson(
+            `/api/client-claims/${encodeURIComponent(claimUuid)}/mind-risk-brief-jobs`,
+            { created_by: operatorEmail ?? undefined }
+          );
+          if (!response.ok || !data.ok) {
+            setError(String(data.error ?? "Failed to create risk brief job."));
+            return;
+          }
+          const job = data.job as { risk_brief_job_id: string; status: string; mind_response_text?: string | null };
+          setJobId(job.risk_brief_job_id);
+          setJobStatus(job.status);
+          setHasResponseText(Boolean(job.mind_response_text?.trim()));
           return;
         }
-        const job = data.job as { risk_brief_job_id: string; status: string };
-        setJobId(job.risk_brief_job_id);
-        setJobStatus(job.status);
-        return;
-      }
 
-      if (!jobId) {
-        setError("Create a risk brief job first.");
-        return;
-      }
+        if (!jobId) {
+          setError("Create a risk brief job first.");
+          return;
+        }
 
-      const actionRoutes: Record<typeof action, string> = {
-        approve: "approve",
-        send: "send",
-        fetch: "fetch-response",
-        "load-demo-fixture": "load-demo-fixture-response",
-        parse: "parse",
-      };
-      const route = `/api/mind-risk-brief-jobs/${encodeURIComponent(jobId)}/${actionRoutes[action]}`;
-      const { response, data } = await postJson(route, { operator_email: operatorEmail ?? undefined });
-      if (!response.ok || !data.ok) {
-        setError(String(data.message ?? data.error ?? `${action} failed.`));
-        return;
-      }
+        const actionRoutes: Record<typeof action, string> = {
+          approve: "approve",
+          send: "send",
+          fetch: "fetch-response",
+          "load-demo-fixture": "load-demo-fixture-response",
+          parse: "parse",
+        };
+        const route = `/api/mind-risk-brief-jobs/${encodeURIComponent(jobId)}/${actionRoutes[action]}`;
+        const { response, data } = await postJson(route, { operator_email: operatorEmail ?? undefined });
+        if (!response.ok || !data.ok) {
+          setError(String(data.message ?? data.error ?? `${action} failed.`));
+          return;
+        }
 
-      if (data.job) {
-        const job = data.job as { status: string };
-        setJobStatus(job.status);
-      }
+        if (data.job) {
+          const job = data.job as { status: string; mind_response_text?: string | null };
+          setJobStatus(job.status);
+          setHasResponseText(Boolean(job.mind_response_text?.trim()));
+          if (action === "fetch") {
+            const noReply = job.status === "waiting_for_reply" && !job.mind_response_text?.trim();
+            setLastFetchNoReply(noReply);
+          }
+        }
 
-      if (action === "parse") {
-        await refreshBriefs();
+        if (action === "parse") {
+          await refreshBriefs();
+        }
+      } catch {
+        setError("Risk brief workflow request failed.");
       }
-    } catch {
-      setError("Risk brief workflow request failed.");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   const latestBrief = briefs[0] ?? null;
@@ -170,39 +215,73 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         Operator-gated HelloMinds workflow. EXTERNAL_MIND_LIVE_SEND=false remains dry-run default.
       </div>
 
-      <button type="button" style={styles.button} disabled={busy} onClick={() => runAction("create")}>
-        Create risk brief job
-      </button>
-      <button type="button" style={styles.buttonSecondary} disabled={busy || !jobId} onClick={() => runAction("approve")}>
-        Approve
-      </button>
-      <button type="button" style={styles.buttonSecondary} disabled={busy || !jobId} onClick={() => runAction("send")}>
-        Send
-      </button>
-      <button type="button" style={styles.buttonSecondary} disabled={busy || !jobId} onClick={() => runAction("fetch")}>
-        Fetch response
+      <button type="button" style={styles.button} disabled={isPending("job_create")} onClick={() => runAction("create")}>
+        {isPending("job_create") ? "Creating…" : "Create risk brief job"}
       </button>
       <button
         type="button"
         style={styles.buttonSecondary}
-        disabled={busy || !jobId || !["sent", "response_fetched"].includes(jobStatus ?? "")}
+        disabled={isPending("job_approve") || !jobId}
+        onClick={() => runAction("approve")}
+      >
+        {isPending("job_approve") ? "Approving…" : "Approve"}
+      </button>
+      <button
+        type="button"
+        style={styles.buttonSecondary}
+        disabled={isPending("job_send") || !jobId}
+        onClick={() => runAction("send")}
+      >
+        {isPending("job_send") ? "Sending…" : "Send (dry-run safe)"}
+      </button>
+      <button
+        type="button"
+        style={styles.buttonSecondary}
+        disabled={isPending("job_fetch") || !jobId}
+        onClick={() => runAction("fetch")}
+      >
+        {isPending("job_fetch") ? "Fetching…" : "Fetch response"}
+      </button>
+      <button
+        type="button"
+        style={styles.buttonSecondary}
+        disabled={
+          isPending("job_load-demo-fixture") ||
+          !jobId ||
+          !["sent", "waiting_for_reply", "response_fetched"].includes(jobStatus ?? "")
+        }
         onClick={() => runAction("load-demo-fixture")}
       >
-          Load non-live Mind risk brief fixture
-        </button>
+        {isPending("job_load-demo-fixture") ? "Loading…" : "Load non-live risk brief fixture"}
+      </button>
       <p style={{ margin: "0.35rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
         This loads a non-live fixture response for operator validation. It is not a live Mind response.
       </p>
-      <button type="button" style={styles.buttonSecondary} disabled={busy || !jobId} onClick={() => runAction("parse")}>
-        Parse
+      <button
+        type="button"
+        style={styles.buttonSecondary}
+        disabled={isPending("job_parse") || !jobId || !hasResponseText}
+        onClick={() => runAction("parse")}
+      >
+        {isPending("job_parse") ? "Parsing…" : "Parse"}
       </button>
-      <button type="button" style={styles.buttonSecondary} disabled={busy} onClick={() => refreshBriefs()}>
-        Refresh briefs
+      {!hasResponseText ? (
+        <div style={styles.meta}>
+          {lastFetchNoReply ? "No Mind reply yet. Try fetching again shortly." : "Fetch a Mind response before parsing."}
+        </div>
+      ) : null}
+      <button type="button" style={styles.buttonSecondary} disabled={isPending("refresh_briefs")} onClick={() => runPending("refresh_briefs", refreshBriefs)}>
+        {isPending("refresh_briefs") ? "Refreshing…" : "Refresh briefs"}
       </button>
 
       {jobId ? (
         <div style={styles.meta}>
-          Job: <code>{jobId}</code> · status: {jobStatus ?? "—"}
+          <div>
+            <strong>{humanJobStatus(jobStatus)}</strong>
+          </div>
+          <div>
+            Job: <code>{jobId}</code> · status: {jobStatus ?? "—"}
+          </div>
         </div>
       ) : null}
 

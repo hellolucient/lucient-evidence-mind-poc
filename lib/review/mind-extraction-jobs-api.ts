@@ -133,6 +133,8 @@ async function mapJobActionResult(
         ? 403
         : result.error === "approval_required"
           ? 409
+          : result.error === "fixture_blocked_live_external_ids"
+            ? 409
           : 400;
     return {
       status,

@@ -5,11 +5,43 @@ const HTML_ESCAPE_MAP: Record<string, string> = {
   "<": "&lt;",
   ">": "&gt;",
   '"': "&quot;",
-  "'": "&#39;",
 };
 
 export function escapeMindDisplayText(text: string): string {
-  return text.replace(/[&<>"']/g, (char) => HTML_ESCAPE_MAP[char] ?? char);
+  return text.replace(/[&<>"]/g, (char) => HTML_ESCAPE_MAP[char] ?? char);
+}
+
+function decodeHarmlessHtmlEntities(text: string): string {
+  // Minimal, safe decoding for operator display only.
+  // We intentionally do not interpret markup; callers still escape <, >, &, ".
+  const named: Record<string, string> = {
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&apos;": "'",
+    "&#39;": "'",
+  };
+
+  let decoded = text.replace(/&(amp|lt|gt|quot|apos);|&#39;/g, (match) => named[match] ?? match);
+
+  // Decode numeric entities like &#x27; and &#8217; for common punctuation.
+  decoded = decoded.replace(/&#(x[0-9a-fA-F]+|\d+);/g, (_match, raw) => {
+    const value =
+      typeof raw === "string" && raw.startsWith("x")
+        ? Number.parseInt(raw.slice(1), 16)
+        : Number.parseInt(String(raw), 10);
+    if (!Number.isFinite(value) || value <= 0 || value > 0x10ffff) {
+      return _match;
+    }
+    try {
+      return String.fromCodePoint(value);
+    } catch {
+      return _match;
+    }
+  });
+
+  return decoded;
 }
 
 export function toSafeMindPlainText(text: string | null | undefined): string {
@@ -17,7 +49,9 @@ export function toSafeMindPlainText(text: string | null | undefined): string {
     return "";
   }
 
-  return escapeMindDisplayText(convertHelloMindsMessageTextToPlainText(text));
+  const plain = convertHelloMindsMessageTextToPlainText(text);
+  const decoded = decodeHarmlessHtmlEntities(plain);
+  return escapeMindDisplayText(decoded);
 }
 
 export function toSafeMindMarkdownText(text: string | null | undefined): string {

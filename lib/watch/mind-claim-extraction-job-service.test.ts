@@ -9,6 +9,7 @@ const mockInsertCandidates = vi.fn();
 const mockSend = vi.fn();
 const mockAudit = vi.fn();
 const mockFetchHistory = vi.fn();
+const mockSummarizeHistory = vi.fn();
 
 vi.mock("@/lib/watch/mind-claim-extraction-job-store", () => ({
   getMindClaimExtractionJobById: (...args: unknown[]) => mockGetJob(...args),
@@ -24,7 +25,7 @@ vi.mock("@/lib/watch/mind-claim-hellominds-transport", () => ({
 
 vi.mock("@/lib/watch/external-mind-hellominds-history", () => ({
   fetchHelloMindsConversationHistory: (...args: unknown[]) => mockFetchHistory(...args),
-  summarizeHelloMindsHistoryMessages: vi.fn(),
+  summarizeHelloMindsHistoryMessages: (...args: unknown[]) => mockSummarizeHistory(...args),
 }));
 
 vi.mock("@/lib/watch/source-intake-store", () => ({
@@ -47,6 +48,7 @@ vi.mock("@/lib/watch/mind-claim-intelligence-audit-store", () => ({
 }));
 
 import {
+  fetchMindClaimExtractionJobResponse,
   loadMindClaimExtractionDemoFixtureResponse,
   parseMindClaimExtractionJobResponse,
   sendMindClaimExtractionJob,
@@ -222,6 +224,19 @@ describe("mind claim extraction parse idempotency", () => {
     expect(mockInsertCandidates).not.toHaveBeenCalled();
   });
 
+  it("blocks parse when mind_response_text is missing", async () => {
+    mockGetJob.mockResolvedValue({
+      job: { ...approvedJob, status: "sent", mind_response_text: null },
+    });
+
+    const result = await parseMindClaimExtractionJobResponse("job-1", access);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("mind_response_missing");
+      expect(result.message).toBe("No Mind response text is available to parse.");
+    }
+  });
+
   it("re-parses parse_failed jobs without duplicate candidate claims", async () => {
     mockGetJob.mockResolvedValue({
       job: {
@@ -262,6 +277,40 @@ describe("mind claim extraction parse idempotency", () => {
       expect(second.idempotent).toBe(true);
     }
     expect(mockInsertCandidates).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("mind claim extraction fetch with no reply yet", () => {
+  it("does not set status=response_fetched when no usable Mind reply exists", async () => {
+    mockGetJob.mockResolvedValue({
+      job: { ...approvedJob, status: "sent", sent_at: "2026-06-24T00:00:00.000Z" },
+    });
+    mockFetchHistory.mockResolvedValue({ ok: true, messages: [] });
+    mockSummarizeHistory.mockReturnValue({
+      mind_reply_state: "no_reply_yet",
+      latest_mind_reply: null,
+    });
+    mockUpdateJob.mockResolvedValue({
+      ok: true,
+      job: { ...approvedJob, status: "waiting_for_reply", mind_response_text: null },
+    });
+
+    const result = await fetchMindClaimExtractionJobResponse("job-1", access);
+    expect(result.ok).toBe(true);
+    expect(mockUpdateJob).toHaveBeenCalledWith(
+      "job-1",
+      access,
+      expect.objectContaining({
+        status: "waiting_for_reply",
+      })
+    );
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: "no_reply_yet",
+        event_summary: "HelloMinds history fetched; no Mind reply yet.",
+      }),
+      access
+    );
   });
 });
 
@@ -366,6 +415,24 @@ describe("non-live fixture response load", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toBe("invalid_job_state");
+    }
+    expect(mockUpdateJob).not.toHaveBeenCalled();
+  });
+
+  it("blocks fixture load when job has live external identifiers", async () => {
+    mockGetJob.mockResolvedValue({
+      job: {
+        ...approvedJob,
+        status: "sent",
+        external_thread_id: "live-thread",
+        external_message_id: "live-message",
+      },
+    });
+
+    const result = await loadMindClaimExtractionDemoFixtureResponse("job-1", access);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("fixture_blocked_live_external_ids");
     }
     expect(mockUpdateJob).not.toHaveBeenCalled();
   });

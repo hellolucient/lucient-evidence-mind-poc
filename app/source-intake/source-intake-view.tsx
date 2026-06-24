@@ -128,6 +128,7 @@ const styles = {
 
 type CandidateClaim = {
   candidate_claim_id: string;
+  extraction_job_id: string | null;
   claim_text: string;
   exact_source_phrase: string | null;
   claim_family: string | null;
@@ -190,9 +191,47 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
   const [candidateClaims, setCandidateClaims] = useState<CandidateClaim[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const [lastFetchNoReply, setLastFetchNoReply] = useState(false);
 
-  const loadCandidateClaims = useCallback(async (documentId: string) => {
+  const isPending = useCallback((key: string) => pending[key] === true, [pending]);
+  const runPending = useCallback(
+    async (key: string, fn: () => Promise<void>) => {
+      if (pending[key]) {
+        return;
+      }
+      setPending((prev) => ({ ...prev, [key]: true }));
+      try {
+        await fn();
+      } finally {
+        setPending((prev) => ({ ...prev, [key]: false }));
+      }
+    },
+    [pending]
+  );
+
+  function humanJobStatus(status: string | null | undefined): string {
+    switch (status) {
+      case "pending_approval":
+        return "Pending approval";
+      case "approved":
+        return "Approved";
+      case "sent":
+        return "Sent — waiting for Mind reply";
+      case "waiting_for_reply":
+        return "Waiting for Mind reply";
+      case "response_fetched":
+        return "Response fetched — ready to parse";
+      case "parse_failed":
+        return "Parse failed";
+      case "parsed":
+        return "Parsed";
+      default:
+        return status ?? "—";
+    }
+  }
+
+  const loadCandidateClaims = useCallback(async (documentId: string, extractionJobId?: string | null) => {
     const response = await fetch(`/api/source-documents/${encodeURIComponent(documentId)}/candidate-claims`, {
       credentials: "include",
     });
@@ -201,119 +240,139 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
       candidate_claims?: CandidateClaim[];
     };
     if (data.ok && data.candidate_claims) {
-      setCandidateClaims(data.candidate_claims);
+      const claims = extractionJobId
+        ? data.candidate_claims.filter((claim) => claim.extraction_job_id === extractionJobId)
+        : data.candidate_claims;
+      setCandidateClaims(claims);
     }
   }, []);
 
   async function handleSaveDocument(event: React.FormEvent) {
     event.preventDefault();
-    setBusy(true);
     setErrorMessage(null);
     setStatusMessage(null);
 
-    try {
-      const response = await fetch("/api/source-documents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          workspace_id: workspaceId,
-          title,
-          source_text: sourceText,
-          source_type: "spa_wellness_copy",
-          created_by: operatorEmail ?? undefined,
-        }),
-      });
-      const data = (await response.json()) as {
-        ok?: boolean;
-        error?: string;
-        document?: { source_document_id: string };
-      };
+    await runPending("save_document", async () => {
+      try {
+        const response = await fetch("/api/source-documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            workspace_id: workspaceId,
+            title,
+            source_text: sourceText,
+            source_type: "spa_wellness_copy",
+            created_by: operatorEmail ?? undefined,
+          }),
+        });
+        const data = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          document?: { source_document_id: string };
+        };
 
-      if (!response.ok || !data.ok || !data.document) {
-        setErrorMessage(String(data.error ?? "Failed to save source document."));
-        return;
+        if (!response.ok || !data.ok || !data.document) {
+          setErrorMessage(String(data.error ?? "Failed to save source document."));
+          return;
+        }
+
+        setSourceDocumentId(data.document.source_document_id);
+        setExtractionJob(null);
+        setCandidateClaims([]);
+        setLastFetchNoReply(false);
+        setStatusMessage(`Source document saved (${data.document.source_document_id}).`);
+      } catch {
+        setErrorMessage("Save source document request failed.");
       }
-
-      setSourceDocumentId(data.document.source_document_id);
-      setStatusMessage(`Source document saved (${data.document.source_document_id}).`);
-    } catch {
-      setErrorMessage("Save source document request failed.");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function runJobAction(
     action: "create" | "approve" | "send" | "fetch" | "load-demo-fixture" | "parse",
     jobId?: string
   ) {
-    setBusy(true);
     setErrorMessage(null);
     setStatusMessage(null);
+    setLastFetchNoReply(false);
 
-    try {
-      if (action === "create") {
-        if (!sourceDocumentId) {
-          setErrorMessage("Save a source document first.");
+    const pendingKey = `job_${action}`;
+    await runPending(pendingKey, async () => {
+      try {
+        if (action === "create") {
+          if (!sourceDocumentId) {
+            setErrorMessage("Save a source document first.");
+            return;
+          }
+          const { response, data } = await postJson(
+            `/api/source-documents/${encodeURIComponent(sourceDocumentId)}/mind-extraction-jobs`,
+            { created_by: operatorEmail ?? undefined }
+          );
+          if (!response.ok || !data.ok) {
+            setErrorMessage(String(data.error ?? "Failed to create extraction job."));
+            return;
+          }
+          setExtractionJob(data.job as ExtractionJob);
+          setCandidateClaims([]);
+          setStatusMessage("Mind extraction job created (pending approval).");
           return;
         }
-        const { response, data } = await postJson(
-          `/api/source-documents/${encodeURIComponent(sourceDocumentId)}/mind-extraction-jobs`,
-          { created_by: operatorEmail ?? undefined }
-        );
+
+        const id = jobId ?? extractionJob?.extraction_job_id;
+        if (!id) {
+          setErrorMessage("No extraction job available.");
+          return;
+        }
+
+        const routes: Record<string, string> = {
+          approve: `/api/mind-extraction-jobs/${id}/approve`,
+          send: `/api/mind-extraction-jobs/${id}/send`,
+          fetch: `/api/mind-extraction-jobs/${id}/fetch-response`,
+          "load-demo-fixture": `/api/mind-extraction-jobs/${id}/load-demo-fixture-response`,
+          parse: `/api/mind-extraction-jobs/${id}/parse`,
+        };
+
+        const { response, data } = await postJson(routes[action], {
+          operator_email: operatorEmail ?? undefined,
+        });
+
         if (!response.ok || !data.ok) {
-          setErrorMessage(String(data.error ?? "Failed to create extraction job."));
+          setErrorMessage(String(data.message ?? data.error ?? `Action ${action} failed.`));
           return;
         }
-        setExtractionJob(data.job as ExtractionJob);
-        setStatusMessage("Mind extraction job created (pending approval).");
-        return;
+
+        const job = (data.job as ExtractionJob | undefined) ?? null;
+        if (job) {
+          setExtractionJob(job);
+        }
+
+        if (action === "fetch") {
+          const noReply =
+            job?.status === "waiting_for_reply" && !job.mind_response_text?.trim();
+          setLastFetchNoReply(noReply);
+          setStatusMessage(
+            noReply
+              ? "No Mind reply yet. Try fetching again shortly."
+              : "Fetch completed."
+          );
+          return;
+        }
+
+        if (action === "parse" && sourceDocumentId) {
+          await loadCandidateClaims(sourceDocumentId, job?.extraction_job_id ?? extractionJob?.extraction_job_id ?? null);
+        }
+
+        setStatusMessage(
+          action === "send"
+            ? "Send completed (dry-run when EXTERNAL_MIND_LIVE_SEND=false)."
+            : action === "load-demo-fixture"
+              ? "Non-live fixture response loaded. This is not a live Mind response."
+              : `Extraction job ${action} completed.`
+        );
+      } catch {
+        setErrorMessage("Mind extraction workflow request failed.");
       }
-
-      const id = jobId ?? extractionJob?.extraction_job_id;
-      if (!id) {
-        setErrorMessage("No extraction job available.");
-        return;
-      }
-
-      const routes: Record<string, string> = {
-        approve: `/api/mind-extraction-jobs/${id}/approve`,
-        send: `/api/mind-extraction-jobs/${id}/send`,
-        fetch: `/api/mind-extraction-jobs/${id}/fetch-response`,
-        "load-demo-fixture": `/api/mind-extraction-jobs/${id}/load-demo-fixture-response`,
-        parse: `/api/mind-extraction-jobs/${id}/parse`,
-      };
-
-      const { response, data } = await postJson(routes[action], {
-        operator_email: operatorEmail ?? undefined,
-      });
-
-      if (!response.ok || !data.ok) {
-        setErrorMessage(String(data.message ?? data.error ?? `Action ${action} failed.`));
-        return;
-      }
-
-      if (data.job) {
-        setExtractionJob(data.job as ExtractionJob);
-      }
-
-      if (action === "parse" && sourceDocumentId) {
-        await loadCandidateClaims(sourceDocumentId);
-      }
-
-      setStatusMessage(
-        action === "send"
-          ? "Send completed (dry-run when EXTERNAL_MIND_LIVE_SEND=false)."
-          : action === "load-demo-fixture"
-            ? "Non-live fixture response loaded. This is not a live Mind response."
-            : `Extraction job ${action} completed.`
-      );
-    } catch {
-      setErrorMessage("Mind extraction workflow request failed.");
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function handleCandidateAction(
@@ -321,45 +380,87 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
     action: "accept" | "reject" | "undo" | "edit",
     editedText?: string
   ) {
-    setBusy(true);
     setErrorMessage(null);
 
-    try {
-      if (action === "edit" && editedText !== undefined) {
-        const response = await fetch(`/api/candidate-claims/${encodeURIComponent(candidateClaimId)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            operator_edited_claim_text: editedText,
-            review_status: "edited",
-          }),
-        });
-        const data = (await response.json()) as { ok?: boolean; error?: string };
-        if (!response.ok || !data.ok) {
-          setErrorMessage(String(data.error ?? "Edit failed."));
-          return;
+    const pendingKey = `candidate_${action}_${candidateClaimId}`;
+    await runPending(pendingKey, async () => {
+      try {
+        if (action === "edit" && editedText !== undefined) {
+          const response = await fetch(`/api/candidate-claims/${encodeURIComponent(candidateClaimId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              operator_edited_claim_text: editedText,
+              review_status: "edited",
+            }),
+          });
+          const data = (await response.json()) as { ok?: boolean; error?: string };
+          if (!response.ok || !data.ok) {
+            setErrorMessage(String(data.error ?? "Edit failed."));
+            return;
+          }
+        } else {
+          const { response, data } = await postJson(
+            `/api/candidate-claims/${encodeURIComponent(candidateClaimId)}/${action}`,
+            { operator_email: operatorEmail ?? undefined }
+          );
+          if (!response.ok || !data.ok) {
+            setErrorMessage(String(data.message ?? data.error ?? `${action} failed.`));
+            return;
+          }
         }
-      } else {
-        const { response, data } = await postJson(
-          `/api/candidate-claims/${encodeURIComponent(candidateClaimId)}/${action}`,
-          { operator_email: operatorEmail ?? undefined }
-        );
-        if (!response.ok || !data.ok) {
-          setErrorMessage(String(data.message ?? data.error ?? `${action} failed.`));
-          return;
-        }
-      }
 
-      if (sourceDocumentId) {
-        await loadCandidateClaims(sourceDocumentId);
+        if (sourceDocumentId) {
+          await loadCandidateClaims(sourceDocumentId, extractionJob?.extraction_job_id ?? null);
+        }
+        setStatusMessage(`Candidate claim ${action} completed.`);
+      } catch {
+        setErrorMessage("Candidate claim action failed.");
       }
-      setStatusMessage(`Candidate claim ${action} completed.`);
-    } catch {
-      setErrorMessage("Candidate claim action failed.");
-    } finally {
-      setBusy(false);
-    }
+    });
+  }
+
+  async function handleOpenDocument(documentId: string) {
+    setErrorMessage(null);
+    setStatusMessage(null);
+    setLastFetchNoReply(false);
+
+    await runPending(`open_${documentId}`, async () => {
+      try {
+        const docResponse = await fetch(`/api/source-documents/${encodeURIComponent(documentId)}`, {
+          credentials: "include",
+        });
+        const docData = (await docResponse.json()) as {
+          ok?: boolean;
+          document?: { source_document_id: string; workspace_id: string; title: string | null; source_text: string; source_type: string };
+          error?: string;
+        };
+
+        if (!docResponse.ok || !docData.ok || !docData.document) {
+          setErrorMessage(String(docData.error ?? "Unable to open source document."));
+          return;
+        }
+
+        setWorkspaceId(docData.document.workspace_id);
+        setTitle(docData.document.title ?? "");
+        setSourceText(docData.document.source_text);
+        setSourceDocumentId(docData.document.source_document_id);
+
+        const jobResponse = await fetch(
+          `/api/source-documents/${encodeURIComponent(documentId)}/mind-extraction-jobs`,
+          { credentials: "include" }
+        );
+        const jobData = (await jobResponse.json()) as { ok?: boolean; job?: ExtractionJob | null };
+        const latestJob = jobData.ok ? (jobData.job ?? null) : null;
+        setExtractionJob(latestJob);
+
+        await loadCandidateClaims(documentId, latestJob?.extraction_job_id ?? null);
+        setStatusMessage("Source document opened.");
+      } catch {
+        setErrorMessage("Open source document request failed.");
+      }
+    });
   }
 
   return (
@@ -414,8 +515,12 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
             Source text
             <textarea value={sourceText} onChange={(e) => setSourceText(e.target.value)} style={styles.textarea} required />
           </label>
-          <button type="submit" style={{ ...styles.button, ...(busy ? styles.buttonDisabled : {}) }} disabled={busy}>
-            Save source document
+          <button
+            type="submit"
+            style={{ ...styles.button, ...(isPending("save_document") ? styles.buttonDisabled : {}) }}
+            disabled={isPending("save_document")}
+          >
+            {isPending("save_document") ? "Saving…" : "Save source document"}
           </button>
         </form>
         {sourceDocumentId ? (
@@ -429,60 +534,76 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         <h2 style={{ marginTop: 0, fontSize: "1rem" }}>2. Mind extraction job workflow</h2>
         <button
           type="button"
-          style={{ ...styles.button, ...(busy ? styles.buttonDisabled : {}) }}
-          disabled={busy || !sourceDocumentId}
+          style={{ ...styles.button, ...(isPending("job_create") ? styles.buttonDisabled : {}) }}
+          disabled={isPending("job_create") || !sourceDocumentId}
           onClick={() => runJobAction("create")}
         >
-          Create Mind extraction job
+          {isPending("job_create") ? "Creating…" : "Create Mind extraction job"}
         </button>
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(busy ? styles.buttonDisabled : {}) }}
-          disabled={busy || !extractionJob}
+          style={{ ...styles.buttonSecondary, ...(isPending("job_approve") ? styles.buttonDisabled : {}) }}
+          disabled={isPending("job_approve") || !extractionJob}
           onClick={() => runJobAction("approve")}
         >
-          Approve
+          {isPending("job_approve") ? "Approving…" : "Approve"}
         </button>
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(busy ? styles.buttonDisabled : {}) }}
-          disabled={busy || !extractionJob}
+          style={{ ...styles.buttonSecondary, ...(isPending("job_send") ? styles.buttonDisabled : {}) }}
+          disabled={isPending("job_send") || !extractionJob}
           onClick={() => runJobAction("send")}
         >
-          Send (dry-run safe)
+          {isPending("job_send") ? "Sending…" : "Send (dry-run safe)"}
         </button>
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(busy ? styles.buttonDisabled : {}) }}
-          disabled={busy || !extractionJob}
+          style={{ ...styles.buttonSecondary, ...(isPending("job_fetch") ? styles.buttonDisabled : {}) }}
+          disabled={isPending("job_fetch") || !extractionJob}
           onClick={() => runJobAction("fetch")}
         >
-          Fetch Mind response
+          {isPending("job_fetch") ? "Fetching…" : "Fetch Mind response"}
         </button>
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(busy ? styles.buttonDisabled : {}) }}
-          disabled={busy || !extractionJob || !["sent", "response_fetched"].includes(extractionJob.status)}
+          style={{ ...styles.buttonSecondary, ...(isPending("job_load-demo-fixture") ? styles.buttonDisabled : {}) }}
+          disabled={
+            isPending("job_load-demo-fixture") ||
+            !extractionJob ||
+            !["sent", "waiting_for_reply", "response_fetched"].includes(extractionJob.status)
+          }
           onClick={() => runJobAction("load-demo-fixture")}
         >
-          Load non-live Mind extraction fixture
+          {isPending("job_load-demo-fixture") ? "Loading…" : "Load non-live extraction fixture"}
         </button>
         <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
           This loads a non-live fixture response for operator validation. It is not a live Mind response.
         </p>
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(busy ? styles.buttonDisabled : {}) }}
-          disabled={busy || !extractionJob}
+          style={{ ...styles.buttonSecondary, ...(isPending("job_parse") ? styles.buttonDisabled : {}) }}
+          disabled={isPending("job_parse") || !extractionJob || !extractionJob.mind_response_text?.trim()}
           onClick={() => runJobAction("parse")}
         >
-          Parse response
+          {isPending("job_parse") ? "Parsing…" : "Parse response"}
         </button>
+        {!extractionJob?.mind_response_text?.trim() ? (
+          <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
+            {lastFetchNoReply
+              ? "No Mind reply yet. Try fetching again shortly."
+              : "Fetch a Mind response before parsing."}
+          </p>
+        ) : null}
 
         {extractionJob ? (
           <div style={{ marginTop: "0.75rem", fontSize: "0.8125rem", color: "#475569" }}>
-            Job: <code>{extractionJob.extraction_job_id}</code> · status: {extractionJob.status} · review:{" "}
-            {extractionJob.review_status}
+            <div>
+              <strong>{humanJobStatus(extractionJob.status)}</strong>
+            </div>
+            <div>
+              Job: <code>{extractionJob.extraction_job_id}</code> · status: {extractionJob.status} · review:{" "}
+              {extractionJob.review_status}
+            </div>
             {extractionJob.parse_error ? (
               <div style={styles.error}>Parse error: {renderSafeMindTextBlock(extractionJob.parse_error)}</div>
             ) : null}
@@ -536,28 +657,28 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
                         <button
                           type="button"
                           style={styles.buttonSecondary}
-                          disabled={busy}
+                          disabled={isPending(`candidate_accept_${claim.candidate_claim_id}`)}
                           onClick={() => handleCandidateAction(claim.candidate_claim_id, "accept")}
                         >
-                          Accept
+                          {isPending(`candidate_accept_${claim.candidate_claim_id}`) ? "Accepting…" : "Accept"}
                         </button>
                         <button
                           type="button"
                           style={styles.buttonSecondary}
-                          disabled={busy}
+                          disabled={isPending(`candidate_reject_${claim.candidate_claim_id}`)}
                           onClick={() => handleCandidateAction(claim.candidate_claim_id, "reject")}
                         >
-                          Reject
+                          {isPending(`candidate_reject_${claim.candidate_claim_id}`) ? "Rejecting…" : "Reject"}
                         </button>
                       </>
                     ) : claim.review_status === "accepted" || claim.review_status === "rejected" ? (
                       <button
                         type="button"
                         style={styles.buttonSecondary}
-                        disabled={busy}
+                        disabled={isPending(`candidate_undo_${claim.candidate_claim_id}`)}
                         onClick={() => handleCandidateAction(claim.candidate_claim_id, "undo")}
                       >
-                        Undo
+                        {isPending(`candidate_undo_${claim.candidate_claim_id}`) ? "Undoing…" : "Undo"}
                       </button>
                     ) : (
                       <span style={{ color: "#64748b" }}>—</span>
@@ -581,6 +702,7 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
                 <th style={styles.th}>Title</th>
                 <th style={styles.th}>Type</th>
                 <th style={styles.th}>Created</th>
+                <th style={styles.th}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -589,6 +711,16 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
                   <td style={styles.td}>{doc.title ?? "(untitled)"}</td>
                   <td style={styles.td}>{doc.source_type}</td>
                   <td style={styles.td}>{new Date(doc.created_at).toLocaleString()}</td>
+                  <td style={styles.td}>
+                    <button
+                      type="button"
+                      style={{ ...styles.buttonSecondary, ...(isPending(`open_${doc.source_document_id}`) ? styles.buttonDisabled : {}) }}
+                      disabled={isPending(`open_${doc.source_document_id}`)}
+                      onClick={() => handleOpenDocument(doc.source_document_id)}
+                    >
+                      {isPending(`open_${doc.source_document_id}`) ? "Opening…" : "Open"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
