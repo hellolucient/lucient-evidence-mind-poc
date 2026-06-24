@@ -49,8 +49,9 @@ Phase 39F validated production transport to HelloMinds (HTTP 200, durable audit 
 | HelloMinds dry-run send (operator UI) | Approved `hellominds` handoffs while `EXTERNAL_MIND_LIVE_SEND=false` |
 | HelloMinds production transport | **Validated Phase 39F** — controlled dry-run + one gated live send; live send disabled again |
 | Mind receipt verification (HelloMinds) | **Phase 41A** — operator-gated receipt record derived from send audit metadata (no HelloMinds read) |
+| **Mind-centered claim intelligence (Phase 45)** | `/source-intake` — Mind extraction + candidate review; Mind risk briefs on `/client-claims` |
 
-**Validated production chain (Phases 29–39F):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload → operator approval → test-sink or HelloMinds send (gated) → send audit log.
+**Validated production chain (Phases 29–45):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload → operator approval → test-sink or HelloMinds send (gated) → send audit log → **Mind claim extraction / risk brief loop (Phase 45)**.
 
 ### External Mind safety model
 
@@ -78,7 +79,12 @@ Phase 39F validated production transport to HelloMinds (HTTP 200, durable audit 
 | `GET/POST` | `/api/review-items/[id]/*` | Operator session or break-glass token | Review item detail and status (Phase 18+) |
 | `GET` | `/review-items` | Operator session or break-glass token | Internal review queue UI (Phase 19+) |
 | `GET` | `/review-login` | None | Operator magic-link login (Phase 23+) |
-| `GET` | `/client-claims` | Operator session or break-glass token | Client claims registry + mappings (Phase 26–27) |
+| `GET` | `/client-claims` | Operator session or break-glass token | Client claims registry + mappings + Mind risk briefs (Phase 45) |
+| `GET` | `/source-intake` | Operator session or break-glass token | Mind-centered source intake + claim extraction workflow (Phase 45) |
+| `POST/GET` | `/api/source-documents/*` | Operator session or break-glass token | Source intake documents (Phase 45) |
+| `POST` | `/api/mind-extraction-jobs/[id]/*` | Operator session or break-glass token | Mind claim extraction job workflow (Phase 45) |
+| `GET/PATCH/POST` | `/api/candidate-claims/[id]/*` | Operator session or break-glass token | Mind candidate claim review (Phase 45) |
+| `POST/GET` | `/api/client-claims/[id]/mind-risk-brief-*` | Operator session or break-glass token | Mind claim risk brief workflow (Phase 45) |
 
 ## Documentation
 
@@ -104,8 +110,9 @@ Full doc index: [docs/README.md](./docs/README.md)
 | [docs/supabase-watchlist-store-phase-11.md](./docs/supabase-watchlist-store-phase-11.md) | Supabase durable watchlist store (Phase 11) |
 | [docs/vercel-cron-phase-12.md](./docs/vercel-cron-phase-12.md) | Vercel Cron scheduled monitoring (Phase 12) |
 | [docs/watch-run-logging-phase-13.md](./docs/watch-run-logging-phase-13.md) | Durable watch run logging (Phase 13) |
-| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 39F production HelloMinds validation |
-| [docs/DEVELOPMENT_PHASES.md](./docs/DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–38) |
+| [docs/evidence-mind-roadmap.md](./docs/evidence-mind-roadmap.md) | **Canonical live roadmap** — current phase status through Phase 45 Mind-centered claim intelligence |
+| [docs/phase-45-mind-centered-claim-intelligence.md](./docs/phase-45-mind-centered-claim-intelligence.md) | Mind-centered claim extraction + risk briefs (Phase 45) |
+| [docs/DEVELOPMENT_PHASES.md](./docs/DEVELOPMENT_PHASES.md) | Phase history (1–20 detail + 21–28 summary; see roadmap for 29–45) |
 | [docs/REVIEW_QUEUE_API.md](./docs/REVIEW_QUEUE_API.md) | Review queue API (Phase 18 origin; see current-status note) |
 | [docs/REVIEW_QUEUE_UI.md](./docs/REVIEW_QUEUE_UI.md) | Review queue UI (Phase 19 origin; see current-status note) |
 | [docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md](./docs/MIND_APP_HANDOFF_AND_CLIENT_CLAIM_MAPPING.md) | Handoff and claim mapping architecture |

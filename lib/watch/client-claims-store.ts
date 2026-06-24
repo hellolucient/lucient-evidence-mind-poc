@@ -64,6 +64,15 @@ export type ClientClaimListResult = {
   error?: string;
 };
 
+export type ClientClaimWithUuid = PrivacySafeClientClaim & {
+  claim_uuid: string;
+};
+
+export type ClientClaimWithUuidListResult = {
+  claims: ClientClaimWithUuid[];
+  error?: string;
+};
+
 export type ClientClaimLookupResult = {
   claim: PrivacySafeClientClaim | null;
   error?: string;
@@ -279,6 +288,52 @@ export async function listClientClaims(
 
     return {
       claims: ((data ?? []) as ClientClaimRow[]).map(toPrivacySafeClientClaim),
+    };
+  } catch (error) {
+    return { claims: [], error: normalizeStoreError(error) };
+  }
+}
+
+export async function listClientClaimsWithUuid(
+  access: ReviewQueueAccessContext,
+  filters: ClientClaimListFilters = {}
+): Promise<ClientClaimWithUuidListResult> {
+  if (!isClientClaimsPersistenceConfigured()) {
+    return { claims: [], error: "supabase_not_configured" };
+  }
+
+  try {
+    const scopedFilters = applyAccessToListFilters(filters, access);
+    const client = createSupabaseServerClient();
+    let query = client.from(CLIENT_CLAIMS_TABLE).select("*");
+
+    if (scopedFilters.workspace_ids) {
+      query = query.in("workspace_id", scopedFilters.workspace_ids);
+    } else if (scopedFilters.workspace_id) {
+      query = query.eq("workspace_id", scopedFilters.workspace_id);
+    }
+
+    if (scopedFilters.status) {
+      query = query.eq("status", scopedFilters.status);
+    }
+
+    if (scopedFilters.claim_family) {
+      query = query.eq("claim_family", scopedFilters.claim_family);
+    }
+
+    const { data, error } = await query
+      .order("updated_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      return { claims: [], error: normalizeStoreError(error) };
+    }
+
+    return {
+      claims: ((data ?? []) as ClientClaimRow[]).map((row) => ({
+        ...toPrivacySafeClientClaim(row),
+        claim_uuid: row.id,
+      })),
     };
   } catch (error) {
     return { claims: [], error: normalizeStoreError(error) };

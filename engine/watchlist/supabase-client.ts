@@ -25,6 +25,12 @@ const CANDIDATE_WELLNESS_CLAIMS_TABLE = "candidate_wellness_claims";
 const WELLNESS_CLAIMS_TABLE = "wellness_claims";
 const CLAIM_RESEARCH_RUNS_TABLE = "claim_research_runs";
 const CLAIM_RESEARCH_CITATIONS_TABLE = "claim_research_citations";
+const SOURCE_INTAKE_DOCUMENTS_TABLE = "source_intake_documents";
+const MIND_CLAIM_EXTRACTION_JOBS_TABLE = "mind_claim_extraction_jobs";
+const CANDIDATE_CLAIMS_TABLE = "candidate_claims";
+const MIND_CLAIM_RISK_BRIEF_JOBS_TABLE = "mind_claim_risk_brief_jobs";
+const MIND_CLAIM_RISK_BRIEFS_TABLE = "mind_claim_risk_briefs";
+const MIND_CLAIM_INTELLIGENCE_AUDIT_EVENTS_TABLE = "mind_claim_intelligence_audit_events";
 
 export function getSupabaseEnvConfig(): {
   url: string | null;
@@ -94,4 +100,10 @@ export {
   WELLNESS_CLAIMS_TABLE,
   CLAIM_RESEARCH_RUNS_TABLE,
   CLAIM_RESEARCH_CITATIONS_TABLE,
+  SOURCE_INTAKE_DOCUMENTS_TABLE,
+  MIND_CLAIM_EXTRACTION_JOBS_TABLE,
+  CANDIDATE_CLAIMS_TABLE,
+  MIND_CLAIM_RISK_BRIEF_JOBS_TABLE,
+  MIND_CLAIM_RISK_BRIEFS_TABLE,
+  MIND_CLAIM_INTELLIGENCE_AUDIT_EVENTS_TABLE,
 };

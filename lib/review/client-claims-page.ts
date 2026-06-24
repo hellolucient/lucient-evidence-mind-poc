@@ -26,7 +26,7 @@ import {
 import {
   createClientClaim,
   isClientClaimsPersistenceConfigured,
-  listClientClaims,
+  listClientClaimsWithUuid,
   updateClientClaimStatus,
   type ClientClaimListFilters,
   type ClientClaimInsertInput,
@@ -60,6 +60,7 @@ export type ClientClaimsMappingCreateFlash =
   | { kind: "error"; error: string; message: string };
 
 export type ClientClaimWithMappings = PrivacySafeClientClaim & {
+  claim_uuid: string;
   mappings: PrivacySafeClientClaimWatchlistMapping[];
 };
 
@@ -222,7 +223,7 @@ export async function buildClientClaimsPageData(
   }
 
   const [listResult, mappingResult, profileResult] = await Promise.all([
-    listClientClaims(access, filters),
+    listClientClaimsWithUuid(access, filters),
     listClientClaimWatchlistMappings(access),
     listClaimFamilyProfiles(),
   ]);
@@ -237,6 +238,7 @@ export async function buildClientClaimsPageData(
 
   const claimsWithMappings: ClientClaimWithMappings[] = listResult.claims.map((claim) => ({
     ...claim,
+    claim_uuid: claim.claim_uuid,
     mappings:
       mappingsByClaimKey.get(`${claim.workspace_id}:${claim.client_claim_id}`) ?? [],
   }));

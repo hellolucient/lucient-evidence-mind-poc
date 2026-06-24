@@ -1,6 +1,7 @@
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import type { ClientClaimsPageData } from "@/lib/review/client-claims-page";
 
+import { MindRiskBriefPanel } from "./mind-risk-brief-panel";
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const CLIENT_CLAIMS_CREATE_PATH = "/client-claims/create";
@@ -94,6 +95,7 @@ const styles = {
 type ClientClaimsViewProps = {
   pageData: ClientClaimsPageData;
   authStatus: ReviewQueueAuthPanelData;
+  operatorEmail?: string | null;
 };
 
 function formatTimestamp(value: string): string {
@@ -113,7 +115,7 @@ function claimFamilyDisplayName(
   return profile?.display_name ?? claimFamily;
 }
 
-export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps) {
+export function ClientClaimsView({ pageData, authStatus, operatorEmail }: ClientClaimsViewProps) {
   return (
     <main style={styles.page}>
       <header style={styles.header}>
@@ -125,6 +127,8 @@ export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/client-claims">Client claims</a>
+          {" · "}
+          <a href="/source-intake">Source intake (Mind)</a>
           {" · "}
           <a href="/evidence-briefs">Evidence briefs</a>
           {" · "}
@@ -378,6 +382,26 @@ export function ClientClaimsView({ pageData, authStatus }: ClientClaimsViewProps
           </table>
         )}
       </section>
+
+      {pageData.claims.length > 0 ? (
+        <section style={styles.section}>
+          <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Mind claim risk briefs (Phase 45)</h2>
+          <p style={{ margin: "0 0 0.75rem", color: "#64748b", fontSize: "0.875rem" }}>
+            Operator-gated Mind risk brief workflow per registered client claim. No live-send UI toggle;
+            EXTERNAL_MIND_LIVE_SEND=false remains the safe default.
+          </p>
+          {pageData.claims
+            .filter((claim) => claim.status === "active")
+            .map((claim) => (
+              <MindRiskBriefPanel
+                key={claim.claim_uuid}
+                claimUuid={claim.claim_uuid}
+                claimText={claim.claim_text}
+                operatorEmail={operatorEmail}
+              />
+            ))}
+        </section>
+      ) : null}
     </main>
   );
 }

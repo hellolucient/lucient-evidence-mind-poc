@@ -1,0 +1,246 @@
+import { z } from "zod";
+
+import {
+  MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION,
+  MIND_EVIDENCE_POSTURES,
+  MIND_EVIDENCE_STRENGTHS,
+  MIND_OPERATOR_RECOMMENDATIONS,
+  MIND_SENSITIVITY_LEVELS,
+} from "@/lib/review/mind-claim-intelligence-constants";
+import {
+  parseMindJsonWithSchema,
+  truncateMindField,
+  type MindJsonParseResult,
+} from "@/lib/watch/mind-json-parser";
+
+const searchPerformedSchema = z.object({
+  source: z.enum(["PubMed", "Other", "Not searched"]),
+  query: z.string(),
+  date_performed: z.string(),
+  results_summary: z.string(),
+});
+
+const evidenceFoundSchema = z.object({
+  title: z.string(),
+  authors: z.string(),
+  journal: z.string(),
+  year: z.string(),
+  pmid: z.string(),
+  doi: z.string(),
+  url: z.string(),
+  evidence_category: z.enum([
+    "ingredient",
+    "delivery_route",
+    "treatment",
+    "branded_ritual",
+    "background",
+    "other",
+  ]),
+  relevance_to_claim: z.enum(["direct", "indirect", "weak", "not_relevant"]),
+  summary: z.string(),
+});
+
+const evidenceNotFoundSchema = z.object({
+  gap: z.string(),
+  importance: z.string(),
+});
+
+const riskBriefCostReportSchema = z.object({
+  reported_by_mind: z.boolean(),
+  summary: z.string(),
+  search_count: z.number(),
+  abstracts_fetched: z.number(),
+});
+
+export const mindClaimRiskBriefOutputSchema = z.object({
+  contract_version: z.literal(MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION),
+  claim_text: z.string(),
+  source_context: z.string(),
+  search_capability_statement: z.string(),
+  searches_performed: z.array(searchPerformedSchema),
+  evidence_found: z.array(evidenceFoundSchema),
+  evidence_not_found: z.array(evidenceNotFoundSchema),
+  evidence_posture: z.enum(MIND_EVIDENCE_POSTURES),
+  evidence_strength: z.enum(MIND_EVIDENCE_STRENGTHS),
+  risk_level: z.enum(MIND_SENSITIVITY_LEVELS),
+  regulatory_sensitivity: z.enum(MIND_SENSITIVITY_LEVELS),
+  key_evidence_risk_insight: z.string(),
+  safer_wording: z.string(),
+  operator_recommendation: z.enum(MIND_OPERATOR_RECOMMENDATIONS),
+  limitations: z.string(),
+  cost_report: riskBriefCostReportSchema,
+});
+
+export type MindClaimRiskBriefOutput = z.infer<typeof mindClaimRiskBriefOutputSchema>;
+
+export type ParsedMindClaimRiskBrief = {
+  claim_text: string;
+  source_context: string | null;
+  search_capability_statement: string | null;
+  searches_performed: MindClaimRiskBriefOutput["searches_performed"];
+  evidence_found: MindClaimRiskBriefOutput["evidence_found"];
+  evidence_not_found: MindClaimRiskBriefOutput["evidence_not_found"];
+  evidence_posture: string | null;
+  evidence_strength: string | null;
+  risk_level: string | null;
+  regulatory_sensitivity: string | null;
+  key_evidence_risk_insight: string | null;
+  safer_wording: string | null;
+  operator_recommendation: string | null;
+  limitations: string | null;
+  pmids: string[];
+  dois: string[];
+  urls: string[];
+  cost_report: MindClaimRiskBriefOutput["cost_report"] | null;
+};
+
+const RISK_BRIEF_DOCTRINE = `
+RISK BRIEF DOCTRINE:
+
+Distinguish clearly between:
+- ingredient evidence vs treatment evidence vs delivery-route evidence vs branded ritual evidence
+- direct evidence vs indirect evidence
+- evidence found vs evidence not found
+
+For magnesium/spa claims, explicitly distinguish:
+- oral magnesium evidence
+- topical/transdermal magnesium evidence
+- massage/aromatherapy/spa treatment evidence
+- branded ritual evidence
+
+Key insight pattern: oral magnesium evidence ≠ topical magnesium evidence ≠ branded ritual evidence.
+`.trim();
+
+export function buildMindClaimRiskBriefPrompt(input: {
+  claimText: string;
+  sourceContext?: string | null;
+  claimFamily?: string | null;
+}): string {
+  const contextLine = input.sourceContext?.trim()
+    ? `Source context: ${input.sourceContext.trim()}`
+    : "Source context: (not provided)";
+  const familyLine = input.claimFamily?.trim()
+    ? `Claim family: ${input.claimFamily.trim()}`
+    : "Claim family: (not provided)";
+
+  return [
+    "You are the external Mind intelligence layer for lucient Evidence Mind.",
+    "Return ONLY valid JSON matching contract_version mind_claim_risk_brief_json_v1.",
+    "Do not include markdown fences, commentary, or HTML.",
+    "",
+    RISK_BRIEF_DOCTRINE,
+    "",
+    `Claim text: ${input.claimText.trim()}`,
+    contextLine,
+    familyLine,
+    "",
+    "Required JSON shape:",
+    JSON.stringify(
+      {
+        contract_version: MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION,
+        claim_text: "string",
+        source_context: "string",
+        search_capability_statement: "string",
+        searches_performed: [
+          {
+            source: "PubMed|Other|Not searched",
+            query: "string",
+            date_performed: "YYYY-MM-DD",
+            results_summary: "string",
+          },
+        ],
+        evidence_found: [
+          {
+            title: "string",
+            authors: "string",
+            journal: "string",
+            year: "string",
+            pmid: "string",
+            doi: "string",
+            url: "string",
+            evidence_category:
+              "ingredient|delivery_route|treatment|branded_ritual|background|other",
+            relevance_to_claim: "direct|indirect|weak|not_relevant",
+            summary: "string",
+          },
+        ],
+        evidence_not_found: [{ gap: "string", importance: "string" }],
+        evidence_posture:
+          "supported|partially_supported|weak_indirect|unsupported|contradicted|unclear",
+        evidence_strength: "low|moderate|high",
+        risk_level: "low|medium|high",
+        regulatory_sensitivity: "low|medium|high",
+        key_evidence_risk_insight: "string",
+        safer_wording: "string",
+        operator_recommendation: "accept|soften|reject|escalate|needs_more_review",
+        limitations: "string",
+        cost_report: {
+          reported_by_mind: true,
+          summary: "string",
+          search_count: 0,
+          abstracts_fetched: 0,
+        },
+      },
+      null,
+      2
+    ),
+  ].join("\n");
+}
+
+function collectPmids(evidence: MindClaimRiskBriefOutput["evidence_found"]): string[] {
+  return evidence
+    .map((entry) => entry.pmid?.trim())
+    .filter((value): value is string => Boolean(value));
+}
+
+function collectDois(evidence: MindClaimRiskBriefOutput["evidence_found"]): string[] {
+  return evidence
+    .map((entry) => entry.doi?.trim())
+    .filter((value): value is string => Boolean(value));
+}
+
+function collectUrls(evidence: MindClaimRiskBriefOutput["evidence_found"]): string[] {
+  return evidence
+    .map((entry) => entry.url?.trim())
+    .filter((value): value is string => Boolean(value));
+}
+
+export function parseMindClaimRiskBriefResponse(
+  rawText: string
+): MindJsonParseResult<ParsedMindClaimRiskBrief> {
+  const parsed = parseMindJsonWithSchema({
+    rawText,
+    expectedContractVersion: MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION,
+    schema: mindClaimRiskBriefOutputSchema,
+  });
+
+  if (!parsed.ok) {
+    return parsed;
+  }
+
+  const data = parsed.data;
+
+  return {
+    ok: true,
+    data: {
+      claim_text: truncateMindField(data.claim_text),
+      source_context: data.source_context ? truncateMindField(data.source_context) : null,
+      search_capability_statement: truncateMindField(data.search_capability_statement),
+      searches_performed: data.searches_performed,
+      evidence_found: data.evidence_found,
+      evidence_not_found: data.evidence_not_found,
+      evidence_posture: data.evidence_posture,
+      evidence_strength: data.evidence_strength,
+      risk_level: data.risk_level,
+      regulatory_sensitivity: data.regulatory_sensitivity,
+      key_evidence_risk_insight: truncateMindField(data.key_evidence_risk_insight),
+      safer_wording: truncateMindField(data.safer_wording),
+      operator_recommendation: data.operator_recommendation,
+      limitations: truncateMindField(data.limitations),
+      pmids: collectPmids(data.evidence_found),
+      dois: collectDois(data.evidence_found),
+      urls: collectUrls(data.evidence_found),
+      cost_report: data.cost_report,
+    },
+  };
+}
