@@ -90,6 +90,17 @@ const styles = {
     marginTop: "0.35rem",
   } as const,
   buttonDisabled: { opacity: 0.6, cursor: "not-allowed" } as const,
+  statusPill: {
+    display: "inline-block",
+    padding: "0.4rem 0.7rem",
+    borderRadius: "999px",
+    border: "1px solid #bbf7d0",
+    background: "#f0fdf4",
+    color: "#166534",
+    fontSize: "0.75rem",
+    marginRight: "0.35rem",
+    marginTop: "0.35rem",
+  } as const,
   error: {
     color: "#b91c1c",
     background: "#fef2f2",
@@ -175,6 +186,13 @@ function candidateReviewStatusLabel(reviewStatus: string): string {
 
 function isPendingCandidateReview(reviewStatus: string): boolean {
   return reviewStatus === "pending" || reviewStatus === "edited";
+}
+
+function withDisabledButtonStyle(
+  base: (typeof styles)["button"] | (typeof styles)["buttonSecondary"],
+  disabled: boolean
+) {
+  return disabled ? { ...base, ...styles.buttonDisabled } : base;
 }
 
 async function postJson(url: string, body: Record<string, unknown> = {}) {
@@ -480,6 +498,14 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
   }
 
   const controls = mindJobControlsState(extractionJob);
+  const saveDocumentDisabled = isPending("save_document");
+  const createJobDisabled = isPending("job_create") || !sourceDocumentId;
+  const approveJobDisabled = isPending("job_approve") || !extractionJob;
+  const sendJobDisabled = isPending("job_send") || !extractionJob;
+  const fetchJobDisabled = isPending("job_fetch") || !controls.can_fetch;
+  const loadFixtureDisabled = isPending("job_load-demo-fixture") || !controls.can_load_fixture;
+  const parseJobDisabled = isPending("job_parse") || !controls.can_parse;
+  const showParseStatusPill = !controls.can_parse && controls.parse_label === "Already parsed";
 
   return (
     <main style={styles.page}>
@@ -535,8 +561,8 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
           </label>
           <button
             type="submit"
-            style={{ ...styles.button, ...(isPending("save_document") ? styles.buttonDisabled : {}) }}
-            disabled={isPending("save_document")}
+            style={withDisabledButtonStyle(styles.button, saveDocumentDisabled)}
+            disabled={saveDocumentDisabled}
           >
             {isPending("save_document") ? "Saving…" : "Save source document"}
           </button>
@@ -552,32 +578,32 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         <h2 style={{ marginTop: 0, fontSize: "1rem" }}>2. Mind extraction job workflow</h2>
         <button
           type="button"
-          style={{ ...styles.button, ...(isPending("job_create") ? styles.buttonDisabled : {}) }}
-          disabled={isPending("job_create") || !sourceDocumentId}
+          style={withDisabledButtonStyle(styles.button, createJobDisabled)}
+          disabled={createJobDisabled}
           onClick={() => runJobAction("create")}
         >
           {isPending("job_create") ? "Creating…" : "Create Mind extraction job"}
         </button>
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(isPending("job_approve") ? styles.buttonDisabled : {}) }}
-          disabled={isPending("job_approve") || !extractionJob}
+          style={withDisabledButtonStyle(styles.buttonSecondary, approveJobDisabled)}
+          disabled={approveJobDisabled}
           onClick={() => runJobAction("approve")}
         >
           {isPending("job_approve") ? "Approving…" : "Approve"}
         </button>
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(isPending("job_send") ? styles.buttonDisabled : {}) }}
-          disabled={isPending("job_send") || !extractionJob}
+          style={withDisabledButtonStyle(styles.buttonSecondary, sendJobDisabled)}
+          disabled={sendJobDisabled}
           onClick={() => runJobAction("send")}
         >
           {isPending("job_send") ? "Sending…" : "Send (dry-run safe)"}
         </button>
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(isPending("job_fetch") ? styles.buttonDisabled : {}) }}
-          disabled={isPending("job_fetch") || !controls.can_fetch}
+          style={withDisabledButtonStyle(styles.buttonSecondary, fetchJobDisabled)}
+          disabled={fetchJobDisabled}
           onClick={() => runJobAction("fetch")}
         >
           {isPending("job_fetch") ? "Fetching…" : "Fetch Mind response"}
@@ -589,10 +615,8 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         ) : null}
         <button
           type="button"
-          style={{ ...styles.buttonSecondary, ...(isPending("job_load-demo-fixture") ? styles.buttonDisabled : {}) }}
-          disabled={
-            isPending("job_load-demo-fixture") || !controls.can_load_fixture
-          }
+          style={withDisabledButtonStyle(styles.buttonSecondary, loadFixtureDisabled)}
+          disabled={loadFixtureDisabled}
           onClick={() => runJobAction("load-demo-fixture")}
         >
           {isPending("job_load-demo-fixture") ? "Loading…" : "Load non-live extraction fixture"}
@@ -605,14 +629,20 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
           This loads a non-live fixture response for operator validation. It is not a live Mind response.
         </p>
-        <button
-          type="button"
-          style={{ ...styles.buttonSecondary, ...(isPending("job_parse") ? styles.buttonDisabled : {}) }}
-          disabled={isPending("job_parse") || !controls.can_parse}
-          onClick={() => runJobAction("parse")}
-        >
-          {isPending("job_parse") ? "Parsing…" : controls.parse_label}
-        </button>
+        {showParseStatusPill ? (
+          <span style={styles.statusPill} aria-label="Parse status">
+            {controls.parse_label}
+          </span>
+        ) : (
+          <button
+            type="button"
+            style={withDisabledButtonStyle(styles.buttonSecondary, parseJobDisabled)}
+            disabled={parseJobDisabled}
+            onClick={() => runJobAction("parse")}
+          >
+            {isPending("job_parse") ? "Parsing…" : controls.parse_label}
+          </button>
+        )}
         {controls.parse_helper ? (
           <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
             {lastFetchNoReply ? "No Mind reply yet. Try fetching again shortly." : controls.parse_helper}
@@ -680,7 +710,10 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
                       <>
                         <button
                           type="button"
-                          style={styles.buttonSecondary}
+                          style={withDisabledButtonStyle(
+                            styles.buttonSecondary,
+                            isPending(`candidate_accept_${claim.candidate_claim_id}`)
+                          )}
                           disabled={isPending(`candidate_accept_${claim.candidate_claim_id}`)}
                           onClick={() => handleCandidateAction(claim.candidate_claim_id, "accept")}
                         >
@@ -688,7 +721,10 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
                         </button>
                         <button
                           type="button"
-                          style={styles.buttonSecondary}
+                          style={withDisabledButtonStyle(
+                            styles.buttonSecondary,
+                            isPending(`candidate_reject_${claim.candidate_claim_id}`)
+                          )}
                           disabled={isPending(`candidate_reject_${claim.candidate_claim_id}`)}
                           onClick={() => handleCandidateAction(claim.candidate_claim_id, "reject")}
                         >
@@ -698,7 +734,10 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
                     ) : claim.review_status === "accepted" || claim.review_status === "rejected" ? (
                       <button
                         type="button"
-                        style={styles.buttonSecondary}
+                        style={withDisabledButtonStyle(
+                          styles.buttonSecondary,
+                          isPending(`candidate_undo_${claim.candidate_claim_id}`)
+                        )}
                         disabled={isPending(`candidate_undo_${claim.candidate_claim_id}`)}
                         onClick={() => handleCandidateAction(claim.candidate_claim_id, "undo")}
                       >
@@ -740,7 +779,9 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
               </tr>
             </thead>
             <tbody>
-              {pageData.recentDocuments.map((doc) => (
+              {pageData.recentDocuments.map((doc) => {
+                const openDisabled = isPending(`open_${doc.source_document_id}`);
+                return (
                 <tr key={doc.source_document_id}>
                   <td style={styles.td}>{doc.title ?? "(untitled)"}</td>
                   <td style={styles.td}>{doc.source_type}</td>
@@ -748,15 +789,16 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
                   <td style={styles.td}>
                     <button
                       type="button"
-                      style={{ ...styles.buttonSecondary, ...(isPending(`open_${doc.source_document_id}`) ? styles.buttonDisabled : {}) }}
-                      disabled={isPending(`open_${doc.source_document_id}`)}
+                      style={withDisabledButtonStyle(styles.buttonSecondary, openDisabled)}
+                      disabled={openDisabled}
                       onClick={() => handleOpenDocument(doc.source_document_id)}
                     >
-                      {isPending(`open_${doc.source_document_id}`) ? "Opening…" : "Open"}
+                      {openDisabled ? "Opening…" : "Open"}
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

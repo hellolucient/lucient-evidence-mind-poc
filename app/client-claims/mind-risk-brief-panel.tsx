@@ -35,6 +35,18 @@ const styles = {
     marginRight: "0.35rem",
     marginTop: "0.35rem",
   } as const,
+  buttonDisabled: { opacity: 0.6, cursor: "not-allowed" } as const,
+  statusPill: {
+    display: "inline-block",
+    padding: "0.35rem 0.6rem",
+    borderRadius: "999px",
+    border: "1px solid #bbf7d0",
+    background: "#f0fdf4",
+    color: "#166534",
+    fontSize: "0.75rem",
+    marginRight: "0.35rem",
+    marginTop: "0.35rem",
+  } as const,
   meta: { fontSize: "0.75rem", color: "#64748b", marginTop: "0.35rem" } as const,
   pre: {
     whiteSpace: "pre-wrap" as const,
@@ -48,6 +60,13 @@ const styles = {
   } as const,
   error: { color: "#b91c1c", fontSize: "0.8125rem", marginTop: "0.35rem" } as const,
 };
+
+function withDisabledButtonStyle(
+  base: (typeof styles)["button"] | (typeof styles)["buttonSecondary"],
+  disabled: boolean
+) {
+  return disabled ? { ...base, ...styles.buttonDisabled } : base;
+}
 
 type RiskBrief = {
   risk_brief_id: string;
@@ -258,6 +277,14 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         }
       : null
   );
+  const createJobDisabled = isPending("job_create");
+  const approveJobDisabled = isPending("job_approve") || !jobId;
+  const sendJobDisabled = isPending("job_send") || !jobId;
+  const fetchJobDisabled = isPending("job_fetch") || !controls.can_fetch;
+  const loadFixtureDisabled = isPending("job_load-demo-fixture") || !controls.can_load_fixture;
+  const parseJobDisabled = isPending("job_parse") || !controls.can_parse;
+  const refreshBriefsDisabled = isPending("refresh_briefs");
+  const showParseStatusPill = !controls.can_parse && controls.parse_label === "Already parsed";
 
   const latestBrief = briefs[0] ?? null;
 
@@ -269,29 +296,34 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         Operator-gated HelloMinds workflow. EXTERNAL_MIND_LIVE_SEND=false remains dry-run default.
       </div>
 
-      <button type="button" style={styles.button} disabled={isPending("job_create")} onClick={() => runAction("create")}>
+      <button
+        type="button"
+        style={withDisabledButtonStyle(styles.button, createJobDisabled)}
+        disabled={createJobDisabled}
+        onClick={() => runAction("create")}
+      >
         {isPending("job_create") ? "Creating…" : "Create risk brief job"}
       </button>
       <button
         type="button"
-        style={styles.buttonSecondary}
-        disabled={isPending("job_approve") || !jobId}
+        style={withDisabledButtonStyle(styles.buttonSecondary, approveJobDisabled)}
+        disabled={approveJobDisabled}
         onClick={() => runAction("approve")}
       >
         {isPending("job_approve") ? "Approving…" : "Approve"}
       </button>
       <button
         type="button"
-        style={styles.buttonSecondary}
-        disabled={isPending("job_send") || !jobId}
+        style={withDisabledButtonStyle(styles.buttonSecondary, sendJobDisabled)}
+        disabled={sendJobDisabled}
         onClick={() => runAction("send")}
       >
         {isPending("job_send") ? "Sending…" : "Send (dry-run safe)"}
       </button>
       <button
         type="button"
-        style={styles.buttonSecondary}
-        disabled={isPending("job_fetch") || !controls.can_fetch}
+        style={withDisabledButtonStyle(styles.buttonSecondary, fetchJobDisabled)}
+        disabled={fetchJobDisabled}
         onClick={() => runAction("fetch")}
       >
         {isPending("job_fetch") ? "Fetching…" : "Fetch response"}
@@ -301,8 +333,8 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
       ) : null}
       <button
         type="button"
-        style={styles.buttonSecondary}
-        disabled={isPending("job_load-demo-fixture") || !controls.can_load_fixture}
+        style={withDisabledButtonStyle(styles.buttonSecondary, loadFixtureDisabled)}
+        disabled={loadFixtureDisabled}
         onClick={() => runAction("load-demo-fixture")}
       >
         {isPending("job_load-demo-fixture") ? "Loading…" : "Load non-live risk brief fixture"}
@@ -313,20 +345,31 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
       <p style={{ margin: "0.35rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
         This loads a non-live fixture response for operator validation. It is not a live Mind response.
       </p>
-      <button
-        type="button"
-        style={styles.buttonSecondary}
-        disabled={isPending("job_parse") || !controls.can_parse}
-        onClick={() => runAction("parse")}
-      >
-        {isPending("job_parse") ? "Parsing…" : controls.parse_label}
-      </button>
+      {showParseStatusPill ? (
+        <span style={styles.statusPill} aria-label="Parse status">
+          {controls.parse_label}
+        </span>
+      ) : (
+        <button
+          type="button"
+          style={withDisabledButtonStyle(styles.buttonSecondary, parseJobDisabled)}
+          disabled={parseJobDisabled}
+          onClick={() => runAction("parse")}
+        >
+          {isPending("job_parse") ? "Parsing…" : controls.parse_label}
+        </button>
+      )}
       {controls.parse_helper ? (
         <div style={styles.meta}>
           {lastFetchNoReply ? "No Mind reply yet. Try fetching again shortly." : controls.parse_helper}
         </div>
       ) : null}
-      <button type="button" style={styles.buttonSecondary} disabled={isPending("refresh_briefs")} onClick={() => runPending("refresh_briefs", refreshBriefs)}>
+      <button
+        type="button"
+        style={withDisabledButtonStyle(styles.buttonSecondary, refreshBriefsDisabled)}
+        disabled={refreshBriefsDisabled}
+        onClick={() => runPending("refresh_briefs", refreshBriefs)}
+      >
         {isPending("refresh_briefs") ? "Refreshing…" : "Refresh briefs"}
       </button>
 
