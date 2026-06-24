@@ -12,6 +12,7 @@ import {
   truncateMindField,
   type MindJsonParseResult,
 } from "@/lib/watch/mind-json-parser";
+import { normalizeMindRiskBriefSearchSource } from "@/lib/watch/mind-claim-risk-brief-search-source";
 
 const searchPerformedSchema = z.object({
   source: z.enum(["PubMed", "Other", "Not searched"]),
@@ -51,6 +52,44 @@ const riskBriefCostReportSchema = z.object({
   search_count: z.number(),
   abstracts_fetched: z.number(),
 });
+
+function preprocessMindClaimRiskBriefRecord(
+  record: Record<string, unknown>
+): MindJsonParseResult<Record<string, unknown>> {
+  const searches = record.searches_performed;
+  if (!Array.isArray(searches)) {
+    return { ok: false, error: "schema_validation_failed", message: "searches_performed expected array" };
+  }
+
+  const normalizedSearches: Record<string, unknown>[] = [];
+
+  for (let index = 0; index < searches.length; index += 1) {
+    const item = searches[index];
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return {
+        ok: false,
+        error: "schema_validation_failed",
+        message: `searches_performed[${index}] expected object`,
+      };
+    }
+
+    const itemRecord = { ...(item as Record<string, unknown>) };
+    const normalized = normalizeMindRiskBriefSearchSource(itemRecord.source);
+    if (!normalized.ok) {
+      return {
+        ok: false,
+        error: "schema_validation_failed",
+        message: `searches_performed[${index}].source ${normalized.message}`,
+      };
+    }
+
+    // Preserve the strict source enum; any original detail is not persisted without schema expansion.
+    itemRecord.source = normalized.source;
+    normalizedSearches.push(itemRecord);
+  }
+
+  return { ok: true, data: { ...record, searches_performed: normalizedSearches } };
+}
 
 export const mindClaimRiskBriefOutputSchema = z.object({
   contract_version: z.literal(MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION),
@@ -212,6 +251,7 @@ export function parseMindClaimRiskBriefResponse(
     rawText,
     expectedContractVersion: MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION,
     schema: mindClaimRiskBriefOutputSchema,
+    preprocess: preprocessMindClaimRiskBriefRecord,
   });
 
   if (!parsed.ok) {

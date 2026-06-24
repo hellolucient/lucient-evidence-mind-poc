@@ -77,3 +77,63 @@ Existing `parse_failed` extraction jobs remain re-parsable when `mind_response_t
 
 - [phase-45-mind-centered-claim-intelligence.md](./phase-45-mind-centered-claim-intelligence.md)
 - [evidence-mind-roadmap.md](./evidence-mind-roadmap.md)
+
+---
+
+# Phase 46B — Live Mind Risk Brief Parsing Hardening
+
+**Status:** Implemented (POC)  
+**Scope:** Mind claim risk brief JSON parser normalization for `searches_performed[].source` only
+
+## Production validation outcome
+
+Live Mind risk brief validation in production confirmed:
+
+| Step | Result |
+|------|--------|
+| Live Mind send | Succeeded |
+| Fetch response | Succeeded |
+| Mind response stored | Succeeded |
+| First parse | Failed |
+
+The first parse failed because live Mind returned extended source labels in `searches_performed[].source`, for example:
+
+```text
+PubMed (via NCBI E-utilities, executed 2026-06-24 in prior cycle)
+```
+
+The contract requires `source` to be exactly one of: `"PubMed" | "Other" | "Not searched"`.
+
+## Phase 46B changes
+
+### Safe source normalization (pre-validation)
+
+Before final schema validation, `lib/watch/mind-claim-risk-brief-search-source.ts` normalizes search source labels:
+
+- Exact match allowed values → preserved
+- Contains `pubmed` / `ncbi` / `e-utilities` (case-insensitive) → `"PubMed"`
+- Contains `not searched` (case-insensitive) → `"Not searched"`
+- Other non-empty label-like strings → `"Other"` (conservative heuristic)
+- Empty or non-string → parse fails with useful path-level diagnostics
+
+### Strict substantive validation preserved
+
+No broad loosening was applied. These fields remain strict:
+
+- `contract_version`
+- `evidence_posture`
+- `evidence_strength`
+- `risk_level`
+- `regulatory_sensitivity`
+- `operator_recommendation`
+
+### Retry parsing after `parse_failed`
+
+Risk brief jobs remain re-parsable when `mind_response_text` exists. Operators do not need to fetch again. Re-parse is idempotent and does not create duplicate `mind_claim_risk_briefs`.
+
+## Unchanged safety constraints
+
+- No polling, cron, batch send, or scheduled parse behavior added
+- External transport unchanged
+- No live-send behavior changes
+

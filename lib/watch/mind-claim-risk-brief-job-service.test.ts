@@ -168,6 +168,40 @@ describe("mind claim risk brief job service", () => {
     expect(mockInsertBrief).toHaveBeenCalledTimes(1);
   });
 
+  it("re-parses parse_failed jobs without duplicate structured briefs", async () => {
+    mockGetJob.mockResolvedValue({
+      job: { ...approvedJob, status: "parse_failed", mind_response_text: validBrief, parse_error: "schema_validation_failed" },
+    });
+    mockGetBriefByJob.mockResolvedValue(null);
+    mockInsertBrief.mockResolvedValue({
+      ok: true,
+      brief: { risk_brief_id: "brief-1", workspace_id: approvedJob.workspace_id },
+    });
+    mockUpdateJob.mockResolvedValue({
+      ok: true,
+      job: { ...approvedJob, status: "parsed", parsed_at: "2026-06-24T00:00:00.000Z", parse_error: null },
+    });
+
+    const first = await parseMindClaimRiskBriefJobResponse("rb-job-1", access);
+    expect(first.ok).toBe(true);
+    if (first.ok) {
+      expect(first.idempotent).toBe(false);
+    }
+    expect(mockInsertBrief).toHaveBeenCalledTimes(1);
+
+    mockGetJob.mockResolvedValue({
+      job: { ...approvedJob, status: "parsed", mind_response_text: validBrief, parsed_at: "t" },
+    });
+    mockGetBriefByJob.mockResolvedValue({ risk_brief_id: "brief-1" });
+
+    const second = await parseMindClaimRiskBriefJobResponse("rb-job-1", access);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.idempotent).toBe(true);
+    }
+    expect(mockInsertBrief).toHaveBeenCalledTimes(1);
+  });
+
   it("parse failure creates no structured brief", async () => {
     mockGetJob.mockResolvedValue({
       job: { ...approvedJob, status: "response_fetched", mind_response_text: "not json" },
