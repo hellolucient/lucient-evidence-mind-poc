@@ -66,6 +66,7 @@ Apply migration manually in Supabase SQL Editor if not using CLI migrations.
 | `PATCH` | `/api/candidate-claims/[id]` |
 | `POST` | `/api/candidate-claims/[id]/accept` |
 | `POST` | `/api/candidate-claims/[id]/reject` |
+| `POST` | `/api/candidate-claims/[id]/undo` |
 
 ### Mind risk briefs
 
@@ -108,6 +109,34 @@ For grant-demo and local validation without live Mind, use the operator-triggere
 
 **Live Mind validation** requires a controlled window with `EXTERNAL_MIND_LIVE_SEND=true` (and HelloMinds configured). Use live send only for intentional validation; turn live send off afterward. The UI does not expose live-send controls.
 
+## Candidate claim review lifecycle
+
+Phase 45 `candidate_claims` review is operator-gated on `/source-intake`. Accept creates a durable `client_claims` row; reject does not. Operators can undo mistaken decisions without leaving inconsistent registry state.
+
+| State | `candidate_claims.review_status` | UI | Accept / Reject | Undo |
+|-------|----------------------------------|-----|-----------------|------|
+| Pending review | `pending` (or `edited`) | Shows status | Enabled | Hidden |
+| Accepted | `accepted` | “Accepted into Claim Registry” | Disabled | Enabled |
+| Rejected | `rejected` | “Rejected” | Disabled | Enabled |
+
+**Rules:**
+
+- **Rejecting an accepted candidate is blocked.** Use **Undo** first; this sets the candidate back to `pending` and sets the linked `client_claims.status` to `withdrawn` (row is retained, not deleted).
+- **Accepting a rejected candidate is blocked.** Use **Undo** to return the candidate to `pending`, then accept again if desired.
+- **Rejecting a candidate is not the same as deactivating a registered claim.** Reject only affects the Phase 45 candidate row. Registered claims remain active until acceptance undo withdraws them, or until later `/client-claims` lifecycle actions change status.
+- **Accept is idempotent** when the candidate is already accepted and the linked client claim exists — no duplicate active registry rows.
+- **Reject is idempotent** when the candidate is already rejected.
+
+**Undo route:** `POST /api/candidate-claims/[id]/undo`
+
+| Undo from | Candidate effect | `client_claims` effect | Audit event |
+|-----------|------------------|------------------------|-------------|
+| `accepted` | → `pending` | linked row → `withdrawn` | `acceptance_undone` |
+| `rejected` | → `pending` | none | `rejection_undone` |
+| `pending` | none (409) | none | none |
+
+Migration `20260624130000_add_client_claim_withdrawn_status.sql` adds `withdrawn` and `inactive` to the `client_claims.status` check constraint.
+
 ## Prompt contracts
 
 ### `mind_claim_extraction_json_v1`
@@ -134,6 +163,10 @@ Explicitly distinguishes ingredient, treatment, delivery-route, and branded ritu
 - [x] Parse success creates candidate claims exactly once (idempotent)
 - [x] Parse failure creates no claims
 - [x] Candidate accept creates durable `client_claims`
+- [x] Accepted candidate cannot be directly rejected (undo required)
+- [x] Rejected candidate cannot be directly accepted (undo required)
+- [x] Candidate acceptance/rejection undo returns to pending review
+- [x] Acceptance undo withdraws linked client claim without deletion
 - [x] Risk brief JSON parse success / failure
 - [x] Risk brief parse creates exactly one structured brief (idempotent)
 - [x] Send blocked before approval
@@ -141,7 +174,7 @@ Explicitly distinguishes ingredient, treatment, delivery-route, and branded ritu
 - [x] Demo fixture response loads C1–C6 without external Mind call
 - [x] No auto retry, batch send, or scheduled behavior
 
-Tests: `lib/watch/mind-claim-intelligence-phase45.test.ts`, `mind-claim-extraction-job-service.test.ts`, `mind-claim-risk-brief-job-service.test.ts`
+Tests: `lib/watch/mind-claim-intelligence-phase45.test.ts`, `mind-claim-extraction-job-service.test.ts`, `mind-claim-risk-brief-job-service.test.ts`, `candidate-claim-accept-service.test.ts`
 
 ## Manual demo script
 

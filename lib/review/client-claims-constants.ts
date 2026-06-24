@@ -1,4 +1,10 @@
-export const CLIENT_CLAIM_STATUSES = ["active", "paused", "archived"] as const;
+export const CLIENT_CLAIM_STATUSES = [
+  "active",
+  "paused",
+  "archived",
+  "withdrawn",
+  "inactive",
+] as const;
 
 export type ClientClaimStatus = (typeof CLIENT_CLAIM_STATUSES)[number];
 

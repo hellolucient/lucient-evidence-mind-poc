@@ -7,6 +7,7 @@ import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 import {
   acceptCandidateClaimToClientRegistry,
   rejectCandidateClaimReview,
+  undoCandidateClaimReviewDecision,
 } from "@/lib/watch/candidate-claim-accept-service";
 import {
   getCandidateClaimById,
@@ -91,8 +92,14 @@ export async function buildAcceptCandidateClaimApiResponse(
   });
 
   if (!result.ok) {
+    const status =
+      result.error === "forbidden"
+        ? 403
+        : result.error === "undo_required"
+          ? 409
+          : 400;
     return {
-      status: result.error === "forbidden" ? 403 : 400,
+      status,
       body: {
         ok: false,
         error: result.error,
@@ -110,6 +117,7 @@ export async function buildAcceptCandidateClaimApiResponse(
       mind_phase: MIND_CLAIM_INTELLIGENCE_PHASE,
       candidate_claim_id: result.candidate_claim_id,
       client_claim: result.client_claim,
+      idempotent: result.idempotent,
     },
   };
 }
@@ -125,8 +133,14 @@ export async function buildRejectCandidateClaimApiResponse(
   });
 
   if (!result.ok) {
+    const status =
+      result.error === "forbidden"
+        ? 403
+        : result.error === "undo_acceptance_required"
+          ? 409
+          : 400;
     return {
-      status: result.error === "forbidden" ? 403 : 400,
+      status,
       body: {
         ok: false,
         error: result.error,
@@ -143,6 +157,48 @@ export async function buildRejectCandidateClaimApiResponse(
       phase: CURRENT_WATCH_PHASE,
       mind_phase: MIND_CLAIM_INTELLIGENCE_PHASE,
       candidate_claim_id: result.candidate_claim_id,
+      idempotent: result.idempotent,
+    },
+  };
+}
+
+export async function buildUndoCandidateClaimApiResponse(
+  candidateClaimId: string,
+  body: { operator_email?: string | null },
+  access: ReviewQueueAccessContext
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const result = await undoCandidateClaimReviewDecision(candidateClaimId, access, {
+    operatorEmail: body.operator_email,
+  });
+
+  if (!result.ok) {
+    const status =
+      result.error === "forbidden"
+        ? 403
+        : result.error === "nothing_to_undo"
+          ? 409
+          : 400;
+    return {
+      status,
+      body: {
+        ok: false,
+        error: result.error,
+        message: result.message,
+        mind_phase: MIND_CLAIM_INTELLIGENCE_PHASE,
+      },
+    };
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      phase: CURRENT_WATCH_PHASE,
+      mind_phase: MIND_CLAIM_INTELLIGENCE_PHASE,
+      candidate_claim_id: result.candidate_claim_id,
+      candidate_claim: result.candidate_claim,
+      undo_type: result.undo_type,
+      client_claim_status_updated: result.client_claim_status_updated,
     },
   };
 }

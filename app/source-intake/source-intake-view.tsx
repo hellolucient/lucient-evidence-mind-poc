@@ -155,6 +155,20 @@ type SourceIntakeViewProps = {
   operatorEmail: string | null | undefined;
 };
 
+function candidateReviewStatusLabel(reviewStatus: string): string {
+  if (reviewStatus === "accepted") {
+    return "Accepted into Claim Registry";
+  }
+  if (reviewStatus === "rejected") {
+    return "Rejected";
+  }
+  return reviewStatus;
+}
+
+function isPendingCandidateReview(reviewStatus: string): boolean {
+  return reviewStatus === "pending" || reviewStatus === "edited";
+}
+
 async function postJson(url: string, body: Record<string, unknown> = {}) {
   const response = await fetch(url, {
     method: "POST",
@@ -304,7 +318,7 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
 
   async function handleCandidateAction(
     candidateClaimId: string,
-    action: "accept" | "reject" | "edit",
+    action: "accept" | "reject" | "undo" | "edit",
     editedText?: string
   ) {
     setBusy(true);
@@ -515,24 +529,39 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
                   </td>
                   <td style={styles.td}>{claim.confidence ?? "—"}</td>
                   <td style={styles.td}>{claim.suggested_review_status ?? "—"}</td>
-                  <td style={styles.td}>{claim.review_status}</td>
+                  <td style={styles.td}>{candidateReviewStatusLabel(claim.review_status)}</td>
                   <td style={styles.td}>
-                    <button
-                      type="button"
-                      style={styles.buttonSecondary}
-                      disabled={busy}
-                      onClick={() => handleCandidateAction(claim.candidate_claim_id, "accept")}
-                    >
-                      Accept
-                    </button>
-                    <button
-                      type="button"
-                      style={styles.buttonSecondary}
-                      disabled={busy}
-                      onClick={() => handleCandidateAction(claim.candidate_claim_id, "reject")}
-                    >
-                      Reject
-                    </button>
+                    {isPendingCandidateReview(claim.review_status) ? (
+                      <>
+                        <button
+                          type="button"
+                          style={styles.buttonSecondary}
+                          disabled={busy}
+                          onClick={() => handleCandidateAction(claim.candidate_claim_id, "accept")}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.buttonSecondary}
+                          disabled={busy}
+                          onClick={() => handleCandidateAction(claim.candidate_claim_id, "reject")}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : claim.review_status === "accepted" || claim.review_status === "rejected" ? (
+                      <button
+                        type="button"
+                        style={styles.buttonSecondary}
+                        disabled={busy}
+                        onClick={() => handleCandidateAction(claim.candidate_claim_id, "undo")}
+                      >
+                        Undo
+                      </button>
+                    ) : (
+                      <span style={{ color: "#64748b" }}>—</span>
+                    )}
                   </td>
                 </tr>
               ))}
