@@ -84,6 +84,7 @@ async function postJson(url: string, body: Record<string, unknown> = {}) {
 export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: MindRiskBriefPanelProps) {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
+  const [hasLiveExternalIds, setHasLiveExternalIds] = useState(false);
   const [hasResponseText, setHasResponseText] = useState(false);
   const [lastFetchNoReply, setLastFetchNoReply] = useState(false);
   const [briefs, setBriefs] = useState<RiskBrief[]>([]);
@@ -160,9 +161,16 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
             setError(String(data.error ?? "Failed to create risk brief job."));
             return;
           }
-          const job = data.job as { risk_brief_job_id: string; status: string; mind_response_text?: string | null };
+          const job = data.job as {
+            risk_brief_job_id: string;
+            status: string;
+            mind_response_text?: string | null;
+            external_thread_id?: string | null;
+            external_message_id?: string | null;
+          };
           setJobId(job.risk_brief_job_id);
           setJobStatus(job.status);
+          setHasLiveExternalIds(Boolean(job.external_thread_id || job.external_message_id));
           setHasResponseText(Boolean(job.mind_response_text?.trim()));
           return;
         }
@@ -187,8 +195,14 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         }
 
         if (data.job) {
-          const job = data.job as { status: string; mind_response_text?: string | null };
+          const job = data.job as {
+            status: string;
+            mind_response_text?: string | null;
+            external_thread_id?: string | null;
+            external_message_id?: string | null;
+          };
           setJobStatus(job.status);
+          setHasLiveExternalIds(Boolean(job.external_thread_id || job.external_message_id));
           setHasResponseText(Boolean(job.mind_response_text?.trim()));
           if (action === "fetch") {
             const noReply = job.status === "waiting_for_reply" && !job.mind_response_text?.trim();
@@ -206,6 +220,41 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
   }
 
   const latestBrief = briefs[0] ?? null;
+  const fetchEligible =
+    Boolean(jobId) &&
+    (jobStatus === "sent" || jobStatus === "waiting_for_reply") &&
+    hasLiveExternalIds;
+
+  function fetchHelper(): string | null {
+    if (!jobId) {
+      return null;
+    }
+    if (jobStatus === "parsed") {
+      return "This response has already been parsed.";
+    }
+    if (jobStatus === "response_fetched") {
+      return "Response already fetched. Parse is available if response text exists.";
+    }
+    if (jobStatus === "parse_failed") {
+      return "Response already fetched. Retry Parse after fixing the parse issue.";
+    }
+    if (jobStatus === "approved") {
+      return "Send this job before fetching a Mind response.";
+    }
+    if (jobStatus === "pending_approval") {
+      return "Approve and send this job before fetching.";
+    }
+    if (jobStatus === "sent" || jobStatus === "waiting_for_reply") {
+      if (!hasLiveExternalIds) {
+        return "No live Mind identifiers are attached to this job.";
+      }
+      return null;
+    }
+    if (!hasLiveExternalIds) {
+      return "This is not a live Mind response. Fetch is only for live-sent jobs.";
+    }
+    return "Fetch is only available for live-sent jobs.";
+  }
 
   return (
     <div style={styles.panel}>
@@ -237,11 +286,14 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
       <button
         type="button"
         style={styles.buttonSecondary}
-        disabled={isPending("job_fetch") || !jobId}
+        disabled={isPending("job_fetch") || !fetchEligible}
         onClick={() => runAction("fetch")}
       >
         {isPending("job_fetch") ? "Fetching…" : "Fetch response"}
       </button>
+      {!fetchEligible && fetchHelper() ? (
+        <div style={styles.meta}>{fetchHelper()}</div>
+      ) : null}
       <button
         type="button"
         style={styles.buttonSecondary}

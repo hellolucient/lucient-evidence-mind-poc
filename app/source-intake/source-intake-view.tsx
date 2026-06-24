@@ -148,7 +148,57 @@ type ExtractionJob = {
   review_status: string;
   mind_response_text: string | null;
   parse_error: string | null;
+  external_thread_id?: string | null;
+  external_message_id?: string | null;
 };
+
+export function extractionFetchEligibility(job: ExtractionJob | null): {
+  eligible: boolean;
+  helper: string | null;
+} {
+  if (!job) {
+    return { eligible: false, helper: null };
+  }
+
+  const hasLiveExternalIds = Boolean(job.external_thread_id || job.external_message_id);
+  const status = job.status;
+
+  if (status === "sent" || status === "waiting_for_reply") {
+    if (!hasLiveExternalIds) {
+      return { eligible: false, helper: "No live Mind identifiers are attached to this job." };
+    }
+    return { eligible: true, helper: null };
+  }
+
+  if (!hasLiveExternalIds) {
+    // Most common operator confusion: dry-run sends do not have live ids and cannot be fetched.
+    if (status === "sent") {
+      return { eligible: false, helper: "This is not a live Mind response. Fetch is only for live-sent jobs." };
+    }
+    return { eligible: false, helper: "No live Mind identifiers are attached to this job." };
+  }
+
+  switch (status) {
+    case "parsed":
+      return { eligible: false, helper: "This response has already been parsed." };
+    case "response_fetched":
+      return {
+        eligible: false,
+        helper: "Response already fetched. Parse is available if response text exists.",
+      };
+    case "parse_failed":
+      return {
+        eligible: false,
+        helper: "Response already fetched. Retry Parse after fixing the parse issue.",
+      };
+    case "approved":
+      return { eligible: false, helper: "Send this job before fetching a Mind response." };
+    case "pending_approval":
+      return { eligible: false, helper: "Approve and send this job before fetching." };
+    default:
+      return { eligible: false, helper: "Fetch is only available for live-sent jobs." };
+  }
+}
 
 type SourceIntakeViewProps = {
   pageData: SourceIntakePageData;
@@ -463,6 +513,8 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
     });
   }
 
+  const fetchEligibility = extractionFetchEligibility(extractionJob);
+
   return (
     <main style={styles.page}>
       <header style={styles.header}>
@@ -559,11 +611,16 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         <button
           type="button"
           style={{ ...styles.buttonSecondary, ...(isPending("job_fetch") ? styles.buttonDisabled : {}) }}
-          disabled={isPending("job_fetch") || !extractionJob}
+          disabled={isPending("job_fetch") || !fetchEligibility.eligible}
           onClick={() => runJobAction("fetch")}
         >
           {isPending("job_fetch") ? "Fetching…" : "Fetch Mind response"}
         </button>
+        {!fetchEligibility.eligible && fetchEligibility.helper ? (
+          <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
+            {fetchEligibility.helper}
+          </p>
+        ) : null}
         <button
           type="button"
           style={{ ...styles.buttonSecondary, ...(isPending("job_load-demo-fixture") ? styles.buttonDisabled : {}) }}
