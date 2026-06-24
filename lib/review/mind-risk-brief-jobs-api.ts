@@ -203,6 +203,7 @@ export async function buildParseMindRiskBriefJobApiResponse(
       job: result.job,
       risk_brief_id: result.risk_brief_id,
       idempotent: result.idempotent,
+      message: result.message,
     },
   };
 }

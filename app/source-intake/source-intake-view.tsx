@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 
 import type { SourceIntakePageData } from "@/lib/review/source-intake-page";
-import { renderSafeMindTextBlock } from "@/lib/review/safe-mind-text";
+import { mindJobControlsState } from "@/lib/review/mind-job-controls";
+import { renderSafeMindTextBlock, toMindDisplayPlainText } from "@/lib/review/safe-mind-text";
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
@@ -148,57 +149,13 @@ type ExtractionJob = {
   review_status: string;
   mind_response_text: string | null;
   parse_error: string | null;
+  response_fetched_at?: string | null;
+  parsed_at?: string | null;
   external_thread_id?: string | null;
   external_message_id?: string | null;
 };
 
-export function extractionFetchEligibility(job: ExtractionJob | null): {
-  eligible: boolean;
-  helper: string | null;
-} {
-  if (!job) {
-    return { eligible: false, helper: null };
-  }
-
-  const hasLiveExternalIds = Boolean(job.external_thread_id || job.external_message_id);
-  const status = job.status;
-
-  if (status === "sent" || status === "waiting_for_reply") {
-    if (!hasLiveExternalIds) {
-      return { eligible: false, helper: "No live Mind identifiers are attached to this job." };
-    }
-    return { eligible: true, helper: null };
-  }
-
-  if (!hasLiveExternalIds) {
-    // Most common operator confusion: dry-run sends do not have live ids and cannot be fetched.
-    if (status === "sent") {
-      return { eligible: false, helper: "This is not a live Mind response. Fetch is only for live-sent jobs." };
-    }
-    return { eligible: false, helper: "No live Mind identifiers are attached to this job." };
-  }
-
-  switch (status) {
-    case "parsed":
-      return { eligible: false, helper: "This response has already been parsed." };
-    case "response_fetched":
-      return {
-        eligible: false,
-        helper: "Response already fetched. Parse is available if response text exists.",
-      };
-    case "parse_failed":
-      return {
-        eligible: false,
-        helper: "Response already fetched. Retry Parse after fixing the parse issue.",
-      };
-    case "approved":
-      return { eligible: false, helper: "Send this job before fetching a Mind response." };
-    case "pending_approval":
-      return { eligible: false, helper: "Approve and send this job before fetching." };
-    default:
-      return { eligible: false, helper: "Fetch is only available for live-sent jobs." };
-  }
-}
+export { mindJobControlsState as extractionJobControlsState } from "@/lib/review/mind-job-controls";
 
 type SourceIntakeViewProps = {
   pageData: SourceIntakePageData;
@@ -410,6 +367,15 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
 
         if (action === "parse" && sourceDocumentId) {
           await loadCandidateClaims(sourceDocumentId, job?.extraction_job_id ?? extractionJob?.extraction_job_id ?? null);
+          const idempotent = data.idempotent === true;
+          const message =
+            typeof data.message === "string"
+              ? data.message
+              : idempotent
+                ? "This extraction job has already been parsed."
+                : "Parse completed.";
+          setStatusMessage(message);
+          return;
         }
 
         setStatusMessage(
@@ -513,7 +479,7 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
     });
   }
 
-  const fetchEligibility = extractionFetchEligibility(extractionJob);
+  const controls = mindJobControlsState(extractionJob);
 
   return (
     <main style={styles.page}>
@@ -611,44 +577,45 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         <button
           type="button"
           style={{ ...styles.buttonSecondary, ...(isPending("job_fetch") ? styles.buttonDisabled : {}) }}
-          disabled={isPending("job_fetch") || !fetchEligibility.eligible}
+          disabled={isPending("job_fetch") || !controls.can_fetch}
           onClick={() => runJobAction("fetch")}
         >
           {isPending("job_fetch") ? "Fetching…" : "Fetch Mind response"}
         </button>
-        {!fetchEligibility.eligible && fetchEligibility.helper ? (
+        {!controls.can_fetch && controls.fetch_helper ? (
           <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
-            {fetchEligibility.helper}
+            {controls.fetch_helper}
           </p>
         ) : null}
         <button
           type="button"
           style={{ ...styles.buttonSecondary, ...(isPending("job_load-demo-fixture") ? styles.buttonDisabled : {}) }}
           disabled={
-            isPending("job_load-demo-fixture") ||
-            !extractionJob ||
-            !["sent", "waiting_for_reply", "response_fetched"].includes(extractionJob.status)
+            isPending("job_load-demo-fixture") || !controls.can_load_fixture
           }
           onClick={() => runJobAction("load-demo-fixture")}
         >
           {isPending("job_load-demo-fixture") ? "Loading…" : "Load non-live extraction fixture"}
         </button>
+        {!controls.can_load_fixture && controls.fixture_helper ? (
+          <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
+            {controls.fixture_helper}
+          </p>
+        ) : null}
         <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
           This loads a non-live fixture response for operator validation. It is not a live Mind response.
         </p>
         <button
           type="button"
           style={{ ...styles.buttonSecondary, ...(isPending("job_parse") ? styles.buttonDisabled : {}) }}
-          disabled={isPending("job_parse") || !extractionJob || !extractionJob.mind_response_text?.trim()}
+          disabled={isPending("job_parse") || !controls.can_parse}
           onClick={() => runJobAction("parse")}
         >
-          {isPending("job_parse") ? "Parsing…" : "Parse response"}
+          {isPending("job_parse") ? "Parsing…" : controls.parse_label}
         </button>
-        {!extractionJob?.mind_response_text?.trim() ? (
+        {controls.parse_helper ? (
           <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
-            {lastFetchNoReply
-              ? "No Mind reply yet. Try fetching again shortly."
-              : "Fetch a Mind response before parsing."}
+            {lastFetchNoReply ? "No Mind reply yet. Try fetching again shortly." : controls.parse_helper}
           </p>
         ) : null}
 
@@ -661,20 +628,20 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
               Job: <code>{extractionJob.extraction_job_id}</code> · status: {extractionJob.status} · review:{" "}
               {extractionJob.review_status}
             </div>
+            {extractionJob.status === "parsed" ? (
+              <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
+                This response has already been parsed.
+              </p>
+            ) : null}
             {extractionJob.parse_error ? (
               <div style={styles.error}>Parse error: {renderSafeMindTextBlock(extractionJob.parse_error)}</div>
             ) : null}
-            {extractionJob.mind_response_text ? (
-              <pre style={styles.pre}>{renderSafeMindTextBlock(extractionJob.mind_response_text)}</pre>
-            ) : null}
           </div>
         ) : null}
-      </section>
 
-      <section style={styles.section}>
-        <h2 style={{ marginTop: 0, fontSize: "1rem" }}>
-          3. Candidate claims ({candidateClaims.length})
-        </h2>
+        <h3 style={{ marginTop: "1rem", marginBottom: "0.5rem", fontSize: "0.9375rem" }}>
+          Candidate claims ({candidateClaims.length})
+        </h3>
         {candidateClaims.length === 0 ? (
           <p style={{ margin: 0, color: "#64748b", fontSize: "0.875rem" }}>
             Parse a Mind extraction response to populate candidate claims.
@@ -746,6 +713,16 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
             </tbody>
           </table>
         )}
+
+        {extractionJob?.mind_response_text ? (
+          <details
+            style={{ marginTop: "0.75rem" }}
+            {...(controls.raw_response_default_open ? { open: true } : {})}
+          >
+            <summary style={{ cursor: "pointer", color: "#334155" }}>Raw Mind response</summary>
+            <pre style={styles.pre}>{toMindDisplayPlainText(extractionJob.mind_response_text)}</pre>
+          </details>
+        ) : null}
       </section>
 
       <section style={styles.section}>

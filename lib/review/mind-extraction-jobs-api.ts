@@ -233,6 +233,7 @@ export async function buildParseMindExtractionJobApiResponse(
       job: result.job,
       candidate_claim_count: result.candidate_claim_count,
       idempotent: result.idempotent,
+      message: result.message,
     },
   };
 }

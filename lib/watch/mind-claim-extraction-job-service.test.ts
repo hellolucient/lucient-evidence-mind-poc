@@ -188,6 +188,10 @@ describe("mind claim extraction parse idempotency", () => {
 
     const first = await parseMindClaimExtractionJobResponse("job-1", access);
     expect(first.ok).toBe(true);
+    if (first.ok) {
+      expect(first.idempotent).toBe(false);
+      expect(first.message).toBe("Parse completed.");
+    }
     expect(mockInsertCandidates).toHaveBeenCalledTimes(1);
 
     mockGetJob.mockResolvedValue({
@@ -204,8 +208,31 @@ describe("mind claim extraction parse idempotency", () => {
     expect(second.ok).toBe(true);
     if (second.ok) {
       expect(second.idempotent).toBe(true);
+      expect(second.message).toBe("This extraction job has already been parsed.");
     }
     expect(mockInsertCandidates).toHaveBeenCalledTimes(1);
+  });
+
+  it("already parsed job returns clear idempotent message without duplicating candidates", async () => {
+    mockGetJob.mockResolvedValue({
+      job: {
+        ...approvedJob,
+        status: "parsed",
+        mind_response_text: validResponse,
+        parsed_at: "2026-06-24T00:00:00.000Z",
+      },
+    });
+    mockCountCandidates.mockResolvedValue(3);
+
+    const result = await parseMindClaimExtractionJobResponse("job-1", access);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.idempotent).toBe(true);
+      expect(result.message).toBe("This extraction job has already been parsed.");
+      expect(result.candidate_claim_count).toBe(3);
+    }
+    expect(mockInsertCandidates).not.toHaveBeenCalled();
+    expect(mockUpdateJob).not.toHaveBeenCalled();
   });
 
   it("parse failure creates no candidate claims", async () => {
@@ -504,6 +531,7 @@ describe("non-live fixture response load", () => {
     expect(second.ok).toBe(true);
     if (second.ok) {
       expect(second.idempotent).toBe(true);
+      expect(second.message).toBe("This extraction job has already been parsed.");
       expect(second.candidate_claim_count).toBe(6);
     }
     expect(mockInsertCandidates).toHaveBeenCalledTimes(1);

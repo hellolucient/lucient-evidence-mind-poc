@@ -44,13 +44,27 @@ function decodeHarmlessHtmlEntities(text: string): string {
   return decoded;
 }
 
-export function toSafeMindPlainText(text: string | null | undefined): string {
+/**
+ * Safe plain text for display in React text nodes (e.g. <pre>{text}</pre>).
+ *
+ * React will escape markup characters for us, so we do not pre-escape quotes here.
+ * We still strip tags and decode harmless entities to improve operator readability.
+ */
+export function toMindDisplayPlainText(text: string | null | undefined): string {
   if (!text?.trim()) {
     return "";
   }
 
   const plain = convertHelloMindsMessageTextToPlainText(text);
-  const decoded = decodeHarmlessHtmlEntities(plain);
+  return decodeHarmlessHtmlEntities(plain);
+}
+
+export function toSafeMindPlainText(text: string | null | undefined): string {
+  if (!text?.trim()) {
+    return "";
+  }
+
+  const decoded = toMindDisplayPlainText(text);
   return escapeMindDisplayText(decoded);
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderSafeMindTextBlock } from "@/lib/review/safe-mind-text";
+import { toMindDisplayPlainText, renderSafeMindTextBlock } from "@/lib/review/safe-mind-text";
 
 describe("safe-mind-text", () => {
   it("decodes harmless HTML entities for display (apostrophes)", () => {
@@ -17,6 +17,11 @@ describe("safe-mind-text", () => {
     expect(output).toBe("alert(1)");
     expect(output).not.toContain("<");
     expect(output).not.toContain(">");
+  });
+
+  it("decodes harmless HTML entities for operator display text", () => {
+    expect(toMindDisplayPlainText('{"note":"don&#39;t worry"}')).toContain("don't worry");
+    expect(toMindDisplayPlainText('quoted: &quot;ok&quot;')).toBe('quoted: "ok"');
   });
 });
 

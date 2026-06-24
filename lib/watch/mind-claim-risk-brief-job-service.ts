@@ -421,6 +421,7 @@ export async function parseMindClaimRiskBriefJobResponse(
       job: NonNullable<Awaited<ReturnType<typeof getMindClaimRiskBriefJobById>>["job"]>;
       risk_brief_id: string;
       idempotent: boolean;
+      message?: string;
     }
   | { ok: false; error: string; message: string }
 > {
@@ -444,6 +445,7 @@ export async function parseMindClaimRiskBriefJobResponse(
       job: lookup.job,
       risk_brief_id: existingBrief.risk_brief_id,
       idempotent: true,
+      message: "This risk brief job has already been parsed.",
     };
   }
 
@@ -458,6 +460,7 @@ export async function parseMindClaimRiskBriefJobResponse(
       job: update.ok ? update.job : lookup.job,
       risk_brief_id: existingBrief.risk_brief_id,
       idempotent: true,
+      message: "This risk brief job has already been parsed.",
     };
   }
 
@@ -547,5 +550,6 @@ export async function parseMindClaimRiskBriefJobResponse(
     job: update.job,
     risk_brief_id: insert.brief.risk_brief_id,
     idempotent: false,
+    message: "Parse completed.",
   };
 }

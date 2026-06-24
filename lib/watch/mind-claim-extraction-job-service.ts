@@ -418,6 +418,7 @@ export async function parseMindClaimExtractionJobResponse(
       job: NonNullable<Awaited<ReturnType<typeof getMindClaimExtractionJobById>>["job"]>;
       candidate_claim_count: number;
       idempotent: boolean;
+      message?: string;
     }
   | { ok: false; error: string; message: string }
 > {
@@ -436,7 +437,13 @@ export async function parseMindClaimExtractionJobResponse(
 
   if (lookup.job.status === "parsed") {
     const existingCount = await countCandidateClaimsForExtractionJob(jobId);
-    return { ok: true, job: lookup.job, candidate_claim_count: existingCount, idempotent: true };
+    return {
+      ok: true,
+      job: lookup.job,
+      candidate_claim_count: existingCount,
+      idempotent: true,
+      message: "This extraction job has already been parsed.",
+    };
   }
 
   if (!lookup.job.mind_response_text?.trim()) {
@@ -461,6 +468,7 @@ export async function parseMindClaimExtractionJobResponse(
       job: update.ok ? update.job : lookup.job,
       candidate_claim_count: existingCount,
       idempotent: true,
+      message: "This extraction job has already been parsed.",
     };
   }
 
@@ -530,5 +538,6 @@ export async function parseMindClaimExtractionJobResponse(
     job: update.job,
     candidate_claim_count: insert.count,
     idempotent: false,
+    message: "Parse completed.",
   };
 }

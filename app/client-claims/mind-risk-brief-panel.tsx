@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { renderSafeMindTextBlock } from "@/lib/review/safe-mind-text";
+import { renderSafeMindTextBlock, toMindDisplayPlainText } from "@/lib/review/safe-mind-text";
+import { mindJobControlsState } from "@/lib/review/mind-job-controls";
 
 const styles = {
   panel: {
@@ -84,9 +85,12 @@ async function postJson(url: string, body: Record<string, unknown> = {}) {
 export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: MindRiskBriefPanelProps) {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
-  const [hasLiveExternalIds, setHasLiveExternalIds] = useState(false);
-  const [hasResponseText, setHasResponseText] = useState(false);
+  const [jobParsedAt, setJobParsedAt] = useState<string | null>(null);
+  const [mindResponseText, setMindResponseText] = useState<string | null>(null);
+  const [externalThreadId, setExternalThreadId] = useState<string | null>(null);
+  const [externalMessageId, setExternalMessageId] = useState<string | null>(null);
   const [lastFetchNoReply, setLastFetchNoReply] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [briefs, setBriefs] = useState<RiskBrief[]>([]);
   const [auditEvents, setAuditEvents] = useState<Array<{ event_type: string; event_summary: string; created_at: string }>>([]);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +152,7 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
     action: "create" | "approve" | "send" | "fetch" | "load-demo-fixture" | "parse"
   ) {
     setError(null);
+    setStatusMessage(null);
     setLastFetchNoReply(false);
 
     await runPending(`job_${action}`, async () => {
@@ -167,11 +172,14 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
             mind_response_text?: string | null;
             external_thread_id?: string | null;
             external_message_id?: string | null;
+            parsed_at?: string | null;
           };
           setJobId(job.risk_brief_job_id);
           setJobStatus(job.status);
-          setHasLiveExternalIds(Boolean(job.external_thread_id || job.external_message_id));
-          setHasResponseText(Boolean(job.mind_response_text?.trim()));
+          setExternalThreadId(job.external_thread_id ?? null);
+          setExternalMessageId(job.external_message_id ?? null);
+          setJobParsedAt(typeof job.parsed_at === "string" ? job.parsed_at : null);
+          setMindResponseText(job.mind_response_text ?? null);
           return;
         }
 
@@ -200,18 +208,38 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
             mind_response_text?: string | null;
             external_thread_id?: string | null;
             external_message_id?: string | null;
+            parsed_at?: string | null;
           };
           setJobStatus(job.status);
-          setHasLiveExternalIds(Boolean(job.external_thread_id || job.external_message_id));
-          setHasResponseText(Boolean(job.mind_response_text?.trim()));
+          setExternalThreadId(job.external_thread_id ?? null);
+          setExternalMessageId(job.external_message_id ?? null);
+          setJobParsedAt(typeof job.parsed_at === "string" ? job.parsed_at : null);
+          setMindResponseText(job.mind_response_text ?? null);
           if (action === "fetch") {
             const noReply = job.status === "waiting_for_reply" && !job.mind_response_text?.trim();
             setLastFetchNoReply(noReply);
+            setStatusMessage(
+              noReply ? "No Mind reply yet. Try fetching again shortly." : "Fetch completed."
+            );
           }
         }
 
         if (action === "parse") {
           await refreshBriefs();
+          const idempotent = data.idempotent === true;
+          setStatusMessage(
+            typeof data.message === "string"
+              ? data.message
+              : idempotent
+                ? "This risk brief job has already been parsed."
+                : "Parse completed."
+          );
+          return;
+        }
+
+        if (action === "load-demo-fixture") {
+          setStatusMessage("Non-live fixture response loaded. This is not a live Mind response.");
+          return;
         }
       } catch {
         setError("Risk brief workflow request failed.");
@@ -219,42 +247,19 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
     });
   }
 
-  const latestBrief = briefs[0] ?? null;
-  const fetchEligible =
-    Boolean(jobId) &&
-    (jobStatus === "sent" || jobStatus === "waiting_for_reply") &&
-    hasLiveExternalIds;
+  const controls = mindJobControlsState(
+    jobId
+      ? {
+          status: jobStatus ?? "",
+          mind_response_text: mindResponseText,
+          parsed_at: jobParsedAt,
+          external_thread_id: externalThreadId,
+          external_message_id: externalMessageId,
+        }
+      : null
+  );
 
-  function fetchHelper(): string | null {
-    if (!jobId) {
-      return null;
-    }
-    if (jobStatus === "parsed") {
-      return "This response has already been parsed.";
-    }
-    if (jobStatus === "response_fetched") {
-      return "Response already fetched. Parse is available if response text exists.";
-    }
-    if (jobStatus === "parse_failed") {
-      return "Response already fetched. Retry Parse after fixing the parse issue.";
-    }
-    if (jobStatus === "approved") {
-      return "Send this job before fetching a Mind response.";
-    }
-    if (jobStatus === "pending_approval") {
-      return "Approve and send this job before fetching.";
-    }
-    if (jobStatus === "sent" || jobStatus === "waiting_for_reply") {
-      if (!hasLiveExternalIds) {
-        return "No live Mind identifiers are attached to this job.";
-      }
-      return null;
-    }
-    if (!hasLiveExternalIds) {
-      return "This is not a live Mind response. Fetch is only for live-sent jobs.";
-    }
-    return "Fetch is only available for live-sent jobs.";
-  }
+  const latestBrief = briefs[0] ?? null;
 
   return (
     <div style={styles.panel}>
@@ -286,40 +291,39 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
       <button
         type="button"
         style={styles.buttonSecondary}
-        disabled={isPending("job_fetch") || !fetchEligible}
+        disabled={isPending("job_fetch") || !controls.can_fetch}
         onClick={() => runAction("fetch")}
       >
         {isPending("job_fetch") ? "Fetching…" : "Fetch response"}
       </button>
-      {!fetchEligible && fetchHelper() ? (
-        <div style={styles.meta}>{fetchHelper()}</div>
+      {!controls.can_fetch && controls.fetch_helper ? (
+        <div style={styles.meta}>{controls.fetch_helper}</div>
       ) : null}
       <button
         type="button"
         style={styles.buttonSecondary}
-        disabled={
-          isPending("job_load-demo-fixture") ||
-          !jobId ||
-          !["sent", "waiting_for_reply", "response_fetched"].includes(jobStatus ?? "")
-        }
+        disabled={isPending("job_load-demo-fixture") || !controls.can_load_fixture}
         onClick={() => runAction("load-demo-fixture")}
       >
         {isPending("job_load-demo-fixture") ? "Loading…" : "Load non-live risk brief fixture"}
       </button>
+      {!controls.can_load_fixture && controls.fixture_helper ? (
+        <div style={styles.meta}>{controls.fixture_helper}</div>
+      ) : null}
       <p style={{ margin: "0.35rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
         This loads a non-live fixture response for operator validation. It is not a live Mind response.
       </p>
       <button
         type="button"
         style={styles.buttonSecondary}
-        disabled={isPending("job_parse") || !jobId || !hasResponseText}
+        disabled={isPending("job_parse") || !controls.can_parse}
         onClick={() => runAction("parse")}
       >
-        {isPending("job_parse") ? "Parsing…" : "Parse"}
+        {isPending("job_parse") ? "Parsing…" : controls.parse_label}
       </button>
-      {!hasResponseText ? (
+      {controls.parse_helper ? (
         <div style={styles.meta}>
-          {lastFetchNoReply ? "No Mind reply yet. Try fetching again shortly." : "Fetch a Mind response before parsing."}
+          {lastFetchNoReply ? "No Mind reply yet. Try fetching again shortly." : controls.parse_helper}
         </div>
       ) : null}
       <button type="button" style={styles.buttonSecondary} disabled={isPending("refresh_briefs")} onClick={() => runPending("refresh_briefs", refreshBriefs)}>
@@ -334,9 +338,13 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
           <div>
             Job: <code>{jobId}</code> · status: {jobStatus ?? "—"}
           </div>
+          {jobStatus === "parsed" ? (
+            <div style={{ marginTop: "0.35rem" }}>This response has already been parsed.</div>
+          ) : null}
         </div>
       ) : null}
 
+      {statusMessage ? <div style={{ ...styles.meta, color: "#334155" }}>{statusMessage}</div> : null}
       {error ? <div style={styles.error}>{error}</div> : null}
 
       {latestBrief ? (
@@ -367,6 +375,18 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
             </p>
           ) : null}
         </div>
+      ) : null}
+
+      {mindResponseText ? (
+        <details
+          style={{ marginTop: "0.75rem" }}
+          {...(controls.raw_response_default_open ? { open: true } : {})}
+        >
+          <summary style={{ cursor: "pointer", color: "#334155", fontSize: "0.8125rem" }}>
+            Raw Mind response
+          </summary>
+          <pre style={styles.pre}>{toMindDisplayPlainText(mindResponseText)}</pre>
+        </details>
       ) : null}
 
       {auditEvents.length > 0 ? (
