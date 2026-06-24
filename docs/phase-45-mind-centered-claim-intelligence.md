@@ -201,7 +201,9 @@ Explicitly distinguishes ingredient, treatment, delivery-route, and branded ritu
 - [x] Risk brief fixture parse creates exactly one structured brief (idempotent)
 - [x] No auto retry, batch send, or scheduled behavior
 
-Tests: `lib/watch/mind-claim-intelligence-phase45.test.ts`, `mind-claim-extraction-job-service.test.ts`, `mind-claim-risk-brief-job-service.test.ts`, `candidate-claim-accept-service.test.ts`
+Tests: `lib/watch/mind-claim-intelligence-phase45.test.ts`, `mind-claim-extraction-job-service.test.ts`, `mind-claim-extraction-contract.test.ts`, `mind-claim-risk-brief-job-service.test.ts`, `candidate-claim-accept-service.test.ts`
+
+See also [phase-46-mind-extraction-parsing.md](./phase-46-mind-extraction-parsing.md) for live Mind extraction parse hardening (Phase 46A).
 
 ## Manual validation script
 

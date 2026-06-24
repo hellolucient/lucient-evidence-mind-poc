@@ -6,10 +6,10 @@ import {
   MIND_SENSITIVITY_LEVELS,
   MIND_SUGGESTED_REVIEW_STATUSES,
 } from "@/lib/review/mind-claim-intelligence-constants";
+import { normalizeMindExtractionConfidence } from "@/lib/watch/mind-claim-extraction-confidence";
 import {
   parseMindJsonWithSchema,
   truncateMindField,
-  truncateMindStringArray,
   type MindJsonParseResult,
 } from "@/lib/watch/mind-json-parser";
 
@@ -151,6 +151,53 @@ export function buildMindClaimExtractionPrompt(input: {
   ].join("\n");
 }
 
+function preprocessMindClaimExtractionRecord(
+  record: Record<string, unknown>
+): MindJsonParseResult<Record<string, unknown>> {
+  const claims = record.claims;
+  if (!Array.isArray(claims)) {
+    return {
+      ok: false,
+      error: "schema_validation_failed",
+      message: "claims expected array",
+    };
+  }
+
+  const normalizedClaims: Record<string, unknown>[] = [];
+
+  for (let index = 0; index < claims.length; index += 1) {
+    const claim = claims[index];
+    if (!claim || typeof claim !== "object" || Array.isArray(claim)) {
+      return {
+        ok: false,
+        error: "schema_validation_failed",
+        message: `claims[${index}] expected object`,
+      };
+    }
+
+    const claimRecord = { ...(claim as Record<string, unknown>) };
+    const confidenceResult = normalizeMindExtractionConfidence(claimRecord.confidence);
+    if (!confidenceResult.ok) {
+      return {
+        ok: false,
+        error: "schema_validation_failed",
+        message: `claims[${index}].confidence ${confidenceResult.message}`,
+      };
+    }
+
+    claimRecord.confidence = confidenceResult.value;
+    normalizedClaims.push(claimRecord);
+  }
+
+  return {
+    ok: true,
+    data: {
+      ...record,
+      claims: normalizedClaims,
+    },
+  };
+}
+
 function mapExtractionClaim(claim: MindClaimExtractionClaim): ParsedMindClaimExtractionCandidate {
   return {
     external_claim_id: truncateMindField(claim.claim_id),
@@ -177,6 +224,7 @@ export function parseMindClaimExtractionResponse(
     rawText,
     expectedContractVersion: MIND_CLAIM_EXTRACTION_CONTRACT_VERSION,
     schema: mindClaimExtractionOutputSchema,
+    preprocess: preprocessMindClaimExtractionRecord,
   });
 
   if (!parsed.ok) {

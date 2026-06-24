@@ -404,6 +404,8 @@ export async function parseMindClaimExtractionJobResponse(
     };
   }
 
+  // parse_failed jobs remain re-parsable when mind_response_text is present (Phase 46A).
+
   const existingCount = await countCandidateClaimsForExtractionJob(jobId);
   if (existingCount > 0) {
     const update = await updateMindClaimExtractionJob(jobId, access, {

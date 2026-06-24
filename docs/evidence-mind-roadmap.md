@@ -2459,6 +2459,7 @@ Phases 42–44: operator dashboard, demo scenario package, pilot workspace harde
 | 2026-06-12 | Phase 39B HelloMinds messaging smoke test passed; synthetic ping only; conversation/message/history HTTP 200; Mind reply observed; no app/sender/adapter/handoff changes |
 | 2026-06-12 | Phase 39E3 HelloMinds external Mind handoff local live validation passed; digest `d739be0f-1399-49aa-ae7a-3b59aedbf0cf`, handoff `4a8effbb-37f8-4c56-9979-46741dbd5fdf`; dry-run blocked, gated live send succeeded; `EXTERNAL_MIND_LIVE_SEND` returned to false |
 | 2026-06-22 | Phase 39F HelloMinds production validation passed; digest `bc2ea900-6004-4711-b879-33c7bad87a2c`, handoff `0fd4ee13-740b-41cd-be4c-1139442bf082`; operator UI, dry-run, one gated live send (HTTP 200); `EXTERNAL_MIND_LIVE_SEND` returned to false |
+| 2026-06-24 | Phase 46A live Mind extraction parsing hardening — confidence label normalization, field-level parse diagnostics, `parse_failed` re-parse support |
 | 2026-06-24 | Phase 45 Mind-centered claim intelligence implemented — `/source-intake`, Mind extraction/risk brief APIs, operator-gated HelloMinds workflow, `EXTERNAL_MIND_LIVE_SEND=false` default preserved |
 
 ---
@@ -2471,6 +2472,7 @@ Phases 42–44: operator dashboard, demo scenario package, pilot workspace harde
 |-----|-----------------|
 | **`docs/evidence-mind-roadmap.md`** | **Canonical** — current phase status, validation records, next step |
 | **`docs/phase-45-mind-centered-claim-intelligence.md`** | Phase 45 scope, routes, safety model, validation script |
+| **`docs/phase-46-mind-extraction-parsing.md`** | Phase 46A live extraction parse diagnostics and confidence normalization |
 | **`docs/hellominds-connectivity-phase-39a.md`** | Phase 39A HelloMinds Builder API local smoke-test procedure and validation record |
 | **`docs/hellominds-connectivity-phase-39b.md`** | Phase 39B HelloMinds messaging smoke-test procedure and validation record |
 | **`docs/DEVELOPMENT_PHASES.md`** | Historical detail for Phases 1–20 + concise Phase 21–39F summary |

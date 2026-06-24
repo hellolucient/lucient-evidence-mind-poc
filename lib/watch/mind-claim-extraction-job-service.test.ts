@@ -169,22 +169,6 @@ describe("mind claim extraction parse idempotency", () => {
     cost_report: { reported_by_mind: true, summary: "ok" },
   });
 
-  it("parse failure creates no candidate claims", async () => {
-    mockGetJob.mockResolvedValue({
-      job: {
-        ...approvedJob,
-        status: "response_fetched",
-        mind_response_text: "{bad json",
-      },
-    });
-    mockCountCandidates.mockResolvedValue(0);
-    mockUpdateJob.mockResolvedValue({ ok: true, job: approvedJob });
-
-    const result = await parseMindClaimExtractionJobResponse("job-1", access);
-    expect(result.ok).toBe(false);
-    expect(mockInsertCandidates).not.toHaveBeenCalled();
-  });
-
   it("parse success creates candidate claims exactly once", async () => {
     mockGetJob.mockResolvedValue({
       job: {
@@ -210,6 +194,64 @@ describe("mind claim extraction parse idempotency", () => {
         status: "parsed",
         mind_response_text: validResponse,
         parsed_at: "2026-06-24T00:00:00.000Z",
+      },
+    });
+    mockCountCandidates.mockResolvedValue(1);
+
+    const second = await parseMindClaimExtractionJobResponse("job-1", access);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.idempotent).toBe(true);
+    }
+    expect(mockInsertCandidates).toHaveBeenCalledTimes(1);
+  });
+
+  it("parse failure creates no candidate claims", async () => {
+    mockGetJob.mockResolvedValue({
+      job: {
+        ...approvedJob,
+        status: "response_fetched",
+        mind_response_text: "{bad json",
+      },
+    });
+    mockCountCandidates.mockResolvedValue(0);
+    mockUpdateJob.mockResolvedValue({ ok: true, job: approvedJob });
+
+    const result = await parseMindClaimExtractionJobResponse("job-1", access);
+    expect(result.ok).toBe(false);
+    expect(mockInsertCandidates).not.toHaveBeenCalled();
+  });
+
+  it("re-parses parse_failed jobs without duplicate candidate claims", async () => {
+    mockGetJob.mockResolvedValue({
+      job: {
+        ...approvedJob,
+        status: "parse_failed",
+        mind_response_text: validResponse,
+        parse_error: 'claims[0].confidence expected number, received string "high"',
+      },
+    });
+    mockCountCandidates.mockResolvedValue(0);
+    mockInsertCandidates.mockResolvedValue({ ok: true, count: 1 });
+    mockUpdateJob.mockResolvedValue({
+      ok: true,
+      job: { ...approvedJob, status: "parsed", parsed_at: "2026-06-24T00:00:00.000Z", parse_error: null },
+    });
+
+    const first = await parseMindClaimExtractionJobResponse("job-1", access);
+    expect(first.ok).toBe(true);
+    if (first.ok) {
+      expect(first.idempotent).toBe(false);
+    }
+    expect(mockInsertCandidates).toHaveBeenCalledTimes(1);
+
+    mockGetJob.mockResolvedValue({
+      job: {
+        ...approvedJob,
+        status: "parsed",
+        mind_response_text: validResponse,
+        parsed_at: "2026-06-24T00:00:00.000Z",
+        parse_error: null,
       },
     });
     mockCountCandidates.mockResolvedValue(1);
