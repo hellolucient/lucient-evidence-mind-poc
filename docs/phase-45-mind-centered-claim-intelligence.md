@@ -76,6 +76,7 @@ Apply migration manually in Supabase SQL Editor if not using CLI migrations.
 | `POST` | `/api/mind-risk-brief-jobs/[id]/approve` |
 | `POST` | `/api/mind-risk-brief-jobs/[id]/send` |
 | `POST` | `/api/mind-risk-brief-jobs/[id]/fetch-response` |
+| `POST` | `/api/mind-risk-brief-jobs/[id]/load-demo-fixture-response` |
 | `POST` | `/api/mind-risk-brief-jobs/[id]/parse` |
 | `GET` | `/api/client-claims/[id]/mind-risk-briefs` |
 | `GET` | `/api/mind-risk-briefs/[id]` |
@@ -108,6 +109,30 @@ For grant-demo and local validation without live Mind, use the operator-triggere
 | Parse | Use existing **Parse response** route — same parser, no fake parse path |
 
 **Live Mind validation** requires a controlled window with `EXTERNAL_MIND_LIVE_SEND=true` (and HelloMinds configured). Use live send only for intentional validation; turn live send off afterward. The UI does not expose live-send controls.
+
+## Demo fixture risk brief response (Phase 45V-B)
+
+Dry-run risk brief sends (`EXTERNAL_MIND_LIVE_SEND=false`) record job state as `sent` but **do not** deliver to HelloMinds and **do not** create a real external Mind reply. Fetching history after dry-run send will not return risk brief JSON.
+
+For grant-demo and local validation without live Mind, use the operator-triggered demo fixture path:
+
+| Item | Detail |
+|------|--------|
+| Route | `POST /api/mind-risk-brief-jobs/[id]/load-demo-fixture-response` |
+| UI | `/client-claims` → **Load demo Mind risk brief fixture** |
+| When | Job status is `sent` or `response_fetched` (after approve + send dry-run) |
+| Behavior | Writes claim-tailored fixture JSON to `mind_response_text`; sets `response_fetched`; **no external Mind call** |
+| Parse | Use existing **Parse** route — same parser, no fake parse path |
+
+Fixture selection is tailored to claim text when possible:
+
+- `reduce stress hormones` → high-risk physiological stress-hormone fixture
+- `support deep sleep` → sleep claim fixture
+- otherwise → generic wellness fixture
+
+The stress-hormone fixture includes representative `searches_performed`, `evidence_found`, and `evidence_not_found` entries illustrating ingredient vs delivery-route vs branded ritual gaps. It is **not** live PubMed retrieval.
+
+**Live Mind risk brief validation** requires a controlled window with `EXTERNAL_MIND_LIVE_SEND=true` (and HelloMinds configured). Use live send only for intentional validation; turn live send off afterward. The UI does not expose live-send controls.
 
 ## Candidate claim review lifecycle
 
@@ -172,6 +197,8 @@ Explicitly distinguishes ingredient, treatment, delivery-route, and branded ritu
 - [x] Send blocked before approval
 - [x] Send dry-run when `EXTERNAL_MIND_LIVE_SEND=false`
 - [x] Demo fixture response loads C1–C6 without external Mind call
+- [x] Demo fixture risk brief response loads without external Mind call
+- [x] Risk brief fixture parse creates exactly one structured brief (idempotent)
 - [x] No auto retry, batch send, or scheduled behavior
 
 Tests: `lib/watch/mind-claim-intelligence-phase45.test.ts`, `mind-claim-extraction-job-service.test.ts`, `mind-claim-risk-brief-job-service.test.ts`, `candidate-claim-accept-service.test.ts`
@@ -188,7 +215,7 @@ Tests: `lib/watch/mind-claim-intelligence-phase45.test.ts`, `mind-claim-extracti
 5. **Load demo Mind extraction fixture** (or, after a live Mind reply exists: **Fetch Mind response**) → **Parse response**.
 6. Review candidate claims C1–C6 in the table; **Accept** desired claims into `client_claims`.
 7. Open `/client-claims`; for an active claim use the **Mind Claim Risk Brief** panel.
-8. Run create → approve → send → fetch → parse workflow.
+8. Run create → approve → send → **Load demo Mind risk brief fixture** (or, after a live Mind reply exists: fetch) → parse workflow.
 9. Confirm key risk insight pattern:
 
    > oral magnesium evidence ≠ topical magnesium evidence ≠ branded ritual evidence

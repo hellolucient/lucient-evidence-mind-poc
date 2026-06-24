@@ -12,6 +12,7 @@ import { getClientClaimUuidById } from "@/lib/watch/candidate-claim-accept-servi
 import {
   approveMindClaimRiskBriefJob,
   fetchMindClaimRiskBriefJobResponse,
+  loadMindClaimRiskBriefDemoFixtureResponse,
   parseMindClaimRiskBriefJobResponse,
   sendMindClaimRiskBriefJob,
 } from "@/lib/watch/mind-claim-risk-brief-job-service";
@@ -153,6 +154,18 @@ export async function buildFetchMindRiskBriefJobResponseApiResponse(
 ) {
   return mapRiskBriefJobActionResult(
     await fetchMindClaimRiskBriefJobResponse(jobId, access, { operatorEmail: body.operator_email })
+  );
+}
+
+export async function buildLoadMindRiskBriefDemoFixtureResponseApiResponse(
+  jobId: string,
+  body: { operator_email?: string | null },
+  access: ReviewQueueAccessContext
+) {
+  return mapRiskBriefJobActionResult(
+    await loadMindClaimRiskBriefDemoFixtureResponse(jobId, access, {
+      operatorEmail: body.operator_email,
+    })
   );
 }
 

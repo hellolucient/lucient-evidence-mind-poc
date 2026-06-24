@@ -104,7 +104,9 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
     }
   }
 
-  async function runAction(action: "create" | "approve" | "send" | "fetch" | "parse") {
+  async function runAction(
+    action: "create" | "approve" | "send" | "fetch" | "load-demo-fixture" | "parse"
+  ) {
     setBusy(true);
     setError(null);
 
@@ -129,7 +131,14 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         return;
       }
 
-      const route = `/api/mind-risk-brief-jobs/${encodeURIComponent(jobId)}/${action === "fetch" ? "fetch-response" : action}`;
+      const actionRoutes: Record<typeof action, string> = {
+        approve: "approve",
+        send: "send",
+        fetch: "fetch-response",
+        "load-demo-fixture": "load-demo-fixture-response",
+        parse: "parse",
+      };
+      const route = `/api/mind-risk-brief-jobs/${encodeURIComponent(jobId)}/${actionRoutes[action]}`;
       const { response, data } = await postJson(route, { operator_email: operatorEmail ?? undefined });
       if (!response.ok || !data.ok) {
         setError(String(data.message ?? data.error ?? `${action} failed.`));
@@ -173,6 +182,17 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
       <button type="button" style={styles.buttonSecondary} disabled={busy || !jobId} onClick={() => runAction("fetch")}>
         Fetch response
       </button>
+      <button
+        type="button"
+        style={styles.buttonSecondary}
+        disabled={busy || !jobId || !["sent", "response_fetched"].includes(jobStatus ?? "")}
+        onClick={() => runAction("load-demo-fixture")}
+      >
+        Load demo Mind risk brief fixture
+      </button>
+      <p style={{ margin: "0.35rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
+        This loads a demo fixture response. It is not a live Mind response.
+      </p>
       <button type="button" style={styles.buttonSecondary} disabled={busy || !jobId} onClick={() => runAction("parse")}>
         Parse
       </button>

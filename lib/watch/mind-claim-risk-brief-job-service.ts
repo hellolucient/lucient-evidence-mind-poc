@@ -20,12 +20,14 @@ import {
 import { getClientClaimUuidById } from "@/lib/watch/candidate-claim-accept-service";
 import { recordMindClaimIntelligenceAuditEvent } from "@/lib/watch/mind-claim-intelligence-audit-store";
 import { sanitizeMindParseError } from "@/lib/watch/mind-json-parser";
+import { buildMindClaimRiskBriefDemoFixtureResponseText } from "@/lib/watch/mind-claim-risk-brief-demo-fixture";
 import {
   getMindClaimRiskBriefByJobId,
   getMindClaimRiskBriefJobById,
   insertMindClaimRiskBrief,
   updateMindClaimRiskBriefJob,
 } from "@/lib/watch/mind-claim-risk-brief-store";
+import { MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION } from "@/lib/review/mind-claim-intelligence-constants";
 
 export type MindClaimRiskBriefJobActionResult =
   | { ok: true; job: NonNullable<Awaited<ReturnType<typeof getMindClaimRiskBriefJobById>>["job"]> }
@@ -289,6 +291,75 @@ export async function fetchMindClaimRiskBriefJobResponse(
       metadata: {
         conversation_alias: conversationAlias,
         mind_reply_state: summary.mind_reply_state,
+      },
+    },
+    access
+  );
+
+  return { ok: true, job: update.job };
+}
+
+/** Demo-only fixture load. No HelloMinds or external transport calls. */
+export async function loadMindClaimRiskBriefDemoFixtureResponse(
+  jobId: string,
+  access: ReviewQueueAccessContext,
+  options?: { operatorEmail?: string | null }
+): Promise<MindClaimRiskBriefJobActionResult> {
+  const lookup = await getMindClaimRiskBriefJobById(jobId, access);
+  if (lookup.error === "forbidden") {
+    return { ok: false, error: "forbidden", message: "You do not have access to this workspace." };
+  }
+
+  if (!lookup.job) {
+    return {
+      ok: false,
+      error: lookup.error ?? "risk_brief_job_not_found",
+      message: "Mind risk brief job not found.",
+    };
+  }
+
+  if (lookup.job.status !== "sent" && lookup.job.status !== "response_fetched") {
+    return {
+      ok: false,
+      error: "invalid_job_state",
+      message: "Demo fixture response can only be loaded for sent risk brief jobs.",
+    };
+  }
+
+  const clientClaim = await getClientClaimUuidById(lookup.job.client_claim_id, access);
+  const claimText = clientClaim.claim?.claim_text?.trim() || "wellness claim";
+
+  const now = new Date().toISOString();
+  const actor = buildActor(access, options?.operatorEmail);
+  const fixtureText = buildMindClaimRiskBriefDemoFixtureResponseText(claimText);
+  const fixture = JSON.parse(fixtureText) as { cost_report?: Record<string, unknown> };
+
+  const update = await updateMindClaimRiskBriefJob(jobId, access, {
+    status: "response_fetched",
+    response_fetched_at: now,
+    mind_response_text: fixtureText,
+    cost_report: fixture.cost_report ?? {
+      reported_by_mind: false,
+      summary: "Demo fixture response (no external Mind call).",
+    },
+  });
+
+  if (!update.ok) {
+    return { ok: false, error: update.error, message: "Unable to store demo fixture response." };
+  }
+
+  await auditRiskBriefEvent(
+    {
+      workspace_id: lookup.job.workspace_id,
+      job_id: jobId,
+      event_type: "demo_fixture_response_loaded",
+      event_summary:
+        "Demo fixture Mind risk brief response loaded. No external Mind call was performed.",
+      actor,
+      metadata: {
+        response_source: "demo_fixture",
+        external_call_performed: false,
+        fixture_contract_version: MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION,
       },
     },
     access
