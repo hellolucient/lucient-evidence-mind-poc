@@ -300,7 +300,7 @@ export async function fetchMindClaimExtractionJobResponse(
   return { ok: true, job: update.job };
 }
 
-/** Demo-only fixture load. No HelloMinds or external transport calls. */
+/** Non-live fixture load for operator validation. No HelloMinds or external transport calls. */
 export async function loadMindClaimExtractionDemoFixtureResponse(
   jobId: string,
   access: ReviewQueueAccessContext,
@@ -323,7 +323,7 @@ export async function loadMindClaimExtractionDemoFixtureResponse(
     return {
       ok: false,
       error: "invalid_job_state",
-      message: "Demo fixture response can only be loaded for sent extraction jobs.",
+      message: "Non-live fixture response can only be loaded for sent extraction jobs.",
     };
   }
 
@@ -337,12 +337,12 @@ export async function loadMindClaimExtractionDemoFixtureResponse(
     mind_response_text: fixtureText,
     cost_report: {
       reported_by_mind: false,
-      summary: "Demo fixture response (no external Mind call).",
+      summary: "Non-live fixture response (no external Mind call).",
     },
   });
 
   if (!update.ok) {
-    return { ok: false, error: update.error, message: "Unable to store demo fixture response." };
+    return { ok: false, error: update.error, message: "Unable to store non-live fixture response." };
   }
 
   await auditExtractionEvent(
@@ -351,7 +351,7 @@ export async function loadMindClaimExtractionDemoFixtureResponse(
       job_id: jobId,
       event_type: "demo_fixture_response_loaded",
       event_summary:
-        "Demo fixture Mind extraction response loaded. No external Mind call was performed.",
+        "Non-live fixture Mind extraction response loaded. No external Mind call was performed.",
       actor,
       metadata: {
         response_source: "demo_fixture",

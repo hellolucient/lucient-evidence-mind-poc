@@ -22,7 +22,7 @@ async function parseBody(request: NextRequest): Promise<Record<string, unknown>>
   }
 }
 
-/** Explicit operator-triggered demo fixture load. No external Mind call. */
+/** Explicit operator-triggered non-live fixture load. No external Mind call. */
 export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
   const route = `${mindExtractionJobsApiRoute(id)}/load-demo-fixture-response`;

@@ -188,10 +188,10 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         disabled={busy || !jobId || !["sent", "response_fetched"].includes(jobStatus ?? "")}
         onClick={() => runAction("load-demo-fixture")}
       >
-        Load demo Mind risk brief fixture
-      </button>
+          Load non-live Mind risk brief fixture
+        </button>
       <p style={{ margin: "0.35rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
-        This loads a demo fixture response. It is not a live Mind response.
+        This loads a non-live fixture response for operator validation. It is not a live Mind response.
       </p>
       <button type="button" style={styles.buttonSecondary} disabled={busy || !jobId} onClick={() => runAction("parse")}>
         Parse

@@ -299,7 +299,7 @@ export async function fetchMindClaimRiskBriefJobResponse(
   return { ok: true, job: update.job };
 }
 
-/** Demo-only fixture load. No HelloMinds or external transport calls. */
+/** Non-live fixture load for operator validation. No HelloMinds or external transport calls. */
 export async function loadMindClaimRiskBriefDemoFixtureResponse(
   jobId: string,
   access: ReviewQueueAccessContext,
@@ -322,7 +322,7 @@ export async function loadMindClaimRiskBriefDemoFixtureResponse(
     return {
       ok: false,
       error: "invalid_job_state",
-      message: "Demo fixture response can only be loaded for sent risk brief jobs.",
+      message: "Non-live fixture response can only be loaded for sent risk brief jobs.",
     };
   }
 
@@ -340,12 +340,12 @@ export async function loadMindClaimRiskBriefDemoFixtureResponse(
     mind_response_text: fixtureText,
     cost_report: fixture.cost_report ?? {
       reported_by_mind: false,
-      summary: "Demo fixture response (no external Mind call).",
+      summary: "Non-live fixture response (no external Mind call).",
     },
   });
 
   if (!update.ok) {
-    return { ok: false, error: update.error, message: "Unable to store demo fixture response." };
+    return { ok: false, error: update.error, message: "Unable to store non-live fixture response." };
   }
 
   await auditRiskBriefEvent(
@@ -354,7 +354,7 @@ export async function loadMindClaimRiskBriefDemoFixtureResponse(
       job_id: jobId,
       event_type: "demo_fixture_response_loaded",
       event_summary:
-        "Demo fixture Mind risk brief response loaded. No external Mind call was performed.",
+        "Non-live fixture Mind risk brief response loaded. No external Mind call was performed.",
       actor,
       metadata: {
         response_source: "demo_fixture",

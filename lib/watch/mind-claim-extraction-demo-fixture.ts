@@ -6,7 +6,7 @@ export const MIND_CLAIM_EXTRACTION_DEMO_FIXTURE_CONTRACT_VERSION =
 export const MIND_CLAIM_EXTRACTION_HIGH_RECALL_DOCTRINE_NOTE =
   "When a stronger physiological, structure/function, or disease-related claim reasonably implies a softer experiential, behavioral, or functional-wellness outcome, both claims are extracted separately.";
 
-/** Demo-only Magnesium Calm Ritual C1–C6 extraction response. Not a live Mind reply. */
+/** Controlled validation fixture: Magnesium Calm Ritual C1–C6 extraction response. Not a live Mind reply. */
 export const MIND_CLAIM_EXTRACTION_DEMO_FIXTURE = {
   contract_version: MIND_CLAIM_EXTRACTION_DEMO_FIXTURE_CONTRACT_VERSION,
   source_summary: "Spa magnesium ritual copy with relaxation and stress claims.",
@@ -112,7 +112,7 @@ export const MIND_CLAIM_EXTRACTION_DEMO_FIXTURE = {
   notes: MIND_CLAIM_EXTRACTION_HIGH_RECALL_DOCTRINE_NOTE,
   cost_report: {
     reported_by_mind: false,
-    summary: "Demo fixture response (no external Mind call).",
+    summary: "Non-live fixture response (no external Mind call).",
   },
 } as const;
 

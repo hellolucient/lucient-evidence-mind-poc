@@ -241,7 +241,7 @@ describe("no batch send or scheduled behavior", () => {
   });
 });
 
-describe("demo fixture response load", () => {
+describe("non-live fixture response load", () => {
   const fixtureText = buildMindClaimExtractionDemoFixtureResponseText();
 
   it("does not call external transport", async () => {
@@ -306,7 +306,7 @@ describe("demo fixture response load", () => {
       expect.objectContaining({
         event_type: "demo_fixture_response_loaded",
         event_summary:
-          "Demo fixture Mind extraction response loaded. No external Mind call was performed.",
+          "Non-live fixture Mind extraction response loaded. No external Mind call was performed.",
         metadata: {
           response_source: "demo_fixture",
           external_call_performed: false,

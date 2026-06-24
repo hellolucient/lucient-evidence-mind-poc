@@ -306,7 +306,7 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
         action === "send"
           ? "Send completed (dry-run when EXTERNAL_MIND_LIVE_SEND=false)."
           : action === "load-demo-fixture"
-            ? "Demo fixture response loaded. This is not a live Mind response."
+            ? "Non-live fixture response loaded. This is not a live Mind response."
             : `Extraction job ${action} completed.`
       );
     } catch {
@@ -465,10 +465,10 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
           disabled={busy || !extractionJob || !["sent", "response_fetched"].includes(extractionJob.status)}
           onClick={() => runJobAction("load-demo-fixture")}
         >
-          Load demo Mind extraction fixture
+          Load non-live Mind extraction fixture
         </button>
         <p style={{ margin: "0.5rem 0 0", fontSize: "0.8125rem", color: "#64748b" }}>
-          This loads a demo fixture response. It is not a live Mind response.
+          This loads a non-live fixture response for operator validation. It is not a live Mind response.
         </p>
         <button
           type="button"

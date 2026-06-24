@@ -82,7 +82,7 @@ describe("POST /api/mind-extraction-jobs/[id]/load-demo-fixture-response", () =>
     expect(mockFetchHelloMindsConversationHistory).not.toHaveBeenCalled();
   });
 
-  it("delegates to demo fixture API when authorized", async () => {
+  it("delegates to non-live fixture API when authorized", async () => {
     mockAuthorizeReviewQueueApiRequest.mockResolvedValue(breakGlassAccess);
 
     const response = await POST(

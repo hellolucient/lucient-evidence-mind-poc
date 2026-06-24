@@ -2470,7 +2470,7 @@ Phases 42–44: operator dashboard, demo scenario package, pilot workspace harde
 | Doc | Role after sync |
 |-----|-----------------|
 | **`docs/evidence-mind-roadmap.md`** | **Canonical** — current phase status, validation records, next step |
-| **`docs/phase-45-mind-centered-claim-intelligence.md`** | Phase 45 scope, routes, safety model, demo script |
+| **`docs/phase-45-mind-centered-claim-intelligence.md`** | Phase 45 scope, routes, safety model, validation script |
 | **`docs/hellominds-connectivity-phase-39a.md`** | Phase 39A HelloMinds Builder API local smoke-test procedure and validation record |
 | **`docs/hellominds-connectivity-phase-39b.md`** | Phase 39B HelloMinds messaging smoke-test procedure and validation record |
 | **`docs/DEVELOPMENT_PHASES.md`** | Historical detail for Phases 1–20 + concise Phase 21–39F summary |
