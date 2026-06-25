@@ -41,6 +41,15 @@ export type MindClaimHelloMindsFetchDiagnostics = HelloMindsHistoryMultiKeyDiagn
   conversation_get?: HelloMindsConversationGetDiagnostics[];
   history_key_notes?: string[];
   email_channel_probe_keys?: string[];
+  history_probe_summary?: Array<{
+    key: string;
+    key_kind: "alias" | "conversation_id";
+    source_alias: string | null;
+    http_status: number | null;
+    raw_message_count: number;
+    parsed_message_count: number;
+    matching_contract_version_messages: number;
+  }>;
 };
 
 export type MindClaimHelloMindsFetchCandidate = {
@@ -139,8 +148,34 @@ export async function probeMindClaimHelloMindsResponses(input: {
 
   const candidates: MindClaimHelloMindsFetchCandidate[] = [];
   const checked = new Set<string>();
+  const historyProbeSummary: NonNullable<MindClaimHelloMindsFetchDiagnostics["history_probe_summary"]> =
+    [];
 
-  const processKey = async (key: string): Promise<{ ok: false; error: string; message: string } | null> => {
+  const recordHistoryProbeSummary = (
+    key: string,
+    keyKind: "alias" | "conversation_id",
+    sourceAlias: string | null,
+    diagnostics: (typeof multiDiagnostics.results)[number]
+  ) => {
+    const matchingContractVersionMessages = multiDiagnostics.per_message.filter(
+      (message) => message.key === key && message.contains_contract_version
+    ).length;
+
+    historyProbeSummary.push({
+      key,
+      key_kind: keyKind,
+      source_alias: sourceAlias,
+      http_status: diagnostics.http_status,
+      raw_message_count: diagnostics.raw_message_count,
+      parsed_message_count: diagnostics.parsed_message_count,
+      matching_contract_version_messages: matchingContractVersionMessages,
+    });
+  };
+
+  const processKey = async (
+    key: string,
+    options?: { keyKind?: "alias" | "conversation_id"; sourceAlias?: string | null }
+  ): Promise<{ ok: false; error: string; message: string } | null> => {
     if (checked.has(key)) return null;
     checked.add(key);
     multiDiagnostics.checked_keys.push(key);
@@ -152,6 +187,12 @@ export async function probeMindClaimHelloMindsResponses(input: {
     multiDiagnostics.results.push(result.diagnostics);
 
     if (!result.ok) {
+      recordHistoryProbeSummary(
+        key,
+        options?.keyKind ?? "alias",
+        options?.sourceAlias ?? null,
+        result.diagnostics
+      );
       if (result.error === "conversation_not_found") {
         return null;
       }
@@ -215,21 +256,51 @@ export async function probeMindClaimHelloMindsResponses(input: {
       }
     }
 
+    recordHistoryProbeSummary(
+      key,
+      options?.keyKind ?? "alias",
+      options?.sourceAlias ?? null,
+      result.diagnostics
+    );
+
     return null;
   };
 
+  const conversationGetDiagnostics: HelloMindsConversationGetDiagnostics[] = [];
+
+  const probeAliasAndDiscoveredConversationId = async (
+    alias: string
+  ): Promise<{ ok: false; error: string; message: string } | null> => {
+    const aliasFailure = await processKey(alias, { keyKind: "alias" });
+    if (aliasFailure) return aliasFailure;
+
+    const conversation = await getHelloMindsConversationWithDiagnostics(alias);
+    conversationGetDiagnostics.push(conversation.diagnostics);
+
+    const conversationId = conversation.conversation?.conversationId?.trim();
+    if (!conversationId || checked.has(conversationId)) {
+      return null;
+    }
+
+    multiDiagnostics.history_key_notes?.push(
+      `Discovered conversationId ${conversationId} for alias ${alias}; probing GET /v1/messaging/history/${conversationId}.`
+    );
+
+    return processKey(conversationId, {
+      keyKind: "conversation_id",
+      sourceAlias: alias,
+    });
+  };
+
   for (const key of initialKeys) {
-    const failure = await processKey(key);
+    const failure = await probeAliasAndDiscoveredConversationId(key);
     if (failure) {
+      multiDiagnostics.conversation_get = conversationGetDiagnostics;
+      multiDiagnostics.history_probe_summary = historyProbeSummary;
       return { ...failure, diagnostics: multiDiagnostics };
     }
   }
 
-  const conversationGetDiagnostics: HelloMindsConversationGetDiagnostics[] = [];
-  for (const key of initialKeys) {
-    const conversation = await getHelloMindsConversationWithDiagnostics(key);
-    conversationGetDiagnostics.push(conversation.diagnostics);
-  }
   if (conversationGetDiagnostics.length > 0) {
     multiDiagnostics.conversation_get = conversationGetDiagnostics;
   }
@@ -251,8 +322,10 @@ export async function probeMindClaimHelloMindsResponses(input: {
     }
 
     for (const alias of discovered) {
-      const failure = await processKey(alias);
+      const failure = await probeAliasAndDiscoveredConversationId(alias);
       if (failure) {
+        multiDiagnostics.conversation_get = conversationGetDiagnostics;
+        multiDiagnostics.history_probe_summary = historyProbeSummary;
         return { ...failure, diagnostics: multiDiagnostics };
       }
     }
@@ -267,27 +340,42 @@ export async function probeMindClaimHelloMindsResponses(input: {
       );
 
       for (const probeKey of probeKeys) {
-        const failure = await processKey(probeKey);
+        const failure = await probeAliasAndDiscoveredConversationId(probeKey);
         if (failure) {
+          multiDiagnostics.conversation_get = conversationGetDiagnostics;
+          multiDiagnostics.history_probe_summary = historyProbeSummary;
           return { ...failure, diagnostics: multiDiagnostics };
         }
-
-        const conversation = await getHelloMindsConversationWithDiagnostics(probeKey);
-        conversationGetDiagnostics.push(conversation.diagnostics);
       }
       multiDiagnostics.conversation_get = conversationGetDiagnostics;
     }
   }
 
+  multiDiagnostics.history_probe_summary = historyProbeSummary;
+
   const matchingContracts = multiDiagnostics.per_message.filter(
     (message) => message.contains_contract_version
   ).length;
   const counts = multiDiagnostics.results.map((result) => result.raw_message_count);
+  const aliasSummaries = historyProbeSummary
+    .filter((entry) => entry.key_kind === "alias")
+    .map(
+      (entry) =>
+        `${entry.key}→${entry.raw_message_count} (contract:${entry.matching_contract_version_messages})`
+    );
+  const conversationIdSummaries = historyProbeSummary
+    .filter((entry) => entry.key_kind === "conversation_id")
+    .map(
+      (entry) =>
+        `${entry.key}→${entry.raw_message_count} (contract:${entry.matching_contract_version_messages})`
+    );
 
   if (candidates.length === 0) {
-    const notice = `No matching Mind response found. Checked keys: ${multiDiagnostics.checked_keys.join(
-      ", "
-    )}. Messages returned: [${counts.join(", ")}]. Matching contract_version messages: ${matchingContracts}. Builder API history is alias-scoped; mind thread ids like df11 and email channel ids like 29C3573E are not retrievable unless exposed as a conversation alias.`;
+    const notice = `No matching Mind response found. Alias history: [${
+      aliasSummaries.join(", ") || "none"
+    }]. ConversationId history: [${
+      conversationIdSummaries.join(", ") || "none"
+    }]. Messages returned (all keys): [${counts.join(", ")}]. Matching contract_version messages: ${matchingContracts}.`;
     return {
       ok: true,
       historyKeys: multiDiagnostics.checked_keys,
