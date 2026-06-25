@@ -28,6 +28,11 @@ export const MIND_CLAIM_EXTRACTION_CONTRACT_VERSION = "mind_claim_extraction_jso
 export const MIND_CLAIM_RISK_BRIEF_PROMPT_VERSION = "mind_claim_risk_brief_v1" as const;
 export const MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION = "mind_claim_risk_brief_json_v1" as const;
 
+export const MIND_CLAIM_RISK_BRIEF_LIVE_RESEARCH_PROMPT_VERSION =
+  "mind_claim_risk_brief_live_research_v2" as const;
+export const MIND_CLAIM_RISK_BRIEF_LIVE_RESEARCH_CONTRACT_VERSION =
+  "mind_claim_risk_brief_json_v2" as const;
+
 export const CANDIDATE_CLAIM_REVIEW_STATUSES = ["pending", "accepted", "rejected", "edited"] as const;
 export type CandidateClaimReviewStatus = (typeof CANDIDATE_CLAIM_REVIEW_STATUSES)[number];
 

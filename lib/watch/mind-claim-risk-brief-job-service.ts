@@ -155,9 +155,21 @@ export async function sendMindClaimRiskBriefJob(
     };
   }
 
+  const promptVariant =
+    lookup.job.output_contract_version === "mind_claim_risk_brief_json_v2" ||
+    lookup.job.prompt_version === "mind_claim_risk_brief_live_research_v2"
+      ? "live_research_v2"
+      : "v1";
+
   const prompt = buildMindClaimRiskBriefPrompt({
     claimText: clientClaim.claim.claim_text,
     claimFamily: clientClaim.claim.claim_family,
+    promptVariant,
+  });
+
+  // Always persist outbound prompt so dry-runs are inspectable.
+  await updateMindClaimRiskBriefJob(jobId, access, {
+    outbound_prompt_text: prompt,
   });
 
   const sendResult = await sendMindClaimHelloMindsMessage({

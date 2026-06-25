@@ -133,11 +133,14 @@ describe("mind claim risk brief job service", () => {
       external_thread_id: null,
       external_message_id: null,
     });
-    mockUpdateJob.mockResolvedValue({ ok: true, job: { ...approvedJob, status: "sent" } });
+    mockUpdateJob
+      .mockResolvedValueOnce({ ok: true, job: { ...approvedJob } })
+      .mockResolvedValueOnce({ ok: true, job: { ...approvedJob, status: "sent" } });
 
     const result = await sendMindClaimRiskBriefJob("rb-job-1", access);
     expect(result.ok).toBe(true);
     expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockUpdateJob).toHaveBeenCalledTimes(2);
   });
 
   it("parse creates exactly one structured brief", async () => {

@@ -67,6 +67,34 @@ const styles = {
   evidenceItem: {
     marginBottom: "0.5rem",
   } as const,
+  table: {
+    width: "100%",
+    borderCollapse: "collapse" as const,
+    fontSize: "0.8125rem",
+    marginTop: "0.5rem",
+  } as const,
+  th: {
+    textAlign: "left" as const,
+    borderBottom: "1px solid #e2e8f0",
+    padding: "0.45rem",
+    color: "#64748b",
+    verticalAlign: "top" as const,
+  } as const,
+  td: {
+    borderBottom: "1px solid #f1f5f9",
+    padding: "0.45rem",
+    verticalAlign: "top" as const,
+  } as const,
+  pill: {
+    display: "inline-block",
+    padding: "0.1rem 0.4rem",
+    borderRadius: "999px",
+    border: "1px solid #cbd5e1",
+    background: "#fff",
+    color: "#334155",
+    fontSize: "0.6875rem",
+    marginRight: "0.25rem",
+  } as const,
   error: { color: "#b91c1c", fontSize: "0.8125rem", marginTop: "0.35rem" } as const,
 };
 
@@ -79,15 +107,19 @@ function withDisabledButtonStyle(
 
 type RiskBrief = {
   risk_brief_id: string;
+  contract_version?: string | null;
+  source_context?: string | null;
   search_capability_statement: string | null;
   searches_performed: unknown[];
   evidence_found: unknown[];
   evidence_not_found: unknown[];
+  verification_summary?: unknown;
   urls?: unknown;
   pmids?: unknown;
   evidence_posture: string | null;
   evidence_strength: string | null;
   risk_level: string | null;
+  regulatory_sensitivity?: string | null;
   safer_wording: string | null;
   operator_recommendation: string | null;
   key_evidence_risk_insight: string | null;
@@ -120,9 +152,29 @@ type EvidenceFoundEntry = {
   journal?: unknown;
   year?: unknown;
   authors?: unknown;
+  verification_status?: unknown;
+  verification_note?: unknown;
   evidence_category?: unknown;
   relevance_to_claim?: unknown;
+  delivery_route?: unknown;
+  intervention_match?: unknown;
+  outcome_type?: unknown;
   summary?: unknown;
+};
+
+type SearchPerformedEntry = {
+  source?: unknown;
+  query?: unknown;
+  date_performed?: unknown;
+  result_count?: unknown;
+  results_summary?: unknown;
+  search_url_or_endpoint?: unknown;
+};
+
+type EvidenceNotFoundEntry = {
+  gap?: unknown;
+  importance?: unknown;
+  searches_supporting_gap?: unknown;
 };
 
 function asNonEmptyString(value: unknown): string | null {
@@ -138,6 +190,29 @@ function asNonEmptyString(value: unknown): string | null {
 
 function looksLikeUrl(value: string): boolean {
   return value.startsWith("https://") || value.startsWith("http://");
+}
+
+function toDoiUrl(doi: string | null): string | null {
+  if (!doi) {
+    return null;
+  }
+  const trimmed = doi.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (looksLikeUrl(trimmed)) {
+    return trimmed;
+  }
+  const normalized = trimmed.replace(/^doi:\s*/i, "");
+  return `https://doi.org/${encodeURIComponent(normalized)}`;
+}
+
+function toPubmedUrl(pmid: string | null): string | undefined {
+  if (!pmid) {
+    return undefined;
+  }
+  const trimmed = pmid.trim();
+  return trimmed ? `https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(trimmed)}/` : undefined;
 }
 
 export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: MindRiskBriefPanelProps) {
@@ -171,27 +246,111 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         const journal = asNonEmptyString(item.journal);
         const year = asNonEmptyString(item.year);
         const authors = asNonEmptyString(item.authors);
+        const verificationStatus = asNonEmptyString(item.verification_status);
+        const verificationNote = asNonEmptyString(item.verification_note);
         const evidenceCategory = asNonEmptyString(item.evidence_category);
         const relevance = asNonEmptyString(item.relevance_to_claim);
+        const deliveryRoute = asNonEmptyString(item.delivery_route);
+        const interventionMatch = asNonEmptyString(item.intervention_match);
+        const outcomeType = asNonEmptyString(item.outcome_type);
         const summary = asNonEmptyString(item.summary);
 
-        const resolvedUrl =
-          url && looksLikeUrl(url) ? url : pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pmid}/` : null;
+        const resolvedUrl = url && looksLikeUrl(url) ? url : toPubmedUrl(pmid);
+        const doiUrl = toDoiUrl(doi);
 
         return {
           title: title ?? "Untitled study",
           url: resolvedUrl,
           pmid,
           doi,
+          doiUrl,
           journal,
           year,
           authors,
+          verificationStatus,
+          verificationNote,
           evidenceCategory,
           relevance,
+          deliveryRoute,
+          interventionMatch,
+          outcomeType,
           summary,
         };
       })
       .filter((item) => item.title || item.url || item.pmid || item.summary);
+  }, [latestBrief]);
+
+  const searchesPerformed = useMemo(() => {
+    if (!latestBrief) {
+      return [];
+    }
+    const raw = Array.isArray(latestBrief.searches_performed) ? latestBrief.searches_performed : [];
+    return raw
+      .filter((item): item is SearchPerformedEntry => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+      .map((item) => {
+        const source = asNonEmptyString(item.source);
+        const query = asNonEmptyString(item.query);
+        const datePerformed = asNonEmptyString(item.date_performed);
+        const resultsSummary = asNonEmptyString(item.results_summary);
+        const searchUrl = asNonEmptyString(item.search_url_or_endpoint);
+
+        const resultCount =
+          typeof item.result_count === "number"
+            ? item.result_count
+            : typeof item.result_count === "string"
+              ? Number(item.result_count)
+              : null;
+
+        return {
+          source: source ?? "—",
+          query: query ?? "—",
+          datePerformed: datePerformed ?? "—",
+          resultCount: Number.isFinite(resultCount as number) ? (resultCount as number) : null,
+          resultsSummary: resultsSummary ?? "—",
+          searchUrl: searchUrl && looksLikeUrl(searchUrl) ? searchUrl : null,
+          searchUrlText: searchUrl ?? null,
+        };
+      });
+  }, [latestBrief]);
+
+  const evidenceGaps = useMemo(() => {
+    if (!latestBrief) {
+      return [];
+    }
+    const raw = Array.isArray(latestBrief.evidence_not_found) ? latestBrief.evidence_not_found : [];
+    return raw
+      .filter((item): item is EvidenceNotFoundEntry => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+      .map((item) => {
+        const gap = asNonEmptyString(item.gap);
+        const importance = asNonEmptyString(item.importance);
+        const searchesSupportingGap = Array.isArray(item.searches_supporting_gap)
+          ? (item.searches_supporting_gap as unknown[])
+              .map((value) => asNonEmptyString(value))
+              .filter((value): value is string => Boolean(value))
+          : [];
+
+        return {
+          gap: gap ?? "—",
+          importance: importance ?? "—",
+          searchesSupportingGap,
+        };
+      });
+  }, [latestBrief]);
+
+  const verificationSummary = useMemo(() => {
+    if (!latestBrief || !latestBrief.verification_summary || typeof latestBrief.verification_summary !== "object") {
+      return null;
+    }
+    const record = latestBrief.verification_summary as Record<string, unknown>;
+    const method = asNonEmptyString(record.verification_method);
+    const toNum = (value: unknown) => (typeof value === "number" ? value : typeof value === "string" ? Number(value) : null);
+    return {
+      totalPubmed: toNum(record.total_pubmed_items_returned),
+      verifiedPubmed: toNum(record.verified_pubmed_items),
+      unverified: toNum(record.unverified_items),
+      nonPubmed: toNum(record.non_pubmed_items),
+      method,
+    };
   }, [latestBrief]);
 
   const fallbackUrls = useMemo(() => {
@@ -386,10 +545,10 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
 
   return (
     <div style={styles.panel}>
-      <strong>Mind Claim Risk Brief</strong>
+      <strong>External Mind Research (Evidence Risk Brief)</strong>
       <div style={styles.meta}>Claim: {claimText}</div>
       <div style={styles.meta}>
-        Operator-gated HelloMinds workflow. EXTERNAL_MIND_LIVE_SEND=false remains dry-run default.
+        Operator-gated HelloMinds workflow. Uses v2 live-research contract where available. EXTERNAL_MIND_LIVE_SEND=false remains dry-run default.
       </div>
 
       <button
@@ -398,7 +557,7 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         disabled={createJobDisabled}
         onClick={() => runAction("create")}
       >
-        {isPending("job_create") ? "Creating…" : "Create risk brief job"}
+        {isPending("job_create") ? "Creating…" : "Create External Mind research job"}
       </button>
       <button
         type="button"
@@ -414,7 +573,7 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         disabled={sendJobDisabled}
         onClick={() => runAction("send")}
       >
-        {isPending("job_send") ? "Sending…" : "Send (dry-run safe)"}
+        {isPending("job_send") ? "Sending…" : "Send to External Mind (dry-run safe)"}
       </button>
       <button
         type="button"
@@ -489,9 +648,13 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
       {latestBrief ? (
         <div style={{ marginTop: "0.75rem" }}>
           <div style={styles.meta}>
-            Latest brief · posture: {latestBrief.evidence_posture ?? "—"} · risk:{" "}
-            {latestBrief.risk_level ?? "—"} · recommendation:{" "}
-            {latestBrief.operator_recommendation ?? "—"}
+            Latest brief
+            {latestBrief.contract_version ? (
+              <span style={styles.pill}>contract: {latestBrief.contract_version}</span>
+            ) : null}
+            · posture: {latestBrief.evidence_posture ?? "—"} · strength:{" "}
+            {latestBrief.evidence_strength ?? "—"} · risk: {latestBrief.risk_level ?? "—"} · regulatory:{" "}
+            {latestBrief.regulatory_sensitivity ?? "—"} · recommendation: {latestBrief.operator_recommendation ?? "—"}
           </div>
           <div style={styles.meta}>
             Refresh briefs reloads stored results. It does not trigger a new Mind search.
@@ -501,6 +664,69 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
               {renderSafeMindTextBlock(latestBrief.search_capability_statement)}
             </p>
           ) : null}
+
+          {verificationSummary ? (
+            <div style={{ marginTop: "0.65rem" }}>
+              <div style={{ ...styles.meta, color: "#334155" }}>
+                <strong>Verification summary</strong>
+              </div>
+              <div style={{ ...styles.meta, color: "#334155" }}>
+                {verificationSummary.totalPubmed != null ? `PubMed items: ${verificationSummary.totalPubmed}` : "PubMed items: —"}
+                {verificationSummary.verifiedPubmed != null ? ` · verified: ${verificationSummary.verifiedPubmed}` : ""}
+                {verificationSummary.unverified != null ? ` · unverified: ${verificationSummary.unverified}` : ""}
+                {verificationSummary.nonPubmed != null ? ` · non-PubMed: ${verificationSummary.nonPubmed}` : ""}
+              </div>
+              {verificationSummary.method ? (
+                <div style={styles.meta}>Method: {renderSafeMindTextBlock(verificationSummary.method)}</div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {searchesPerformed.length > 0 ? (
+            <div style={{ marginTop: "0.65rem" }}>
+              <div style={{ ...styles.meta, color: "#334155" }}>
+                <strong>Searches performed</strong> ({searchesPerformed.length})
+              </div>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Source</th>
+                    <th style={styles.th}>Query</th>
+                    <th style={styles.th}>Result count</th>
+                    <th style={styles.th}>Summary</th>
+                    <th style={styles.th}>Search URL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {searchesPerformed.map((search, index) => (
+                    <tr key={`${search.source}-${search.query}-${index}`}>
+                      <td style={styles.td}>{search.source}</td>
+                      <td style={styles.td}>
+                        <div>{search.query}</div>
+                        <div style={{ ...styles.meta, marginTop: "0.15rem" }}>Date: {search.datePerformed}</div>
+                      </td>
+                      <td style={styles.td}>{search.resultCount ?? "—"}</td>
+                      <td style={styles.td}>
+                        <div>{renderSafeMindTextBlock(search.resultsSummary)}</div>
+                      </td>
+                      <td style={styles.td}>
+                        {search.searchUrl ? (
+                          <a href={search.searchUrl} target="_blank" rel="noreferrer">
+                            Open
+                          </a>
+                        ) : search.searchUrlText ? (
+                          <span style={{ color: "#64748b" }}>{search.searchUrlText}</span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
           {evidenceFound.length > 0 ? (
             <div style={{ marginTop: "0.65rem" }}>
               <div style={{ ...styles.meta, color: "#334155" }}>
@@ -522,11 +748,44 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
                       {[entry.authors, entry.journal, entry.year]
                         .filter(Boolean)
                         .join(" · ")}
-                      {entry.pmid ? ` · PMID: ${entry.pmid}` : ""}
-                      {entry.doi ? ` · DOI: ${entry.doi}` : ""}
+                      {entry.pmid ? (
+                        <>
+                          {" "}
+                          · PMID:{" "}
+                          <a href={toPubmedUrl(entry.pmid)} target="_blank" rel="noreferrer">
+                            {entry.pmid}
+                          </a>
+                        </>
+                      ) : (
+                        ""
+                      )}
+                      {entry.doi ? (
+                        <>
+                          {" "}
+                          · DOI:{" "}
+                          {entry.doiUrl ? (
+                            <a href={entry.doiUrl} target="_blank" rel="noreferrer">
+                              {entry.doi}
+                            </a>
+                          ) : (
+                            entry.doi
+                          )}
+                        </>
+                      ) : (
+                        ""
+                      )}
                       {entry.evidenceCategory ? ` · ${entry.evidenceCategory}` : ""}
                       {entry.relevance ? ` · relevance: ${entry.relevance}` : ""}
+                      {entry.deliveryRoute ? ` · delivery: ${entry.deliveryRoute}` : ""}
+                      {entry.interventionMatch ? ` · intervention: ${entry.interventionMatch}` : ""}
+                      {entry.outcomeType ? ` · outcome: ${entry.outcomeType}` : ""}
+                      {entry.verificationStatus ? ` · verification: ${entry.verificationStatus}` : ""}
                     </div>
+                    {entry.verificationNote ? (
+                      <div style={{ marginTop: "0.25rem", color: "#475569" }}>
+                        {renderSafeMindTextBlock(entry.verificationNote)}
+                      </div>
+                    ) : null}
                     {entry.summary ? (
                       <div style={{ marginTop: "0.25rem" }}>{renderSafeMindTextBlock(entry.summary)}</div>
                     ) : null}
@@ -535,6 +794,30 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
               </ul>
             </div>
           ) : null}
+
+          {evidenceGaps.length > 0 ? (
+            <div style={{ marginTop: "0.65rem" }}>
+              <div style={{ ...styles.meta, color: "#334155" }}>
+                <strong>Evidence gaps</strong> ({evidenceGaps.length})
+              </div>
+              <ul style={styles.evidenceList}>
+                {evidenceGaps.map((gap, index) => (
+                  <li key={`${gap.gap}-${index}`} style={styles.evidenceItem}>
+                    <div>{renderSafeMindTextBlock(gap.gap)}</div>
+                    <div style={{ color: "#64748b", marginTop: "0.15rem" }}>
+                      Importance: {renderSafeMindTextBlock(gap.importance)}
+                    </div>
+                    {gap.searchesSupportingGap.length > 0 ? (
+                      <div style={{ ...styles.meta, marginTop: "0.15rem" }}>
+                        Supporting searches: {gap.searchesSupportingGap.join("; ")}
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {fallbackUrls.length > 0 ? (
             <div style={{ marginTop: "0.65rem" }}>
               <div style={{ ...styles.meta, color: "#334155" }}>

@@ -24,6 +24,7 @@ export type MindClaimRiskBriefJobRow = {
   parsed_at: string | null;
   external_thread_id: string | null;
   external_message_id: string | null;
+  outbound_prompt_text?: string | null;
   mind_response_text: string | null;
   parse_error: string | null;
   cost_units: number | null;
@@ -38,6 +39,8 @@ export type MindClaimRiskBriefRow = {
   workspace_id: string;
   client_claim_id: string;
   risk_brief_job_id: string | null;
+  contract_version?: string | null;
+  source_context?: string | null;
   search_capability_statement: string | null;
   searches_performed: unknown;
   evidence_found: unknown;
@@ -53,6 +56,7 @@ export type MindClaimRiskBriefRow = {
   pmids: string[];
   dois: string[];
   urls: string[];
+  verification_summary?: Record<string, unknown> | null;
   cost_report: Record<string, unknown> | null;
   created_at: string;
 };
@@ -73,6 +77,7 @@ export type PrivacySafeMindClaimRiskBriefJob = {
   parsed_at: string | null;
   external_thread_id: string | null;
   external_message_id: string | null;
+  outbound_prompt_text: string | null;
   mind_response_text: string | null;
   parse_error: string | null;
   cost_units: number | null;
@@ -87,6 +92,8 @@ export type PrivacySafeMindClaimRiskBrief = {
   workspace_id: string;
   client_claim_id: string;
   risk_brief_job_id: string | null;
+  contract_version: string | null;
+  source_context: string | null;
   search_capability_statement: string | null;
   searches_performed: unknown[];
   evidence_found: unknown[];
@@ -102,6 +109,7 @@ export type PrivacySafeMindClaimRiskBrief = {
   pmids: string[];
   dois: string[];
   urls: string[];
+  verification_summary: Record<string, unknown> | null;
   cost_report: Record<string, unknown> | null;
   created_at: string;
 };
@@ -154,6 +162,7 @@ export function toPrivacySafeMindClaimRiskBriefJob(
     parsed_at: row.parsed_at,
     external_thread_id: row.external_thread_id,
     external_message_id: row.external_message_id,
+    outbound_prompt_text: row.outbound_prompt_text ?? null,
     mind_response_text: row.mind_response_text,
     parse_error: row.parse_error,
     cost_units: row.cost_units,
@@ -172,6 +181,8 @@ export function toPrivacySafeMindClaimRiskBrief(
     workspace_id: row.workspace_id,
     client_claim_id: row.client_claim_id,
     risk_brief_job_id: row.risk_brief_job_id,
+    contract_version: row.contract_version ?? null,
+    source_context: row.source_context ?? null,
     search_capability_statement: row.search_capability_statement,
     searches_performed: Array.isArray(row.searches_performed) ? row.searches_performed : [],
     evidence_found: Array.isArray(row.evidence_found) ? row.evidence_found : [],
@@ -187,6 +198,7 @@ export function toPrivacySafeMindClaimRiskBrief(
     pmids: row.pmids ?? [],
     dois: row.dois ?? [],
     urls: row.urls ?? [],
+    verification_summary: row.verification_summary ?? null,
     cost_report: row.cost_report,
     created_at: row.created_at,
   };
@@ -197,6 +209,8 @@ export async function createMindClaimRiskBriefJob(
     workspace_id: string;
     client_claim_id: string;
     created_by?: string | null;
+    prompt_version?: string | null;
+    output_contract_version?: string | null;
   },
   access: ReviewQueueAccessContext
 ): Promise<
@@ -221,8 +235,9 @@ export async function createMindClaimRiskBriefJob(
         client_claim_id: input.client_claim_id,
         status: "pending_approval",
         destination: "hellominds",
-        prompt_version: "mind_claim_risk_brief_v1",
-        output_contract_version: "mind_claim_risk_brief_json_v1",
+        prompt_version: input.prompt_version?.trim() || "mind_claim_risk_brief_live_research_v2",
+        output_contract_version:
+          input.output_contract_version?.trim() || "mind_claim_risk_brief_json_v2",
         review_status: "pending",
         created_by: input.created_by?.trim() || null,
         created_at: now,
@@ -292,6 +307,7 @@ export async function updateMindClaimRiskBriefJob(
     parsed_at: string | null;
     external_thread_id: string | null;
     external_message_id: string | null;
+    outbound_prompt_text: string | null;
     mind_response_text: string | null;
     parse_error: string | null;
     cost_units: number | null;
@@ -458,6 +474,8 @@ export async function insertMindClaimRiskBrief(
         workspace_id: input.workspace_id,
         client_claim_id: input.client_claim_id,
         risk_brief_job_id: input.risk_brief_job_id,
+        contract_version: input.parsed.contract_version ?? null,
+        source_context: input.parsed.source_context ?? null,
         search_capability_statement: input.parsed.search_capability_statement,
         searches_performed: input.parsed.searches_performed,
         evidence_found: input.parsed.evidence_found,
@@ -473,6 +491,7 @@ export async function insertMindClaimRiskBrief(
         pmids: input.parsed.pmids,
         dois: input.parsed.dois,
         urls: input.parsed.urls,
+        verification_summary: input.parsed.verification_summary ?? null,
         cost_report: input.parsed.cost_report,
       })
       .select("*")
