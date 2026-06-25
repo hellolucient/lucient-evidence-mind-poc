@@ -8,7 +8,6 @@ const mockCountCandidates = vi.fn();
 const mockInsertCandidates = vi.fn();
 const mockSend = vi.fn();
 const mockAudit = vi.fn();
-const mockFetchHistory = vi.fn();
 
 vi.mock("@/lib/watch/mind-claim-extraction-job-store", () => ({
   getMindClaimExtractionJobById: (...args: unknown[]) => mockGetJob(...args),
@@ -22,10 +21,14 @@ vi.mock("@/lib/watch/mind-claim-hellominds-transport", () => ({
   buildMindClaimHelloMindsConversationAlias: () => "lucient-em-mce-job-1",
 }));
 
-vi.mock("@/lib/watch/external-mind-hellominds-history", () => ({
-  fetchHelloMindsConversationHistoryWithDiagnostics: (...args: unknown[]) => mockFetchHistory(...args),
-  extractHelloMindsMessageTextLoose: (message: { messageText?: unknown }) =>
-    typeof message?.messageText === "string" ? message.messageText : null,
+const mockFetchProbe = vi.fn();
+
+vi.mock("@/lib/watch/external-mind-hellominds-history", () => ({}));
+
+vi.mock("@/lib/watch/mind-claim-hellominds-fetch", () => ({
+  probeMindClaimHelloMindsResponses: (...args: unknown[]) => mockFetchProbe(...args),
+  selectLatestMindClaimHelloMindsCandidate: (candidates: Array<{ createdAtEpoch: number | null }>) =>
+    candidates[0] ?? null,
 }));
 
 vi.mock("@/lib/watch/source-intake-store", () => ({
@@ -312,23 +315,32 @@ describe("mind claim extraction fetch with no reply yet", () => {
     mockGetJob.mockResolvedValue({
       job: { ...approvedJob, status: "sent", sent_at: "2026-06-24T00:00:00.000Z" },
     });
-    mockFetchHistory.mockResolvedValue({
+    mockFetchProbe.mockResolvedValue({
       ok: true,
-      httpStatus: 200,
-      messages: [],
+      historyKeys: ["lucient-em-mce-job-1"],
       diagnostics: {
-        key: "lucient-em-mce-job-1",
-        url: "https://api.build.hellominds.ai/v1/messaging/history/lucient-em-mce-job-1?limit=50",
-        http_status: 200,
-        json_parsed: true,
-        json_parse_error: null,
-        raw_top_level_type: "array",
-        raw_top_level_keys: [],
-        raw_message_count: 0,
-        parsed_message_count: 0,
-        raw_first_3_messages: [],
-        raw_last_3_messages: [],
+        checked_keys: ["lucient-em-mce-job-1"],
+        results: [
+          {
+            key: "lucient-em-mce-job-1",
+            url: "https://api.build.hellominds.ai/v1/messaging/history/lucient-em-mce-job-1?limit=50",
+            http_status: 200,
+            json_parsed: true,
+            json_parse_error: null,
+            raw_top_level_type: "array",
+            raw_top_level_keys: [],
+            raw_message_count: 0,
+            parsed_message_count: 0,
+            raw_first_3_messages: [],
+            raw_last_3_messages: [],
+          },
+        ],
+        per_message: [],
+        selected_message: null,
       },
+      candidates: [],
+      fetchNotice:
+        "No matching Mind response found. Checked keys: lucient-em-mce-job-1. Messages returned: [0]. Matching contract_version messages: 0.",
     });
     mockUpdateJob.mockResolvedValue({
       ok: true,
@@ -392,7 +404,7 @@ describe("non-live fixture response load", () => {
     const result = await loadMindClaimExtractionDemoFixtureResponse("job-1", access);
     expect(result.ok).toBe(true);
     expect(mockSend).not.toHaveBeenCalled();
-    expect(mockFetchHistory).not.toHaveBeenCalled();
+    expect(mockFetchProbe).not.toHaveBeenCalled();
   });
 
   it("sets status=response_fetched and writes fixture text", async () => {

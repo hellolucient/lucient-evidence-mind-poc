@@ -205,16 +205,14 @@ export async function sendMindClaimHelloMindsMessage(input: {
     };
   }
 
-  const conversationIdSuffix =
-    privacySafeHelloMindsIdSuffix(messageResponse.conversationId) ??
-    privacySafeHelloMindsIdSuffix(conversationResponse.conversationId);
   const messageIdSuffix = privacySafeHelloMindsIdSuffix(messageResponse.messageId);
 
   return {
     ok: true,
     transport_mode: "live",
     conversation_alias: conversationAlias,
-    external_thread_id: conversationIdSuffix ?? null,
+    // Builder API history is keyed by conversation alias, not mindId suffix or conversationId suffix.
+    external_thread_id: conversationAlias,
     external_message_id: messageIdSuffix ?? null,
   };
 }
