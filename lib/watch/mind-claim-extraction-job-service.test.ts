@@ -9,7 +9,6 @@ const mockInsertCandidates = vi.fn();
 const mockSend = vi.fn();
 const mockAudit = vi.fn();
 const mockFetchHistory = vi.fn();
-const mockSummarizeHistory = vi.fn();
 
 vi.mock("@/lib/watch/mind-claim-extraction-job-store", () => ({
   getMindClaimExtractionJobById: (...args: unknown[]) => mockGetJob(...args),
@@ -24,8 +23,9 @@ vi.mock("@/lib/watch/mind-claim-hellominds-transport", () => ({
 }));
 
 vi.mock("@/lib/watch/external-mind-hellominds-history", () => ({
-  fetchHelloMindsConversationHistory: (...args: unknown[]) => mockFetchHistory(...args),
-  summarizeHelloMindsHistoryMessages: (...args: unknown[]) => mockSummarizeHistory(...args),
+  fetchHelloMindsConversationHistoryWithDiagnostics: (...args: unknown[]) => mockFetchHistory(...args),
+  extractHelloMindsMessageTextLoose: (message: { messageText?: unknown }) =>
+    typeof message?.messageText === "string" ? message.messageText : null,
 }));
 
 vi.mock("@/lib/watch/source-intake-store", () => ({
@@ -312,10 +312,23 @@ describe("mind claim extraction fetch with no reply yet", () => {
     mockGetJob.mockResolvedValue({
       job: { ...approvedJob, status: "sent", sent_at: "2026-06-24T00:00:00.000Z" },
     });
-    mockFetchHistory.mockResolvedValue({ ok: true, messages: [] });
-    mockSummarizeHistory.mockReturnValue({
-      mind_reply_state: "no_reply_yet",
-      latest_mind_reply: null,
+    mockFetchHistory.mockResolvedValue({
+      ok: true,
+      httpStatus: 200,
+      messages: [],
+      diagnostics: {
+        key: "lucient-em-mce-job-1",
+        url: "https://api.build.hellominds.ai/v1/messaging/history/lucient-em-mce-job-1?limit=50",
+        http_status: 200,
+        json_parsed: true,
+        json_parse_error: null,
+        raw_top_level_type: "array",
+        raw_top_level_keys: [],
+        raw_message_count: 0,
+        parsed_message_count: 0,
+        raw_first_3_messages: [],
+        raw_last_3_messages: [],
+      },
     });
     mockUpdateJob.mockResolvedValue({
       ok: true,
@@ -334,7 +347,7 @@ describe("mind claim extraction fetch with no reply yet", () => {
     expect(mockAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         event_type: "no_reply_yet",
-        event_summary: "HelloMinds history fetched; no Mind reply yet.",
+        event_summary: expect.stringContaining("No matching Mind response found."),
       }),
       access
     );

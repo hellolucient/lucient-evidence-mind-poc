@@ -154,6 +154,13 @@ async function mapJobActionResult(
       phase: CURRENT_WATCH_PHASE,
       mind_phase: MIND_CLAIM_INTELLIGENCE_PHASE,
       job: result.job,
+      ...(typeof (result as { fetch_notice?: unknown }).fetch_notice === "string"
+        ? { fetch_notice: (result as { fetch_notice: string }).fetch_notice }
+        : {}),
+      ...(typeof (result as { fetch_diagnostics?: unknown }).fetch_diagnostics === "object" &&
+      (result as { fetch_diagnostics?: unknown }).fetch_diagnostics
+        ? { fetch_diagnostics: (result as { fetch_diagnostics: unknown }).fetch_diagnostics }
+        : {}),
       ...extra,
     },
   };

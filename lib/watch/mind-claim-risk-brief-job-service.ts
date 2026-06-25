@@ -10,7 +10,9 @@ import {
   sendMindClaimHelloMindsMessage,
 } from "@/lib/watch/mind-claim-hellominds-transport";
 import {
-  fetchHelloMindsConversationHistory,
+  extractHelloMindsMessageTextLoose,
+  fetchHelloMindsConversationHistoryWithDiagnostics,
+  type HelloMindsHistoryMultiKeyDiagnostics,
   summarizeHelloMindsHistoryMessages,
 } from "@/lib/watch/external-mind-hellominds-history";
 import {
@@ -30,7 +32,30 @@ import {
 import { MIND_CLAIM_RISK_BRIEF_CONTRACT_VERSION } from "@/lib/review/mind-claim-intelligence-constants";
 
 export type MindClaimRiskBriefJobActionResult =
-  | { ok: true; job: NonNullable<Awaited<ReturnType<typeof getMindClaimRiskBriefJobById>>["job"]> }
+  | {
+      ok: true;
+      job: NonNullable<Awaited<ReturnType<typeof getMindClaimRiskBriefJobById>>["job"]>;
+      fetch_diagnostics?: HelloMindsHistoryMultiKeyDiagnostics & {
+        per_message: Array<{
+          key: string;
+          index: number;
+          message_id: string | null;
+          party_type: number | null;
+          mind_email: string | null;
+          sender_email: string | null;
+          sender_name: string | null;
+          created_at: string | null;
+          is_after_sent_at: boolean | null;
+          has_text: boolean;
+          contains_contract_version: boolean;
+          begins_with_brace: boolean;
+          selector_decision: "accepted" | "rejected";
+          selector_reason: string;
+        }>;
+        selected_message?: { key: string; message_id: string | null; created_at: string | null } | null;
+      };
+      fetch_notice?: string;
+    }
   | { ok: false; error: string; message: string };
 
 function buildActor(access: ReviewQueueAccessContext, operatorEmail?: string | null): string | null {
@@ -272,48 +297,184 @@ export async function fetchMindClaimRiskBriefJobResponse(
     conversationAlias,
   ].filter((value): value is string => Boolean(value));
 
-  let history:
-    | Awaited<ReturnType<typeof fetchHelloMindsConversationHistory>>
-    | null = null;
+  const multiDiagnostics: HelloMindsHistoryMultiKeyDiagnostics = {
+    checked_keys: historyKeys,
+    results: [],
+  };
+
+  const perMessageDiagnostics: NonNullable<
+    Extract<MindClaimRiskBriefJobActionResult, { ok: true }>["fetch_diagnostics"]
+  >["per_message"] = [];
+
+  type Candidate = {
+    key: string;
+    message: (Awaited<ReturnType<typeof fetchHelloMindsConversationHistoryWithDiagnostics>> & { ok: true })["messages"][number];
+    createdAtEpoch: number | null;
+    text: string;
+  };
+
+  const candidates: Candidate[] = [];
+  const CONTRACT_MARKER = "mind_claim_risk_brief_json_v2";
 
   for (const key of historyKeys) {
-    const result = await fetchHelloMindsConversationHistory({ conversationAlias: key, limit: 50 });
-    if (result.ok) {
-      history = result;
-      break;
+    const result = await fetchHelloMindsConversationHistoryWithDiagnostics({
+      conversationAlias: key,
+      limit: 50,
+    });
+
+    multiDiagnostics.results.push(result.diagnostics);
+
+    if (!result.ok) {
+      // Try next key when the alias/id isn't found; otherwise surface the real error.
+      if (result.error !== "conversation_not_found") {
+        console.log("[mind_fetch_response] hellominds_history_error", {
+          job_kind: "risk_brief",
+          job_id: jobId,
+          key,
+          error: result.error,
+          http_status: result.httpStatus ?? null,
+          url: result.diagnostics.url,
+          raw_top_level_keys: result.diagnostics.raw_top_level_keys,
+          raw_message_count: result.diagnostics.raw_message_count,
+        });
+        return { ok: false, error: String(result.error), message: result.message };
+      }
+      continue;
     }
 
-    // Try next key when the alias/id isn't found; otherwise surface the real error.
-    if (result.error !== "conversation_not_found") {
-      return { ok: false, error: result.error, message: result.message };
+    // Build per-message selector diagnostics for this key.
+    const messages = result.messages;
+    for (let idx = 0; idx < messages.length; idx += 1) {
+      const message = messages[idx]!;
+      const rawCreatedAt = message.createdAt ?? null;
+      const createdEpoch = rawCreatedAt ? Date.parse(rawCreatedAt) : Number.NaN;
+      const hasCreated = Number.isFinite(createdEpoch);
+      const isAfterSentAt =
+        Number.isFinite(sentAtEpoch) && hasCreated ? createdEpoch >= sentAtEpoch : Number.isFinite(sentAtEpoch) ? null : null;
+
+      const text = extractHelloMindsMessageTextLoose(message);
+      const hasText = Boolean(text);
+      const trimmed = (text ?? "").trim();
+      const containsContract = trimmed.includes(CONTRACT_MARKER);
+      const beginsWithBrace = trimmed.startsWith("{");
+
+      let selectorDecision: "accepted" | "rejected" = "rejected";
+      let selectorReason = "";
+
+      if (!hasText) {
+        selectorReason = "Rejected: no message text/content/body found.";
+      } else if (Number.isFinite(sentAtEpoch) && hasCreated && createdEpoch < sentAtEpoch) {
+        selectorReason = "Rejected: createdAt is before job.sent_at.";
+      } else if (!containsContract && !beginsWithBrace) {
+        selectorReason = `Rejected: content does not contain "${CONTRACT_MARKER}" and does not begin with "{".`;
+      } else {
+        selectorDecision = "accepted";
+        selectorReason = containsContract
+          ? `Accepted: contains "${CONTRACT_MARKER}".`
+          : 'Accepted: begins with "{".';
+      }
+
+      perMessageDiagnostics.push({
+        key,
+        index: idx,
+        message_id: message.messageId ?? null,
+        party_type: typeof message.partyType === "number" ? message.partyType : null,
+        mind_email: message.mindEmail ?? null,
+        sender_email: message.senderEmail ?? null,
+        sender_name: message.senderName ?? null,
+        created_at: rawCreatedAt,
+        is_after_sent_at: isAfterSentAt,
+        has_text: hasText,
+        contains_contract_version: containsContract,
+        begins_with_brace: beginsWithBrace,
+        selector_decision: selectorDecision,
+        selector_reason: selectorReason,
+      });
+
+      if (selectorDecision === "accepted") {
+        candidates.push({
+          key,
+          message,
+          createdAtEpoch: hasCreated ? createdEpoch : null,
+          text: trimmed,
+        });
+      }
     }
+
+    console.log("[mind_fetch_response] hellominds_history_ok", {
+      job_kind: "risk_brief",
+      job_id: jobId,
+      key,
+      url: result.diagnostics.url,
+      http_status: result.httpStatus,
+      json_parsed: result.diagnostics.json_parsed,
+      raw_top_level_keys: result.diagnostics.raw_top_level_keys,
+      raw_message_count: result.diagnostics.raw_message_count,
+      parsed_message_count: result.diagnostics.parsed_message_count,
+    });
   }
 
-  if (!history) {
-    return {
-      ok: false,
-      error: "conversation_not_found",
-      message: "HelloMinds conversation history not found for this job.",
-    };
-  }
-
-  // Prefer a Mind reply created after the job was sent (avoid picking older replies in the same conversation).
-  const messagesAfterSend =
-    Number.isFinite(sentAtEpoch)
-      ? history.messages.filter((message) => {
-          const created = message.createdAt ? Date.parse(message.createdAt) : Number.NaN;
-          return !Number.isFinite(created) || created >= sentAtEpoch;
-        })
-      : history.messages;
-
-  const summary = summarizeHelloMindsHistoryMessages(messagesAfterSend);
-  const latestMindReplyText = summary.latest_mind_reply?.messageText;
-  const plainText = latestMindReplyText
-    ? convertHelloMindsMessageTextToPlainText(latestMindReplyText)
-    : null;
-  const split = plainText ? splitHelloMindsMindReplyPlainText(plainText) : null;
   const actor = buildActor(access, options?.operatorEmail);
+  const diagnosticsBundle: Extract<MindClaimRiskBriefJobActionResult, { ok: true }>["fetch_diagnostics"] =
+    {
+      ...multiDiagnostics,
+      per_message: perMessageDiagnostics,
+      selected_message: null,
+    };
 
+  const selected = candidates
+    .slice()
+    .sort((a, b) => {
+      // Prefer newest createdAt when available, otherwise stable ordering.
+      const at = a.createdAtEpoch ?? Number.NEGATIVE_INFINITY;
+      const bt = b.createdAtEpoch ?? Number.NEGATIVE_INFINITY;
+      if (at !== bt) return bt - at;
+      return 0;
+    })[0];
+
+  if (!selected) {
+    const counts = multiDiagnostics.results.map((r) => r.raw_message_count);
+    const matchingContracts = perMessageDiagnostics.filter((m) => m.contains_contract_version).length;
+    const notice = `No matching Mind response found. Checked keys: ${historyKeys.join(
+      ", "
+    )}. Messages returned: [${counts.join(", ")}]. Matching contract_version messages: ${matchingContracts}.`;
+
+    console.log("[mind_fetch_response] no_matching_mind_response", {
+      job_kind: "risk_brief",
+      job_id: jobId,
+      checked_keys: historyKeys,
+      raw_message_counts: counts,
+      matching_contract_version_messages: matchingContracts,
+    });
+
+    // Keep job state unchanged (explicit operator check), but record an audit event and return diagnostics + explicit notice.
+    await auditRiskBriefEvent(
+      {
+        workspace_id: lookup.job.workspace_id,
+        job_id: jobId,
+        event_type: "no_reply_yet",
+        event_summary: notice,
+        actor,
+        metadata: {
+          checked_keys: historyKeys,
+          raw_message_counts: counts,
+          matching_contract_version_messages: matchingContracts,
+        },
+      },
+      access
+    );
+
+    return { ok: true, job: lookup.job, fetch_notice: notice, fetch_diagnostics: diagnosticsBundle };
+  }
+
+  diagnosticsBundle.selected_message = {
+    key: selected.key,
+    message_id: selected.message.messageId ?? null,
+    created_at: selected.message.createdAt ?? null,
+  };
+
+  const plainText = convertHelloMindsMessageTextToPlainText(selected.text);
+  const split = plainText ? splitHelloMindsMindReplyPlainText(plainText) : null;
   const usableReplyBody = (split?.main_reply_plain ?? plainText)?.trim() || null;
   const now = new Date().toISOString();
 
@@ -361,13 +522,14 @@ export async function fetchMindClaimRiskBriefJobResponse(
       actor,
       metadata: {
         conversation_alias: conversationAlias,
-        mind_reply_state: summary.mind_reply_state,
+        selected_history_key: selected.key,
+        selected_message_id: selected.message.messageId ?? null,
       },
     },
     access
   );
 
-  return { ok: true, job: update.job };
+  return { ok: true, job: update.job, fetch_diagnostics: diagnosticsBundle };
 }
 
 /** Non-live fixture load for operator validation. No HelloMinds or external transport calls. */

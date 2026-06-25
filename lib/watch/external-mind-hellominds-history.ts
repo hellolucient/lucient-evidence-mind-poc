@@ -61,6 +61,25 @@ export type HelloMindsHistoryFetchResult =
       message: string;
     };
 
+export type HelloMindsHistoryKeyDiagnostics = {
+  key: string;
+  url: string;
+  http_status: number | null;
+  json_parsed: boolean;
+  json_parse_error: string | null;
+  raw_top_level_type: "array" | "object" | "other" | "null";
+  raw_top_level_keys: string[];
+  raw_message_count: number;
+  parsed_message_count: number;
+  raw_first_3_messages: string[];
+  raw_last_3_messages: string[];
+};
+
+export type HelloMindsHistoryMultiKeyDiagnostics = {
+  checked_keys: string[];
+  results: HelloMindsHistoryKeyDiagnostics[];
+};
+
 export type HelloMindsHistorySummary = {
   message_count: number;
   latest_fingerprint: string | null;
@@ -110,60 +129,55 @@ function parseAttachmentMetadata(value: unknown): HelloMindsHistoryAttachmentMet
   return Object.keys(metadata).length > 0 ? metadata : null;
 }
 
-export function parseHelloMindsHistoryMessageRecord(value: unknown): HelloMindsHistoryMessageRecord | null {
-  if (!isRecord(value)) {
-    return null;
+export function parseHelloMindsHistoryMessages(parsed: unknown): HelloMindsHistoryMessageRecord[] {
+  const rawMessages = resolveHelloMindsHistoryMessageArray(parsed);
+  if (rawMessages.length === 0) return [];
+
+  return rawMessages
+    .map(parseHelloMindsHistoryMessageRecord)
+    .filter((item): item is HelloMindsHistoryMessageRecord => item !== null);
+}
+
+function truncateForDiagnostics(value: unknown, maxLen = 500): string {
+  let text = "";
+  try {
+    text = typeof value === "string" ? value : JSON.stringify(value);
+  } catch {
+    text = String(value);
+  }
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, maxLen)}…(truncated ${text.length - maxLen} chars)`;
+}
+
+function readAnyString(record: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function resolveHelloMindsHistoryMessageArray(parsed: unknown): unknown[] {
+  if (Array.isArray(parsed)) return parsed;
+  if (!isRecord(parsed)) return [];
+
+  // Some deployments may wrap history in an object.
+  const candidates = ["messages", "history", "items", "data"];
+  for (const key of candidates) {
+    const value = parsed[key];
+    if (Array.isArray(value)) return value;
   }
 
-  const record: HelloMindsHistoryMessageRecord = {};
-  const alias = readString(value, "alias");
-  const conversationId = readString(value, "conversationId");
-  const messageId = readString(value, "messageId");
-  const messageText = readString(value, "messageText");
-  const createdAt = readString(value, "createdAt");
-  const fingerprint = readString(value, "fingerprint");
-  const partyType = readNumber(value, "partyType");
-  const mindId = readString(value, "mindId");
-  const mindName = readString(value, "mindName");
-  const mindEmail = readString(value, "mindEmail");
-  const senderName = readString(value, "senderName");
-  const senderEmail = readString(value, "senderEmail");
-  const subject = readString(value, "subject");
-
-  if (alias) record.alias = alias;
-  if (conversationId) record.conversationId = conversationId;
-  if (messageId) record.messageId = messageId;
-  if (messageText) record.messageText = messageText;
-  if (createdAt) record.createdAt = createdAt;
-  if (fingerprint) record.fingerprint = fingerprint;
-  if (typeof partyType === "number") record.partyType = partyType;
-  if (mindId) record.mindId = mindId;
-  if (mindName) record.mindName = mindName;
-  if (mindEmail) record.mindEmail = mindEmail;
-  if (senderName) record.senderName = senderName;
-  if (senderEmail) record.senderEmail = senderEmail;
-  if (subject) record.subject = subject;
-
-  if (Array.isArray(value.attachments)) {
-    const attachments = value.attachments
-      .map(parseAttachmentMetadata)
-      .filter((item): item is HelloMindsHistoryAttachmentMetadata => item !== null);
-    if (attachments.length > 0) {
-      record.attachments = attachments;
+  // Common alternate wrapper shapes: { data: { messages: [] } }
+  const data = parsed.data;
+  if (isRecord(data)) {
+    for (const key of candidates) {
+      const value = data[key];
+      if (Array.isArray(value)) return value;
     }
   }
 
-  return Object.keys(record).length > 0 ? record : null;
-}
-
-export function parseHelloMindsHistoryMessages(parsed: unknown): HelloMindsHistoryMessageRecord[] {
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-
-  return parsed
-    .map(parseHelloMindsHistoryMessageRecord)
-    .filter((item): item is HelloMindsHistoryMessageRecord => item !== null);
+  return [];
 }
 
 export function buildPrivacySafeHelloMindsMessageExcerpt(
@@ -360,4 +374,331 @@ export async function fetchHelloMindsConversationHistory(input: {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function fetchHelloMindsConversationHistoryWithDiagnostics(input: {
+  conversationAlias: string;
+  after?: string;
+  limit?: number;
+}): Promise<
+  | { ok: true; httpStatus: number; messages: HelloMindsHistoryMessageRecord[]; diagnostics: HelloMindsHistoryKeyDiagnostics }
+  | { ok: false; httpStatus?: number; error: HelloMindsHistoryFetchResult extends { ok: false; error: infer E } ? E : string; message: string; diagnostics: HelloMindsHistoryKeyDiagnostics }
+> {
+  if (!isHelloMindsReadApiConfigured()) {
+    const baseUrl = getHelloMindsBaseUrl() ?? "";
+    const url = `${baseUrl.replace(/\/$/, "")}/v1/messaging/history/${encodeURIComponent(input.conversationAlias)}`;
+    return {
+      ok: false,
+      error: "read_api_not_configured",
+      message: buildHistoryErrorMessage("read_api_not_configured"),
+      diagnostics: {
+        key: input.conversationAlias,
+        url,
+        http_status: null,
+        json_parsed: false,
+        json_parse_error: null,
+        raw_top_level_type: "null",
+        raw_top_level_keys: [],
+        raw_message_count: 0,
+        parsed_message_count: 0,
+        raw_first_3_messages: [],
+        raw_last_3_messages: [],
+      },
+    };
+  }
+
+  const baseUrl = getHelloMindsBaseUrl();
+  const accessKey = getHelloMindsAccessKey();
+  if (!baseUrl || !accessKey) {
+    const url = `${(baseUrl ?? "").replace(/\/$/, "")}/v1/messaging/history/${encodeURIComponent(input.conversationAlias)}`;
+    return {
+      ok: false,
+      error: "read_api_not_configured",
+      message: buildHistoryErrorMessage("read_api_not_configured"),
+      diagnostics: {
+        key: input.conversationAlias,
+        url,
+        http_status: null,
+        json_parsed: false,
+        json_parse_error: null,
+        raw_top_level_type: "null",
+        raw_top_level_keys: [],
+        raw_message_count: 0,
+        parsed_message_count: 0,
+        raw_first_3_messages: [],
+        raw_last_3_messages: [],
+      },
+    };
+  }
+
+  const limit = typeof input.limit === "number" && input.limit > 0 ? input.limit : 50;
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (input.after?.trim()) {
+    params.set("after", input.after.trim());
+  }
+  const url = `${baseUrl.replace(/\/$/, "")}/v1/messaging/history/${encodeURIComponent(input.conversationAlias)}?${params.toString()}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), getHelloMindsSendTimeoutMs());
+
+  let httpStatus: number | null = null;
+  let parsed: unknown = null;
+  let jsonParsed = false;
+  let jsonParseError: string | null = null;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        "X-Access-Key": accessKey,
+      },
+    });
+
+    httpStatus = response.status;
+
+    if (response.status === 401 || response.status === 403) {
+      return {
+        ok: false,
+        httpStatus: response.status,
+        error: "auth_failed",
+        message: buildHistoryErrorMessage("auth_failed"),
+        diagnostics: {
+          key: input.conversationAlias,
+          url,
+          http_status: response.status,
+          json_parsed: false,
+          json_parse_error: null,
+          raw_top_level_type: "null",
+          raw_top_level_keys: [],
+          raw_message_count: 0,
+          parsed_message_count: 0,
+          raw_first_3_messages: [],
+          raw_last_3_messages: [],
+        },
+      };
+    }
+
+    if (response.status === 404) {
+      return {
+        ok: false,
+        httpStatus: response.status,
+        error: "conversation_not_found",
+        message: buildHistoryErrorMessage("conversation_not_found"),
+        diagnostics: {
+          key: input.conversationAlias,
+          url,
+          http_status: response.status,
+          json_parsed: false,
+          json_parse_error: null,
+          raw_top_level_type: "null",
+          raw_top_level_keys: [],
+          raw_message_count: 0,
+          parsed_message_count: 0,
+          raw_first_3_messages: [],
+          raw_last_3_messages: [],
+        },
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        httpStatus: response.status,
+        error: "http_error",
+        message: buildHistoryErrorMessage("http_error"),
+        diagnostics: {
+          key: input.conversationAlias,
+          url,
+          http_status: response.status,
+          json_parsed: false,
+          json_parse_error: null,
+          raw_top_level_type: "null",
+          raw_top_level_keys: [],
+          raw_message_count: 0,
+          parsed_message_count: 0,
+          raw_first_3_messages: [],
+          raw_last_3_messages: [],
+        },
+      };
+    }
+
+    try {
+      parsed = await response.json();
+      jsonParsed = true;
+    } catch (err) {
+      jsonParseError = err instanceof Error ? err.message : "json_parse_failed";
+      return {
+        ok: false,
+        httpStatus: response.status,
+        error: "invalid_response",
+        message: buildHistoryErrorMessage("invalid_response"),
+        diagnostics: {
+          key: input.conversationAlias,
+          url,
+          http_status: response.status,
+          json_parsed: false,
+          json_parse_error: jsonParseError,
+          raw_top_level_type: "null",
+          raw_top_level_keys: [],
+          raw_message_count: 0,
+          parsed_message_count: 0,
+          raw_first_3_messages: [],
+          raw_last_3_messages: [],
+        },
+      };
+    }
+
+    const rawMessages = resolveHelloMindsHistoryMessageArray(parsed);
+    const rawTopLevelType: HelloMindsHistoryKeyDiagnostics["raw_top_level_type"] = parsed === null
+      ? "null"
+      : Array.isArray(parsed)
+        ? "array"
+        : typeof parsed === "object"
+          ? "object"
+          : "other";
+    const rawTopLevelKeys = isRecord(parsed) ? Object.keys(parsed).slice(0, 50) : [];
+    const rawFirst3 = rawMessages.slice(0, 3).map((m) => truncateForDiagnostics(m, 500));
+    const rawLast3 = rawMessages.slice(Math.max(0, rawMessages.length - 3)).map((m) =>
+      truncateForDiagnostics(m, 500)
+    );
+
+    const messages = parseHelloMindsHistoryMessages(parsed);
+    const serialized = JSON.stringify(messages);
+    if (containsHelloMindsSensitiveEnvValue(serialized)) {
+      return {
+        ok: false,
+        httpStatus: response.status,
+        error: "invalid_response",
+        message: buildHistoryErrorMessage("invalid_response"),
+        diagnostics: {
+          key: input.conversationAlias,
+          url,
+          http_status: response.status,
+          json_parsed: jsonParsed,
+          json_parse_error: jsonParseError,
+          raw_top_level_type: rawTopLevelType,
+          raw_top_level_keys: rawTopLevelKeys,
+          raw_message_count: rawMessages.length,
+          parsed_message_count: messages.length,
+          raw_first_3_messages: rawFirst3,
+          raw_last_3_messages: rawLast3,
+        },
+      };
+    }
+
+    return {
+      ok: true,
+      httpStatus: response.status,
+      messages,
+      diagnostics: {
+        key: input.conversationAlias,
+        url,
+        http_status: response.status,
+        json_parsed: jsonParsed,
+        json_parse_error: jsonParseError,
+        raw_top_level_type: rawTopLevelType,
+        raw_top_level_keys: rawTopLevelKeys,
+        raw_message_count: rawMessages.length,
+        parsed_message_count: messages.length,
+        raw_first_3_messages: rawFirst3,
+        raw_last_3_messages: rawLast3,
+      },
+    };
+  } catch (error) {
+    const err = error instanceof Error ? error : null;
+    if (err && err.name === "AbortError") {
+      return {
+        ok: false,
+        error: "timeout",
+        message: buildHistoryErrorMessage("timeout"),
+        diagnostics: {
+          key: input.conversationAlias,
+          url,
+          http_status: httpStatus,
+          json_parsed: jsonParsed,
+          json_parse_error: jsonParseError,
+          raw_top_level_type: "null",
+          raw_top_level_keys: [],
+          raw_message_count: 0,
+          parsed_message_count: 0,
+          raw_first_3_messages: [],
+          raw_last_3_messages: [],
+        },
+      };
+    }
+
+    return {
+      ok: false,
+      error: "network",
+      message: buildHistoryErrorMessage("network"),
+      diagnostics: {
+        key: input.conversationAlias,
+        url,
+        http_status: httpStatus,
+        json_parsed: jsonParsed,
+        json_parse_error: jsonParseError,
+        raw_top_level_type: "null",
+        raw_top_level_keys: [],
+        raw_message_count: 0,
+        parsed_message_count: 0,
+        raw_first_3_messages: [],
+        raw_last_3_messages: [],
+      },
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function extractHelloMindsMessageTextLoose(message: HelloMindsHistoryMessageRecord): string | null {
+  // Parsed messages already normalize messageText, but this helper makes intent explicit.
+  return message.messageText?.trim() ? message.messageText.trim() : null;
+}
+
+export function parseHelloMindsHistoryMessageRecord(value: unknown): HelloMindsHistoryMessageRecord | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const record: HelloMindsHistoryMessageRecord = {};
+  const alias = readString(value, "alias");
+  const conversationId = readAnyString(value, ["conversationId", "conversation_id", "threadId", "thread_id"]);
+  const messageId = readAnyString(value, ["messageId", "message_id", "id"]);
+  const messageText = readAnyString(value, ["messageText", "text", "body", "content", "message"]);
+  const createdAt = readAnyString(value, ["createdAt", "created_at", "timestamp", "date", "sentAt", "sent_at"]);
+  const fingerprint = readString(value, "fingerprint");
+  const partyType = readNumber(value, "partyType") ?? readNumber(value, "party_type");
+  const mindId = readAnyString(value, ["mindId", "mind_id"]);
+  const mindName = readAnyString(value, ["mindName", "mind_name"]);
+  const mindEmail = readAnyString(value, ["mindEmail", "mind_email"]);
+  const senderName = readAnyString(value, ["senderName", "sender_name", "fromName", "from_name"]);
+  const senderEmail = readAnyString(value, ["senderEmail", "sender_email", "fromEmail", "from_email"]);
+  const subject = readAnyString(value, ["subject", "title"]);
+
+  if (alias) record.alias = alias;
+  if (conversationId) record.conversationId = conversationId;
+  if (messageId) record.messageId = messageId;
+  if (messageText) record.messageText = messageText;
+  if (createdAt) record.createdAt = createdAt;
+  if (fingerprint) record.fingerprint = fingerprint;
+  if (typeof partyType === "number") record.partyType = partyType;
+  if (mindId) record.mindId = mindId;
+  if (mindName) record.mindName = mindName;
+  if (mindEmail) record.mindEmail = mindEmail;
+  if (senderName) record.senderName = senderName;
+  if (senderEmail) record.senderEmail = senderEmail;
+  if (subject) record.subject = subject;
+
+  if (Array.isArray(value.attachments)) {
+    const attachments = value.attachments
+      .map(parseAttachmentMetadata)
+      .filter((item): item is HelloMindsHistoryAttachmentMetadata => item !== null);
+    if (attachments.length > 0) {
+      record.attachments = attachments;
+    }
+  }
+
+  return Object.keys(record).length > 0 ? record : null;
 }
