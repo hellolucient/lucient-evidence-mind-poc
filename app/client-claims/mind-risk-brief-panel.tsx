@@ -234,6 +234,11 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
   const [pending, setPending] = useState<Record<string, boolean>>({});
 
   const latestBrief = briefs[0] ?? null;
+  const isDryRunSend =
+    jobStatus === "sent" &&
+    !externalThreadId &&
+    !externalMessageId &&
+    Boolean(outboundPromptText?.trim());
 
   const evidenceFound = useMemo(() => {
     if (!latestBrief) {
@@ -388,6 +393,10 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
   }
 
   function humanJobStatus(status: string | null | undefined): string {
+    if (isDryRunSend) {
+      return "Dry-run complete — outbound prompt stored. No message sent to HelloMinds.";
+    }
+
     switch (status) {
       case "pending_approval":
         return "Pending approval";
@@ -715,6 +724,20 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
               {jobOutputContractVersion ? (
                 <span style={styles.pill}>contract: {jobOutputContractVersion}</span>
               ) : null}
+            </div>
+          ) : null}
+          {isDryRunSend ? (
+            <div style={{ marginTop: "0.35rem" }}>
+              <div>
+                <strong>Live send</strong>: disabled
+              </div>
+              <div>
+                <strong>Outbound prompt</strong>: stored
+              </div>
+              <div>
+                <strong>Next step</strong>: copy prompt manually into external Mind, or enable{" "}
+                <code>EXTERNAL_MIND_LIVE_SEND=true</code> for live send.
+              </div>
             </div>
           ) : null}
           {jobStatus === "parsed" ? (
