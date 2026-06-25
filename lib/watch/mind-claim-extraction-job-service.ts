@@ -487,7 +487,6 @@ export async function fetchMindClaimExtractionJobResponse(
         actor,
         metadata: {
           conversation_alias: conversationAlias,
-          mind_reply_state: summary.mind_reply_state,
         },
       },
       access

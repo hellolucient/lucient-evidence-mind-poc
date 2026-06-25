@@ -13,7 +13,6 @@ import {
   extractHelloMindsMessageTextLoose,
   fetchHelloMindsConversationHistoryWithDiagnostics,
   type HelloMindsHistoryMultiKeyDiagnostics,
-  summarizeHelloMindsHistoryMessages,
 } from "@/lib/watch/external-mind-hellominds-history";
 import {
   convertHelloMindsMessageTextToPlainText,
@@ -491,7 +490,6 @@ export async function fetchMindClaimRiskBriefJobResponse(
         actor,
         metadata: {
           conversation_alias: conversationAlias,
-          mind_reply_state: summary.mind_reply_state,
         },
       },
       access
