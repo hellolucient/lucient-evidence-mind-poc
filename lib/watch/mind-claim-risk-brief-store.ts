@@ -294,6 +294,43 @@ export async function getMindClaimRiskBriefJobById(
   }
 }
 
+export async function getLatestMindClaimRiskBriefJobByClientClaim(
+  clientClaimId: string,
+  access: ReviewQueueAccessContext
+): Promise<{ job: PrivacySafeMindClaimRiskBriefJob | null; error?: string }> {
+  if (!isMindClaimRiskBriefPersistenceConfigured()) {
+    return { job: null, error: "supabase_not_configured" };
+  }
+
+  try {
+    const client = createSupabaseServerClient();
+    const { data, error } = await client
+      .from(MIND_CLAIM_RISK_BRIEF_JOBS_TABLE)
+      .select("*")
+      .eq("client_claim_id", clientClaimId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return { job: null, error: normalizeStoreError(error) };
+    }
+
+    if (!data) {
+      return { job: null, error: "risk_brief_job_not_found" };
+    }
+
+    const row = data as MindClaimRiskBriefJobRow;
+    if (!canAccessReviewItemWorkspace(access, row.workspace_id)) {
+      return { job: null, error: "forbidden" };
+    }
+
+    return { job: toPrivacySafeMindClaimRiskBriefJob(row) };
+  } catch (error) {
+    return { job: null, error: normalizeStoreError(error) };
+  }
+}
+
 export async function updateMindClaimRiskBriefJob(
   jobId: string,
   access: ReviewQueueAccessContext,

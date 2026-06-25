@@ -222,6 +222,10 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
   const [mindResponseText, setMindResponseText] = useState<string | null>(null);
   const [externalThreadId, setExternalThreadId] = useState<string | null>(null);
   const [externalMessageId, setExternalMessageId] = useState<string | null>(null);
+  const [jobPromptVersion, setJobPromptVersion] = useState<string | null>(null);
+  const [jobOutputContractVersion, setJobOutputContractVersion] = useState<string | null>(null);
+  const [jobCreatedAt, setJobCreatedAt] = useState<string | null>(null);
+  const [outboundPromptText, setOutboundPromptText] = useState<string | null>(null);
   const [lastFetchNoReply, setLastFetchNoReply] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [briefs, setBriefs] = useState<RiskBrief[]>([]);
@@ -410,12 +414,54 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
     });
     const data = (await response.json()) as {
       ok?: boolean;
+      latest_job?: {
+        risk_brief_job_id: string;
+        status: string;
+        prompt_version: string;
+        output_contract_version: string;
+        created_at: string;
+        outbound_prompt_text?: string | null;
+        mind_response_text?: string | null;
+        external_thread_id?: string | null;
+        external_message_id?: string | null;
+        parsed_at?: string | null;
+      } | null;
+      latest_job_error?: string | null;
       risk_briefs?: RiskBrief[];
       audit_events?: Array<{ event_type: string; event_summary: string; created_at: string }>;
     };
-    if (data.ok) {
-      setBriefs(data.risk_briefs ?? []);
-      setAuditEvents(data.audit_events ?? []);
+
+    if (!data.ok) {
+      setError("Unable to load stored briefs.");
+      return;
+    }
+
+    setBriefs(data.risk_briefs ?? []);
+    setAuditEvents(data.audit_events ?? []);
+
+    if (data.latest_job) {
+      setJobId(data.latest_job.risk_brief_job_id);
+      setJobStatus(data.latest_job.status);
+      setJobPromptVersion(data.latest_job.prompt_version);
+      setJobOutputContractVersion(data.latest_job.output_contract_version);
+      setJobCreatedAt(data.latest_job.created_at);
+      setOutboundPromptText(data.latest_job.outbound_prompt_text ?? null);
+      setMindResponseText(data.latest_job.mind_response_text ?? null);
+      setExternalThreadId(data.latest_job.external_thread_id ?? null);
+      setExternalMessageId(data.latest_job.external_message_id ?? null);
+      setJobParsedAt(typeof data.latest_job.parsed_at === "string" ? data.latest_job.parsed_at : null);
+    } else if (data.latest_job_error === "risk_brief_job_not_found") {
+      // No job yet; keep state empty so Create is the first action.
+      setJobId(null);
+      setJobStatus(null);
+      setJobPromptVersion(null);
+      setJobOutputContractVersion(null);
+      setJobCreatedAt(null);
+      setOutboundPromptText(null);
+      setMindResponseText(null);
+      setExternalThreadId(null);
+      setExternalMessageId(null);
+      setJobParsedAt(null);
     }
   }
 
@@ -445,17 +491,28 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
           const job = data.job as {
             risk_brief_job_id: string;
             status: string;
+            prompt_version?: string | null;
+            output_contract_version?: string | null;
+            outbound_prompt_text?: string | null;
             mind_response_text?: string | null;
             external_thread_id?: string | null;
             external_message_id?: string | null;
             parsed_at?: string | null;
+            created_at?: string | null;
           };
           setJobId(job.risk_brief_job_id);
           setJobStatus(job.status);
+          setJobPromptVersion(typeof job.prompt_version === "string" ? job.prompt_version : null);
+          setJobOutputContractVersion(
+            typeof job.output_contract_version === "string" ? job.output_contract_version : null
+          );
+          setOutboundPromptText(job.outbound_prompt_text ?? null);
           setExternalThreadId(job.external_thread_id ?? null);
           setExternalMessageId(job.external_message_id ?? null);
           setJobParsedAt(typeof job.parsed_at === "string" ? job.parsed_at : null);
+          setJobCreatedAt(typeof job.created_at === "string" ? job.created_at : null);
           setMindResponseText(job.mind_response_text ?? null);
+          await refreshBriefs();
           return;
         }
 
@@ -481,15 +538,29 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
         if (data.job) {
           const job = data.job as {
             status: string;
+            prompt_version?: string | null;
+            output_contract_version?: string | null;
+            outbound_prompt_text?: string | null;
             mind_response_text?: string | null;
             external_thread_id?: string | null;
             external_message_id?: string | null;
             parsed_at?: string | null;
+            created_at?: string | null;
           };
           setJobStatus(job.status);
+          setJobPromptVersion(typeof job.prompt_version === "string" ? job.prompt_version : jobPromptVersion);
+          setJobOutputContractVersion(
+            typeof job.output_contract_version === "string"
+              ? job.output_contract_version
+              : jobOutputContractVersion
+          );
+          setOutboundPromptText(
+            typeof job.outbound_prompt_text === "string" ? job.outbound_prompt_text : outboundPromptText
+          );
           setExternalThreadId(job.external_thread_id ?? null);
           setExternalMessageId(job.external_message_id ?? null);
           setJobParsedAt(typeof job.parsed_at === "string" ? job.parsed_at : null);
+          setJobCreatedAt(typeof job.created_at === "string" ? job.created_at : jobCreatedAt);
           setMindResponseText(job.mind_response_text ?? null);
           if (action === "fetch") {
             const noReply = job.status === "waiting_for_reply" && !job.mind_response_text?.trim();
@@ -515,6 +586,7 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
 
         if (action === "load-demo-fixture") {
           setStatusMessage("Non-live fixture response loaded. This is not a live Mind response.");
+          await refreshBriefs();
           return;
         }
       } catch {
@@ -535,8 +607,8 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
       : null
   );
   const createJobDisabled = isPending("job_create");
-  const approveJobDisabled = isPending("job_approve") || !jobId;
-  const sendJobDisabled = isPending("job_send") || !jobId;
+  const approveJobDisabled = isPending("job_approve") || !jobId || jobStatus !== "pending_approval";
+  const sendJobDisabled = isPending("job_send") || !jobId || jobStatus !== "approved";
   const fetchJobDisabled = isPending("job_fetch") || !controls.can_fetch;
   const loadFixtureDisabled = isPending("job_load-demo-fixture") || !controls.can_load_fixture;
   const parseJobDisabled = isPending("job_parse") || !controls.can_parse;
@@ -636,6 +708,15 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
           <div>
             Job: <code>{jobId}</code> · status: {jobStatus ?? "—"}
           </div>
+          {jobCreatedAt ? <div>Created: {new Date(jobCreatedAt).toLocaleString()}</div> : null}
+          {jobPromptVersion || jobOutputContractVersion ? (
+            <div style={{ marginTop: "0.15rem" }}>
+              {jobPromptVersion ? <span style={styles.pill}>prompt: {jobPromptVersion}</span> : null}
+              {jobOutputContractVersion ? (
+                <span style={styles.pill}>contract: {jobOutputContractVersion}</span>
+              ) : null}
+            </div>
+          ) : null}
           {jobStatus === "parsed" ? (
             <div style={{ marginTop: "0.35rem" }}>This response has already been parsed.</div>
           ) : null}
@@ -644,6 +725,15 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
 
       {statusMessage ? <div style={{ ...styles.meta, color: "#334155" }}>{statusMessage}</div> : null}
       {error ? <div style={styles.error}>{error}</div> : null}
+
+      {outboundPromptText ? (
+        <details style={{ marginTop: "0.75rem" }}>
+          <summary style={{ cursor: "pointer", color: "#334155", fontSize: "0.8125rem" }}>
+            View outbound prompt
+          </summary>
+          <pre style={styles.pre}>{toMindDisplayPlainText(outboundPromptText)}</pre>
+        </details>
+      ) : null}
 
       {latestBrief ? (
         <div style={{ marginTop: "0.75rem" }}>

@@ -20,6 +20,7 @@ import {
   createMindClaimRiskBriefJob,
   getMindClaimRiskBriefById,
   getMindClaimRiskBriefJobById,
+  getLatestMindClaimRiskBriefJobByClientClaim,
   isMindClaimRiskBriefPersistenceConfigured,
   listMindClaimRiskBriefsByClientClaim,
 } from "@/lib/watch/mind-claim-risk-brief-store";
@@ -229,6 +230,7 @@ export async function buildListMindRiskBriefsApiResponse(
   }
 
   const briefs = await listMindClaimRiskBriefsByClientClaim(clientClaimUuid, access);
+  const latestJob = await getLatestMindClaimRiskBriefJobByClientClaim(clientClaimUuid, access);
   const audit = await listMindClaimIntelligenceAuditEvents(access, {
     workspace_id: claim.claim.workspace_id,
     entity_type: "mind_claim_risk_brief",
@@ -242,6 +244,8 @@ export async function buildListMindRiskBriefsApiResponse(
       phase: CURRENT_WATCH_PHASE,
       mind_phase: MIND_CLAIM_INTELLIGENCE_PHASE,
       configured: isMindClaimRiskBriefPersistenceConfigured(),
+      latest_job: latestJob.job,
+      latest_job_error: latestJob.error ?? null,
       count: briefs.briefs.length,
       risk_briefs: briefs.briefs,
       audit_events: audit.events,
