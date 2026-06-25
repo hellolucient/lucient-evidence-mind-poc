@@ -244,20 +244,10 @@ describe("mind claim risk brief fetch with no reply yet", () => {
       mind_reply_state: "no_reply_yet",
       latest_mind_reply: null,
     });
-    mockUpdateJob.mockResolvedValue({
-      ok: true,
-      job: { ...approvedJob, status: "waiting_for_reply", mind_response_text: null },
-    });
 
     const result = await fetchMindClaimRiskBriefJobResponse("rb-job-1", access);
     expect(result.ok).toBe(true);
-    expect(mockUpdateJob).toHaveBeenCalledWith(
-      "rb-job-1",
-      access,
-      expect.objectContaining({
-        status: "waiting_for_reply",
-      })
-    );
+    expect(mockUpdateJob).not.toHaveBeenCalled();
     expect(mockAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         event_type: "no_reply_yet",

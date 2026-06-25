@@ -263,16 +263,50 @@ export async function fetchMindClaimRiskBriefJobResponse(
   }
 
   const conversationAlias = buildMindClaimHelloMindsConversationAlias("risk_brief", jobId);
-  const history = await fetchHelloMindsConversationHistory({
-    conversationAlias,
-    limit: 50,
-  });
+  const sentAtEpoch = lookup.job.sent_at ? Date.parse(lookup.job.sent_at) : Number.NaN;
 
-  if (!history.ok) {
-    return { ok: false, error: history.error, message: history.message };
+  // Prefer the provider conversation id when present (some HelloMinds deployments key history by conversationId).
+  // Fall back to our deterministic alias used at send time.
+  const historyKeys = [
+    lookup.job.external_thread_id?.trim() || null,
+    conversationAlias,
+  ].filter((value): value is string => Boolean(value));
+
+  let history:
+    | Awaited<ReturnType<typeof fetchHelloMindsConversationHistory>>
+    | null = null;
+
+  for (const key of historyKeys) {
+    const result = await fetchHelloMindsConversationHistory({ conversationAlias: key, limit: 50 });
+    if (result.ok) {
+      history = result;
+      break;
+    }
+
+    // Try next key when the alias/id isn't found; otherwise surface the real error.
+    if (result.error !== "conversation_not_found") {
+      return { ok: false, error: result.error, message: result.message };
+    }
   }
 
-  const summary = summarizeHelloMindsHistoryMessages(history.messages);
+  if (!history) {
+    return {
+      ok: false,
+      error: "conversation_not_found",
+      message: "HelloMinds conversation history not found for this job.",
+    };
+  }
+
+  // Prefer a Mind reply created after the job was sent (avoid picking older replies in the same conversation).
+  const messagesAfterSend =
+    Number.isFinite(sentAtEpoch)
+      ? history.messages.filter((message) => {
+          const created = message.createdAt ? Date.parse(message.createdAt) : Number.NaN;
+          return !Number.isFinite(created) || created >= sentAtEpoch;
+        })
+      : history.messages;
+
+  const summary = summarizeHelloMindsHistoryMessages(messagesAfterSend);
   const latestMindReplyText = summary.latest_mind_reply?.messageText;
   const plainText = latestMindReplyText
     ? convertHelloMindsMessageTextToPlainText(latestMindReplyText)
@@ -284,13 +318,8 @@ export async function fetchMindClaimRiskBriefJobResponse(
   const now = new Date().toISOString();
 
   if (!usableReplyBody) {
-    const update = await updateMindClaimRiskBriefJob(jobId, access, {
-      status: lookup.job.status === "response_fetched" ? lookup.job.status : "waiting_for_reply",
-    });
-
-    if (!update.ok) {
-      return { ok: false, error: update.error, message: "Unable to record fetch check." };
-    }
+    // Do not mutate status on "no reply" checks. Some deployments may not have waiting_for_reply constraint applied yet,
+    // and updating state here can mask the real underlying issue (missing reply vs schema mismatch).
 
     await auditRiskBriefEvent(
       {
@@ -307,7 +336,7 @@ export async function fetchMindClaimRiskBriefJobResponse(
       access
     );
 
-    return { ok: true, job: update.job };
+    return { ok: true, job: lookup.job };
   }
 
   const update = await updateMindClaimRiskBriefJob(jobId, access, {
@@ -320,7 +349,7 @@ export async function fetchMindClaimRiskBriefJobResponse(
   });
 
   if (!update.ok) {
-    return { ok: false, error: update.error, message: "Unable to store Mind response." };
+    return { ok: false, error: update.error, message: `Unable to store Mind response (${update.error}).` };
   }
 
   await auditRiskBriefEvent(
