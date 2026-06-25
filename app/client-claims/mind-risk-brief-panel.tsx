@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { renderSafeMindTextBlock, toMindDisplayPlainText } from "@/lib/review/safe-mind-text";
 import { mindJobControlsState } from "@/lib/review/mind-job-controls";
@@ -58,6 +58,15 @@ const styles = {
     padding: "0.65rem",
     marginTop: "0.5rem",
   } as const,
+  evidenceList: {
+    margin: "0.5rem 0 0",
+    paddingLeft: "1.1rem",
+    color: "#334155",
+    fontSize: "0.8125rem",
+  } as const,
+  evidenceItem: {
+    marginBottom: "0.5rem",
+  } as const,
   error: { color: "#b91c1c", fontSize: "0.8125rem", marginTop: "0.35rem" } as const,
 };
 
@@ -74,6 +83,8 @@ type RiskBrief = {
   searches_performed: unknown[];
   evidence_found: unknown[];
   evidence_not_found: unknown[];
+  urls?: unknown;
+  pmids?: unknown;
   evidence_posture: string | null;
   evidence_strength: string | null;
   risk_level: string | null;
@@ -101,6 +112,34 @@ async function postJson(url: string, body: Record<string, unknown> = {}) {
   return { response, data: (await response.json()) as Record<string, unknown> };
 }
 
+type EvidenceFoundEntry = {
+  title?: unknown;
+  url?: unknown;
+  pmid?: unknown;
+  doi?: unknown;
+  journal?: unknown;
+  year?: unknown;
+  authors?: unknown;
+  evidence_category?: unknown;
+  relevance_to_claim?: unknown;
+  summary?: unknown;
+};
+
+function asNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.toLowerCase() === "n/a") {
+    return null;
+  }
+  return trimmed;
+}
+
+function looksLikeUrl(value: string): boolean {
+  return value.startsWith("https://") || value.startsWith("http://");
+}
+
 export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: MindRiskBriefPanelProps) {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
@@ -114,6 +153,60 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
   const [auditEvents, setAuditEvents] = useState<Array<{ event_type: string; event_summary: string; created_at: string }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<string, boolean>>({});
+
+  const latestBrief = briefs[0] ?? null;
+
+  const evidenceFound = useMemo(() => {
+    if (!latestBrief) {
+      return [];
+    }
+    const raw = Array.isArray(latestBrief.evidence_found) ? latestBrief.evidence_found : [];
+    return raw
+      .filter((item): item is EvidenceFoundEntry => Boolean(item && typeof item === "object" && !Array.isArray(item)))
+      .map((item) => {
+        const title = asNonEmptyString(item.title);
+        const url = asNonEmptyString(item.url);
+        const pmid = asNonEmptyString(item.pmid);
+        const doi = asNonEmptyString(item.doi);
+        const journal = asNonEmptyString(item.journal);
+        const year = asNonEmptyString(item.year);
+        const authors = asNonEmptyString(item.authors);
+        const evidenceCategory = asNonEmptyString(item.evidence_category);
+        const relevance = asNonEmptyString(item.relevance_to_claim);
+        const summary = asNonEmptyString(item.summary);
+
+        const resolvedUrl =
+          url && looksLikeUrl(url) ? url : pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pmid}/` : null;
+
+        return {
+          title: title ?? "Untitled study",
+          url: resolvedUrl,
+          pmid,
+          doi,
+          journal,
+          year,
+          authors,
+          evidenceCategory,
+          relevance,
+          summary,
+        };
+      })
+      .filter((item) => item.title || item.url || item.pmid || item.summary);
+  }, [latestBrief]);
+
+  const fallbackUrls = useMemo(() => {
+    if (!latestBrief) {
+      return [];
+    }
+    const rawUrls = Array.isArray(latestBrief.urls) ? (latestBrief.urls as unknown[]) : [];
+    const cleaned = rawUrls
+      .map((value) => asNonEmptyString(value))
+      .filter((value): value is string => Boolean(value))
+      .filter((value) => looksLikeUrl(value));
+
+    const alreadyShown = new Set(evidenceFound.map((item) => item.url).filter(Boolean) as string[]);
+    return cleaned.filter((url) => !alreadyShown.has(url));
+  }, [evidenceFound, latestBrief]);
 
   function isPending(key: string) {
     return pending[key] === true;
@@ -166,6 +259,11 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
       setAuditEvents(data.audit_events ?? []);
     }
   }
+
+  useEffect(() => {
+    void refreshBriefs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claimUuid]);
 
   async function runAction(
     action: "create" | "approve" | "send" | "fetch" | "load-demo-fixture" | "parse"
@@ -286,8 +384,6 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
   const refreshBriefsDisabled = isPending("refresh_briefs");
   const showParseStatusPill = !controls.can_parse && controls.parse_label === "Already parsed";
 
-  const latestBrief = briefs[0] ?? null;
-
   return (
     <div style={styles.panel}>
       <strong>Mind Claim Risk Brief</strong>
@@ -397,10 +493,63 @@ export function MindRiskBriefPanel({ claimUuid, claimText, operatorEmail }: Mind
             {latestBrief.risk_level ?? "—"} · recommendation:{" "}
             {latestBrief.operator_recommendation ?? "—"}
           </div>
+          <div style={styles.meta}>
+            Refresh briefs reloads stored results. It does not trigger a new Mind search.
+          </div>
           {latestBrief.search_capability_statement ? (
             <p style={{ fontSize: "0.8125rem", margin: "0.5rem 0 0" }}>
               {renderSafeMindTextBlock(latestBrief.search_capability_statement)}
             </p>
+          ) : null}
+          {evidenceFound.length > 0 ? (
+            <div style={{ marginTop: "0.65rem" }}>
+              <div style={{ ...styles.meta, color: "#334155" }}>
+                <strong>Evidence found</strong> ({evidenceFound.length})
+              </div>
+              <ul style={styles.evidenceList}>
+                {evidenceFound.map((entry, index) => (
+                  <li key={`${entry.pmid ?? entry.url ?? entry.title}-${index}`} style={styles.evidenceItem}>
+                    <div>
+                      {entry.url ? (
+                        <a href={entry.url} target="_blank" rel="noreferrer">
+                          {entry.title}
+                        </a>
+                      ) : (
+                        <span>{entry.title}</span>
+                      )}
+                    </div>
+                    <div style={{ color: "#64748b", marginTop: "0.15rem" }}>
+                      {[entry.authors, entry.journal, entry.year]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      {entry.pmid ? ` · PMID: ${entry.pmid}` : ""}
+                      {entry.doi ? ` · DOI: ${entry.doi}` : ""}
+                      {entry.evidenceCategory ? ` · ${entry.evidenceCategory}` : ""}
+                      {entry.relevance ? ` · relevance: ${entry.relevance}` : ""}
+                    </div>
+                    {entry.summary ? (
+                      <div style={{ marginTop: "0.25rem" }}>{renderSafeMindTextBlock(entry.summary)}</div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {fallbackUrls.length > 0 ? (
+            <div style={{ marginTop: "0.65rem" }}>
+              <div style={{ ...styles.meta, color: "#334155" }}>
+                <strong>Source links</strong> ({fallbackUrls.length})
+              </div>
+              <ul style={styles.evidenceList}>
+                {fallbackUrls.map((url) => (
+                  <li key={url} style={styles.evidenceItem}>
+                    <a href={url} target="_blank" rel="noreferrer">
+                      {url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
           {latestBrief.key_evidence_risk_insight ? (
             <pre style={styles.pre}>
