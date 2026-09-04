@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { extractWellnessClaimsFromSourceText } from "@/lib/review/wellness-claims-extractor";
+import {
+  buildStatementFallbackClaim,
+  extractWellnessClaimsForAssessment,
+  extractWellnessClaimsFromSourceText,
+} from "@/lib/review/wellness-claims-extractor";
 
 const SPA_MENU_FIXTURE =
   "Magnesium Calm Ritual: A deeply relaxing treatment designed to calm the nervous system, support deep sleep, reduce stress hormones, and restore balance.";
@@ -41,6 +45,28 @@ describe("wellness claims extractor", () => {
   it("returns zero candidates for empty source text", () => {
     expect(extractWellnessClaimsFromSourceText("")).toHaveLength(0);
     expect(extractWellnessClaimsFromSourceText("   ")).toHaveLength(0);
+  });
+
+  it("treats unmatched statement text as a single assessment candidate", () => {
+    const claims = extractWellnessClaimsForAssessment(NO_CLAIM_FIXTURE);
+
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.claim_text).toBe(NO_CLAIM_FIXTURE);
+    expect(claims[0]?.claim_family).toBe("unclassified_statement");
+    expect(claims[0]?.needs_research).toBe(true);
+  });
+
+  it("keeps matched patterns instead of the statement fallback", () => {
+    const claims = extractWellnessClaimsForAssessment(SPA_MENU_FIXTURE);
+    const claimTexts = claims.map((claim) => claim.claim_text);
+
+    expect(claimTexts).toContain("calms the nervous system");
+    expect(claimTexts).not.toContain(SPA_MENU_FIXTURE);
+  });
+
+  it("does not build a fallback claim from empty text", () => {
+    expect(buildStatementFallbackClaim("")).toBeNull();
+    expect(extractWellnessClaimsForAssessment("   ")).toHaveLength(0);
   });
 
   it("populates structured candidate claim fields", () => {

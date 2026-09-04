@@ -9,6 +9,7 @@ import {
 } from "@/lib/review/mind-digests-view-ui";
 import Link from "next/link";
 
+import { CheckStatementNavPrefix } from "../check-statement-nav";
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const GENERATE_DEMO_PATH = "/mind-digests/generate-demo";
@@ -215,6 +216,7 @@ export function MindDigestsView({ pageData, authStatus }: MindDigestsViewProps) 
           disabled unless explicitly enabled in server configuration.
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/client-claims">Client claims</a>

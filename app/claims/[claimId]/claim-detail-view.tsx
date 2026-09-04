@@ -7,6 +7,7 @@ import type { ClaimDetailPageData } from "@/lib/review/claims-detail-page";
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import type { PrivacySafeClaimResearchRun } from "@/lib/watch/claim-research-store";
 
+import { CheckStatementNavPrefix } from "../../check-statement-nav";
 import { ReviewQueueAuthPanel } from "../../review-items/review-queue-auth-panel";
 
 const styles = {
@@ -289,6 +290,7 @@ export function ClaimDetailView({ pageData, authStatus }: ClaimDetailViewProps) 
           Registered wellness claim with controlled evidence research.
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <Link href="/claims">Claim registry</Link>
           {" · "}
           <Link href="/claims/extract">Claim extraction</Link>

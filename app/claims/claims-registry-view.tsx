@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ClaimsRegistryPageData } from "@/lib/review/claims-registry-page";
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 
+import { CheckStatementNavPrefix } from "../check-statement-nav";
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const styles = {
@@ -82,6 +83,7 @@ export function ClaimsRegistryView({ pageData, authStatus }: ClaimsRegistryViewP
           Registered wellness claims promoted from reviewed extraction candidates.
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/client-claims">Client claims</a>

@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
         typeof body.source_url === "string" || body.source_url === null
           ? body.source_url
           : undefined,
+      fallback_to_statement: body.fallback_to_statement === true,
     },
     auth
   );

@@ -54,9 +54,10 @@ export function ReviewLoginForm({
 }: ReviewLoginFormProps) {
   return (
     <main style={styles.page}>
-      <h1 style={{ marginTop: 0 }}>Internal review queue login</h1>
+      <h1 style={{ marginTop: 0 }}>Sign in to Lucient</h1>
       <p style={{ color: "#444" }}>
-        Approved operators only. Enter your email to receive a magic link.
+        Approved operators only. Enter your email to receive a magic link, then check a wellness
+        statement.
       </p>
 
       {authError ? <div style={styles.messageError}>{authError}</div> : null}
@@ -81,8 +82,8 @@ export function ReviewLoginForm({
       </form>
 
       <p style={{ marginTop: "1.5rem", fontSize: "0.8125rem", color: "#666" }}>
-        Break-glass token access to <code>/review-items</code> remains available for internal
-        admins when configured.
+        After sign-in you land on the statement check page. Operator tools remain available from
+        there.
       </p>
     </main>
   );

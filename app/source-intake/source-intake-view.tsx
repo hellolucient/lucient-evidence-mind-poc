@@ -8,6 +8,7 @@ import { mindJobControlsState } from "@/lib/review/mind-job-controls";
 import { renderSafeMindTextBlock, toMindDisplayPlainText } from "@/lib/review/safe-mind-text";
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 
+import { CheckStatementNavPrefix } from "../check-statement-nav";
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const styles = {
@@ -516,6 +517,7 @@ export function SourceIntakeView({ pageData, authStatus, operatorEmail }: Source
           Live send remains gated by EXTERNAL_MIND_LIVE_SEND=false (dry-run default).
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/source-intake">Source intake</a>

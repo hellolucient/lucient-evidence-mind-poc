@@ -1,6 +1,7 @@
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import type { ClientClaimsPageData } from "@/lib/review/client-claims-page";
 
+import { CheckStatementNavPrefix } from "../check-statement-nav";
 import { MindRiskBriefPanel } from "./mind-risk-brief-panel";
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
@@ -124,6 +125,7 @@ export function ClientClaimsView({ pageData, authStatus, operatorEmail }: Client
           Durable workspace-scoped wellness and marketing claims monitored by Evidence Mind.
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/client-claims">Client claims</a>

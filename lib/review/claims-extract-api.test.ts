@@ -4,6 +4,7 @@ const mockCreateClaimExtraction = vi.fn();
 const mockListClaimExtractions = vi.fn();
 const mockGetClaimExtractionById = vi.fn();
 const mockExtractWellnessClaimsFromSourceText = vi.fn();
+const mockExtractWellnessClaimsForAssessment = vi.fn();
 const mockSendExternalMindHandoff = vi.fn();
 
 vi.mock("@/lib/watch/claim-extraction-store", () => ({
@@ -19,6 +20,8 @@ vi.mock("@/lib/watch/claim-extraction-store", () => ({
 vi.mock("@/lib/review/wellness-claims-extractor", () => ({
   extractWellnessClaimsFromSourceText: (...args: unknown[]) =>
     mockExtractWellnessClaimsFromSourceText(...args),
+  extractWellnessClaimsForAssessment: (...args: unknown[]) =>
+    mockExtractWellnessClaimsForAssessment(...args),
 }));
 
 vi.mock("@/lib/watch/external-mind-handoff-send", () => ({
@@ -89,6 +92,7 @@ const candidateClaim = {
 
 beforeEach(() => {
   mockExtractWellnessClaimsFromSourceText.mockReturnValue([candidateClaim]);
+  mockExtractWellnessClaimsForAssessment.mockReturnValue([candidateClaim]);
   mockCreateClaimExtraction.mockResolvedValue({
     ok: true,
     source_document: sourceDocument,
@@ -147,6 +151,7 @@ describe("claims extract API", () => {
     expect(response.body.ok).toBe(true);
     expect(response.body.phase).toBe(CURRENT_WATCH_PHASE);
     expect(mockExtractWellnessClaimsFromSourceText).toHaveBeenCalledWith(sourceDocument.source_text);
+    expect(mockExtractWellnessClaimsForAssessment).not.toHaveBeenCalled();
     expect(mockCreateClaimExtraction).toHaveBeenCalled();
     expect(response.body.candidate_claims).toEqual([candidateClaim]);
     expect(mockSendExternalMindHandoff).not.toHaveBeenCalled();
@@ -194,6 +199,25 @@ describe("claims extract API", () => {
         payload_json: { secret: true },
       })
     ).toBe(false);
+  });
+
+  it("uses assessment fallback extraction when requested", async () => {
+    const response = await buildClaimsExtractApiResponse(
+      {
+        workspace_id: "demo-workspace-spa-menu",
+        title: "Guest welcome copy",
+        source_type: "other",
+        source_text: "Our spa welcomes guests with warm towels.",
+        fallback_to_statement: true,
+      },
+      operatorAccess
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockExtractWellnessClaimsForAssessment).toHaveBeenCalledWith(
+      "Our spa welcomes guests with warm towels."
+    );
+    expect(mockExtractWellnessClaimsFromSourceText).not.toHaveBeenCalled();
   });
 
   it("does not depend on EXTERNAL_MIND_LIVE_SEND", () => {

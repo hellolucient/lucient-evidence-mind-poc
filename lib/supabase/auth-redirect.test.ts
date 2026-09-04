@@ -44,7 +44,7 @@ describe("buildReviewLoginCallbackUrl", () => {
     expect(
       buildReviewLoginCallbackUrl("https://lucient-evidence-mind-poc.vercel.app")
     ).toBe(
-      "https://lucient-evidence-mind-poc.vercel.app/auth/callback?next=/review-items"
+      "https://lucient-evidence-mind-poc.vercel.app/auth/callback?next=/"
     );
   });
 });

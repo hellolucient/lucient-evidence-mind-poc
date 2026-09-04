@@ -7,6 +7,7 @@ import type { ClaimsExtractionReviewPageData } from "@/lib/review/claims-extract
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import type { PrivacySafeCandidateWellnessClaim } from "@/lib/watch/claim-extraction-store";
 
+import { CheckStatementNavPrefix } from "../../../check-statement-nav";
 import { ReviewQueueAuthPanel } from "../../../review-items/review-queue-auth-panel";
 
 const styles = {
@@ -350,6 +351,7 @@ export function ClaimsExtractionReviewView({
           <code>{pageData.extractionId}</code>.
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <a href="/review-items">Review queue</a>
           {" · "}
           <Link href="/claims">Claim registry</Link>

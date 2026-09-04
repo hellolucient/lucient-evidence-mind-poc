@@ -373,3 +373,55 @@ export function extractWellnessClaimsFromSourceText(sourceText: string): Extract
 
   return candidates.sort((a, b) => a.claim_text.localeCompare(b.claim_text));
 }
+
+const STATEMENT_FALLBACK_CLAIM_TEXT_MAX = 240;
+const STATEMENT_FALLBACK_EXCERPT_MAX = 280;
+
+function truncateStatement(value: string, maxLength: number): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+export function buildStatementFallbackClaim(sourceText: string): ExtractedWellnessClaim | null {
+  const trimmed = sourceText.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const claimText = truncateStatement(trimmed, STATEMENT_FALLBACK_CLAIM_TEXT_MAX);
+
+  return {
+    claim_text: claimText,
+    normalized_claim_text: normalizeClaimText(claimText),
+    source_excerpt: truncateStatement(trimmed, STATEMENT_FALLBACK_EXCERPT_MAX),
+    source_location: "line 1",
+    claim_type: "unclassified_statement",
+    claim_family: "unclassified_statement",
+    subject: extractSubject(trimmed),
+    predicate: "states",
+    object: null,
+    claim_strength: "moderate",
+    evidence_sensitivity: "medium",
+    is_direct_claim: true,
+    needs_research: true,
+  };
+}
+
+/**
+ * Assessment-oriented extraction: use matched wellness claim patterns when present,
+ * otherwise treat the pasted text as a single candidate claim so a user can check
+ * a free-form statement without hitting a known spa/product pattern.
+ */
+export function extractWellnessClaimsForAssessment(sourceText: string): ExtractedWellnessClaim[] {
+  const extracted = extractWellnessClaimsFromSourceText(sourceText);
+  if (extracted.length > 0) {
+    return extracted;
+  }
+
+  const fallback = buildStatementFallbackClaim(sourceText);
+  return fallback ? [fallback] : [];
+}
