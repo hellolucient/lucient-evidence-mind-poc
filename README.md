@@ -49,6 +49,7 @@ Phase 39F validated production transport to HelloMinds (HTTP 200, durable audit 
 | HelloMinds dry-run send (operator UI) | Approved `hellominds` handoffs while `EXTERNAL_MIND_LIVE_SEND=false` |
 | HelloMinds production transport | **Validated Phase 39F** — controlled dry-run + one gated live send; live send disabled again |
 | Mind receipt verification (HelloMinds) | **Phase 41A** — operator-gated receipt record derived from send audit metadata (no HelloMinds read) |
+| **Simple statement check UI** | `/` — paste a statement, extract claims, run assessment |
 | **Mind-centered claim intelligence (Phase 45)** | `/source-intake` — Mind extraction + candidate review; Mind risk briefs on `/client-claims` |
 
 **Validated production chain (Phases 29–45):** watchlist → evidence alert → review item → affected client claims → evidence brief → Mind digest → durable watchtower narrative → deterministic narrative diff (when prior narrative exists) → external Mind handoff payload → operator approval → test-sink or HelloMinds send (gated) → send audit log → **Mind claim extraction / risk brief loop (Phase 45)**.
@@ -78,6 +79,7 @@ Phase 39F validated production transport to HelloMinds (HTTP 200, durable audit 
 | `GET` | `/api/review-items` | Operator session or break-glass token | List review items (Phase 18+) |
 | `GET/POST` | `/api/review-items/[id]/*` | Operator session or break-glass token | Review item detail and status (Phase 18+) |
 | `GET` | `/review-items` | Operator session or break-glass token | Internal review queue UI (Phase 19+) |
+| `GET` | `/` | Operator session or public landing | Simple statement check: extract claims and assess |
 | `GET` | `/review-login` | None | Operator magic-link login (Phase 23+) |
 | `GET` | `/client-claims` | Operator session or break-glass token | Client claims registry + mappings + Mind risk briefs (Phase 45) |
 | `GET` | `/source-intake` | Operator session or break-glass token | Mind-centered source intake + claim extraction workflow (Phase 45) |
@@ -318,7 +320,7 @@ Use the curl examples above with your Vercel URL and API key. PubMed mode requir
 
 ## What this does not include
 
-- Client-facing dashboard or polished SaaS UI
+- Public client-facing accounts or a finished multi-client SaaS product
 - Multi-client production readiness
 - Full evidence search, PDF handling, or final claim substantiation
 - Webhooks or client-facing alert delivery

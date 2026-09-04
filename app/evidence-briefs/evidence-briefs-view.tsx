@@ -1,6 +1,7 @@
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import type { EvidenceBriefsPageData } from "@/lib/review/evidence-briefs-page";
 
+import { CheckStatementNavPrefix } from "../check-statement-nav";
 import { ReviewQueueAuthPanel } from "../review-items/review-queue-auth-panel";
 
 const GENERATE_DEMO_PATH = "/evidence-briefs/generate-demo";
@@ -115,6 +116,7 @@ export function EvidenceBriefsView({ pageData, authStatus }: EvidenceBriefsViewP
           claims.
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/client-claims">Client claims</a>

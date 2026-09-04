@@ -11,6 +11,8 @@ import type {
   ReviewQueueStatusCounts,
 } from "@/lib/review/review-queue-types";
 
+import { CheckStatementNavPrefix } from "@/app/check-statement-nav";
+
 const REVIEW_ITEMS_UPDATE_PATH = "/review-items/update";
 const REVIEW_ITEMS_NOTES_PATH = "/review-items/notes";
 
@@ -431,6 +433,7 @@ export function ReviewQueueConsole({ initialData }: ReviewQueueConsoleProps) {
           Evidence changes mapped to affected client/workspace claims.
         </p>
         <p style={{ ...styles.subtitle, fontSize: "0.875rem" }}>
+          <CheckStatementNavPrefix />
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/client-claims">Client claims</a>

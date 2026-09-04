@@ -1,4 +1,4 @@
-import { normalizeSiteUrl } from "@/lib/supabase/auth-redirect";
+import { DEFAULT_POST_LOGIN_PATH, normalizeSiteUrl } from "@/lib/supabase/auth-redirect";
 
 export type AuthCallbackParams = {
   code: string | null;
@@ -28,7 +28,7 @@ export function hasSupabaseCallbackError(params: AuthCallbackParams): boolean {
 
 export function sanitizeAuthNextPath(next: string | null): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/review-items";
+    return DEFAULT_POST_LOGIN_PATH;
   }
 
   return next;

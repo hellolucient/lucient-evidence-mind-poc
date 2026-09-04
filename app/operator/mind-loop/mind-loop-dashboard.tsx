@@ -13,6 +13,7 @@ import {
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import Link from "next/link";
 
+import { CheckStatementNavPrefix } from "../../check-statement-nav";
 import { ReviewQueueAuthPanel } from "../../review-items/review-queue-auth-panel";
 
 const styles = {
@@ -498,6 +499,7 @@ export function MindLoopDashboard({ pageData, authStatus }: MindLoopDashboardPro
           retries handoffs.
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <a href="/review-items">Review queue</a>
           {" · "}
           <a href="/mind-digests">Mind digests</a>

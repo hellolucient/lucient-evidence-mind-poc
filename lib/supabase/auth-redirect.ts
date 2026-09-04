@@ -23,8 +23,10 @@ export function resolveSiteOrigin(options: {
   return "http://localhost:3000";
 }
 
+export const DEFAULT_POST_LOGIN_PATH = "/" as const;
+
 export function buildReviewLoginCallbackUrl(siteOrigin: string): string {
-  return `${normalizeSiteUrl(siteOrigin)}/auth/callback?next=/review-items`;
+  return `${normalizeSiteUrl(siteOrigin)}/auth/callback?next=${DEFAULT_POST_LOGIN_PATH}`;
 }
 
 export function resolveSiteOriginFromRequest(request: Request): string {

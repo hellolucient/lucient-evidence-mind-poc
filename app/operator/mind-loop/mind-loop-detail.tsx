@@ -13,6 +13,7 @@ import {
 import type { ReviewQueueAuthPanelData } from "@/lib/review/review-queue-auth-status";
 import Link from "next/link";
 
+import { CheckStatementNavPrefix } from "../../check-statement-nav";
 import { ReviewQueueAuthPanel } from "../../review-items/review-queue-auth-panel";
 
 const styles = {
@@ -511,6 +512,7 @@ export function MindLoopDetail({ pageData, authStatus }: MindLoopDetailProps) {
           response, and task cost. This page never sends or retries handoffs.
         </p>
         <nav style={styles.nav}>
+          <CheckStatementNavPrefix />
           <Link href={dashboardHref} style={styles.link}>
             ← Back to Mind Loop Dashboard
           </Link>

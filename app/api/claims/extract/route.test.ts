@@ -94,7 +94,40 @@ describe("POST /api/claims/extract", () => {
 
     expect(response.status).toBe(201);
     expect(body.ok).toBe(true);
-    expect(mockBuildClaimsExtractApiResponse).toHaveBeenCalled();
+    expect(mockBuildClaimsExtractApiResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "demo-workspace-spa-menu",
+        fallback_to_statement: false,
+      }),
+      breakGlassAccess
+    );
     expect(mockSendExternalMindHandoff).not.toHaveBeenCalled();
+  });
+
+  it("forwards statement fallback extraction when requested", async () => {
+    mockAuthorizeReviewQueueApiRequest.mockResolvedValue(breakGlassAccess);
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/claims/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspace_id: "demo-workspace-spa-menu",
+          title: "Guest welcome copy",
+          source_type: "other",
+          source_text: "Our spa welcomes guests with warm towels.",
+          fallback_to_statement: true,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockBuildClaimsExtractApiResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fallback_to_statement: true,
+        source_text: "Our spa welcomes guests with warm towels.",
+      }),
+      breakGlassAccess
+    );
   });
 });

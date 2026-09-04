@@ -10,7 +10,10 @@ import {
   CLAIM_SOURCE_TYPES,
   isSupportedClaimSourceType,
 } from "@/lib/review/claim-extraction-constants";
-import { extractWellnessClaimsFromSourceText } from "@/lib/review/wellness-claims-extractor";
+import {
+  extractWellnessClaimsForAssessment,
+  extractWellnessClaimsFromSourceText,
+} from "@/lib/review/wellness-claims-extractor";
 import { CURRENT_WATCH_PHASE } from "@/lib/watch/watch-phase";
 import {
   CLAIM_EXTRACTION_PRIVATE_FIELDS,
@@ -36,6 +39,8 @@ export type ClaimsExtractRequestBody = {
   source_type?: string;
   source_text?: string;
   source_url?: string | null;
+  /** When true, unmatched text becomes a single candidate claim for the simple assess UI. */
+  fallback_to_statement?: boolean;
 };
 
 export type ClaimsExtractListFilters = ClaimExtractionListFilters;
@@ -144,7 +149,9 @@ export async function buildClaimsExtractApiResponse(
     return mapExtractionError("unsupported_source_type");
   }
 
-  const extractedClaims = extractWellnessClaimsFromSourceText(sourceText);
+  const extractedClaims = body.fallback_to_statement
+    ? extractWellnessClaimsForAssessment(sourceText)
+    : extractWellnessClaimsFromSourceText(sourceText);
   const result = await createClaimExtraction(
     {
       workspace_id: workspaceId,

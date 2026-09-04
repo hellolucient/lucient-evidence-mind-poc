@@ -57,7 +57,7 @@ describe("sendApprovedOperatorLoginLink", () => {
     expect(mockSignInWithOtp).toHaveBeenCalledWith({
       email: "operator@example.com",
       options: {
-        emailRedirectTo: "https://example.com/auth/callback?next=/review-items",
+        emailRedirectTo: "https://example.com/auth/callback?next=/",
         shouldCreateUser: false,
       },
     });

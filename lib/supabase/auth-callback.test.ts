@@ -40,9 +40,10 @@ describe("auth-callback helpers", () => {
 
   it("sanitizes unsafe next paths", () => {
     expect(sanitizeAuthNextPath("/review-items")).toBe("/review-items");
-    expect(sanitizeAuthNextPath("https://evil.example")).toBe("/review-items");
-    expect(sanitizeAuthNextPath("//evil.example")).toBe("/review-items");
-    expect(sanitizeAuthNextPath(null)).toBe("/review-items");
+    expect(sanitizeAuthNextPath("/")).toBe("/");
+    expect(sanitizeAuthNextPath("https://evil.example")).toBe("/");
+    expect(sanitizeAuthNextPath("//evil.example")).toBe("/");
+    expect(sanitizeAuthNextPath(null)).toBe("/");
   });
 
   it("builds safe failure redirect without secrets", () => {
